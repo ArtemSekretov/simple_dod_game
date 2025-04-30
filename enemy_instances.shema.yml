@@ -1,0 +1,19 @@
+meta:
+ name: enemy_instances
+ size: uint16_t
+ 
+sheets:
+ - name: enemy_instances
+   columns:
+    - name: start_time_delta_q4
+      type: uint8_t
+    - name: flat_enemy_variation_index
+      type: uint8_t
+    - name: flat_spawn_point_index
+      type: uint8_t
+    - name: way_point_path_index
+      type: int8_t
+ - name: way_points
+   columns:
+    - name: redused_x_y_q4_offset128
+      type: uint16_t

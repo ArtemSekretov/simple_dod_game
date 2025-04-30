@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "xlsx": "^0.18.5"
+  }
+}
