@@ -63,7 +63,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 					const sourceWorksheetName = undersoreToPascal(sheet.name);
 					if(sourceWorkbook.SheetNames.indexOf(sourceWorksheetName) == -1)
 					{
-						console.log('Sheet ${sourceWorksheetName} not found');
+						console.log(`Sheet ${sourceWorksheetName} not found`);
 					}
 					else
 					{
@@ -94,7 +94,6 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 
 			const sheetName = sheet.name;
 			const offset    = dataSegmentOffset(exportDataSegments, sheetName);
-			const columns   = sheet.columns;
 
 			let rowCount          = 0;
 			let rowCapacity       = 0;
@@ -136,6 +135,8 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 			
 			if(offset == 0)
 			{
+				const columns   = sheet.columns;
+				
 				exportDataSegments.push( {
 					name: sheetName,
 					offset: 0,
@@ -159,60 +160,86 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 		{
 			const data       = [];
 			const offset     = dataSegmentOffset(exportDataSegments, columnSegmentName);
-			const columnType = column.type;
 
 			data.push(...bytesAsSize([offset], schema.meta.size));
 			
-			let columnCount = 1;
-
-			if(column.hasOwnProperty('count'))
-			{
-				columnCount = resolveExpression(column.count)|0;
-			}
-
-			const elementCapacity = rowCapacity * columnCount;
-
-			let columnValues = new Array(elementCapacity).fill(0);
-			
-			if(sourceSheetValues)
-			{				
-				const sourceColumnName  = undersoreToPascal(column.name);
-				const sourceColumnIndex = sourceSheetHeader.indexOf(sourceColumnName);
-				if(sourceColumnIndex == -1)
-				{
-					console.log('Column ${sourceColumnName} not found');
-				}
-				else
-				{
-					const filterColumnIndex = sourceSheetHeader.indexOf('ExportFilter');
-					if(filterColumnIndex == -1)
-					{
-						sourceSheetValues.forEach( (row, i) => {
-							columnValues[i] = row[sourceColumnIndex];
-						});
-					}
-					else
-					{
-						let index = 0;
-						sourceSheetValues.forEach( (row, i) => {
-							if(row[filterColumnIndex])
-							{
-								columnValues[index] = row[sourceColumnIndex];
-								index += 1;	
-							}
-						});						
-					}	
-				
-				}
-			}
-			
 			if(offset == 0)
 			{
+				const sources = column.sources;
+				
+				const columnValues = [];
+				
+				sources.forEach( (source) => {
+					let columnCount = 1;
+					if(source.hasOwnProperty('count'))
+					{
+						columnCount = resolveExpression(source.count)|0;
+					}
+									
+					const elementCapacity = rowCapacity * columnCount;
+
+					let values = new Array(elementCapacity).fill(0);
+					
+					if(sourceSheetValues)
+					{				
+						const sourceColumnName  = undersoreToPascal(source.name);
+						const sourceColumnIndex = sourceSheetHeader.indexOf(sourceColumnName);
+						if(sourceColumnIndex == -1)
+						{
+							console.log(`Column ${sourceColumnName} not found`);
+						}
+						else
+						{
+							const filterColumnIndex = sourceSheetHeader.indexOf('ExportFilter');
+							if(filterColumnIndex == -1)
+							{
+								sourceSheetValues.forEach( (row, i) => {
+									values[i] = row[sourceColumnIndex];
+								});
+							}
+							else
+							{
+								let index = 0;
+								sourceSheetValues.forEach( (row, i) => {
+									if(row[filterColumnIndex])
+									{
+										values[index] = row[sourceColumnIndex];
+										index += 1;	
+									}
+								});						
+							}	
+						
+						}
+					}
+					
+					columnValues.push({
+						values: values,
+						type: source.type
+					});
+				});
 				exportDataSegments.push( {
 					name: columnSegmentName,
 					offset: 0,
 					getBytes: (exportDataSegments) => {
-						return bytesAsSize(columnValues, columnType);
+						if (columnValues.length == 1)
+						{
+							return bytesAsSize(columnValues[0].values, columnValues[0].type);
+						}
+						else
+						{
+							const data = [];
+							
+							for(let i = 0; i < rowCapacity; i++)
+							{
+								for(let v = 0; v < columnValues.length; v++)
+								{
+									const value = columnValues[v];
+									data.push(...bytesAsSize([value.values[i]], value.type));
+								}
+							}
+							
+							return data;
+						}
 					}
 				});
 			}
