@@ -99,24 +99,66 @@ function buildImHexPattern(schema)
 			
 			let columnType;
 			
+			let exportStruct = false;
+
 			if(sources.length == 1)
 			{
 				const source = sources[0];
 				
-				columnType = getImHexType(source.type); 				
+				if(source.hasOwnProperty('count'))
+				{
+					const count = source.count;
+
+					if(count > 1)
+					{
+						exportStruct = true;
+					}
+					else
+					{
+						columnType = getImHexType(source.type);
+					}
+				}
+				else
+				{
+					columnType = getImHexType(source.type);
+				}
 			}
 			else
-			{				
-				exportTypes.structs.push({
-					name: columnStructName,
-					fields: sources.flatMap((source) => [ 
-						`${getImHexType(source.type)} ${undersoreToPascal(source.name)}` 
-					])
-				});
-				
-				columnType = columnStructName; 	
+			{
+				exportStruct = true;
 			}
 			
+			if(exportStruct)
+			{
+				const fields = [];
+
+				sources.forEach((source) => {
+					let field = '';
+					if(source.hasOwnProperty('count'))
+					{
+						if(source.count > 1)
+						{
+							field = `${getImHexType(source.type)} ${undersoreToPascal(source.name)}[${source.count}]`;
+						}
+						else
+						{
+							field = `${getImHexType(source.type)} ${undersoreToPascal(source.name)}`;
+						}
+					}
+					else
+					{
+						field = `${getImHexType(source.type)} ${undersoreToPascal(source.name)}`;
+					}
+					fields.push(field);
+				});
+
+				exportTypes.structs.push({
+					name: columnStructName,
+					fields: fields
+				});
+				
+				columnType = columnStructName;
+			}
 			exportTypes.locationMap.push({
 				map: `${columnType} ${lowerFirstCharacter(columnStructName)}[${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(sheetName)}Capacity] @ ${lowerFirstCharacter(sheetStructName)}.${undersoreToPascal(column.name)}Offset`
 			});	

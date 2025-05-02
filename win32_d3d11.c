@@ -44,6 +44,17 @@ typedef int32_t b32;
 typedef float f32;
 typedef double f64;
 
+#ifndef __cplusplus
+typedef struct MapFileData      MapFileData;
+typedef enum MapFilePermissions MapFilePermissions;
+typedef struct FrameData        FrameData;
+typedef struct DirectX11State   DirectX11State;
+typedef struct Vertex           Vertex;
+typedef struct GPUObjectData    GPUObjectData;
+#endif
+
+#define MaxObjectDataCapacity 256
+
 struct MapFileData
 {
 	HANDLE fileHandle;
@@ -61,7 +72,7 @@ struct FrameData
 	s32 width;
     s32 height;
 
-	struct GPUObjectData *objectData;
+	GPUObjectData *objectData;
 	s32 objectDataCount;
 };
 
@@ -95,8 +106,6 @@ struct Vertex
 	f32 uv[2];
 };
 
-#define MaxObjectDataCapacity 256
-
 struct GPUObjectData
 {
 	f32 position_and_scale[4]; // xy - postion, z - scale, w - not used padding
@@ -122,7 +131,7 @@ WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
     return DefWindowProcW(wnd, msg, wparam, lparam);
 }
 
-static struct DirectX11State 
+static DirectX11State 
 InitDirectX11(HWND window)
 {
 	HRESULT hr;
@@ -232,7 +241,7 @@ InitDirectX11(HWND window)
 	
     ID3D11Buffer* vbuffer;
     {
-		struct Vertex data[] =
+		Vertex data[] =
         {
             { { -0.5f, -0.5f }, { 0.0f, 0.0f } },
             { { -0.5f, +0.5f }, { 0.0f, 1.0f } },
@@ -262,8 +271,8 @@ InitDirectX11(HWND window)
         // these must match vertex shader input layout (VS_INPUT in vertex shader source below)
         D3D11_INPUT_ELEMENT_DESC desc[] =
         {
-            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(struct Vertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(struct Vertex, uv),       D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(Vertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(Vertex, uv),       D3D11_INPUT_PER_VERTEX_DATA, 0 },
         };
 
 		#if 0
@@ -402,7 +411,7 @@ InitDirectX11(HWND window)
     {
         D3D11_BUFFER_DESC desc =
         {
-            .ByteWidth = sizeof(struct GPUObjectData) * MaxObjectDataCapacity,
+            .ByteWidth = sizeof(GPUObjectData) * MaxObjectDataCapacity,
             .Usage = D3D11_USAGE_DYNAMIC,
             .BindFlags = D3D11_BIND_CONSTANT_BUFFER,
             .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
@@ -460,7 +469,7 @@ InitDirectX11(HWND window)
         ID3D11Device_CreateDepthStencilState(device, &desc, &depthState);
     }
 
-	struct DirectX11State state = {};
+	DirectX11State state = {};
 	state.device = device;
 	state.context = context;
 	state.swapChain = swapChain;
@@ -480,7 +489,7 @@ InitDirectX11(HWND window)
 }
 
 static void 
-EndFrameDirectX11(struct DirectX11State *directxState, struct FrameData *frameData)
+EndFrameDirectX11(DirectX11State *directxState, FrameData *frameData)
 {
 	HRESULT hr;
 
@@ -573,13 +582,13 @@ EndFrameDirectX11(struct DirectX11State *directxState, struct FrameData *frameDa
 		// setup object data in uniform
 		D3D11_MAPPED_SUBRESOURCE mapped;
 		ID3D11DeviceContext_Map(directxState->context, (ID3D11Resource*)directxState->objectBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
-		memcpy(mapped.pData, frameData->objectData, sizeof(struct GPUObjectData) * MaxObjectDataCapacity);
+		memcpy(mapped.pData, frameData->objectData, sizeof(GPUObjectData) * MaxObjectDataCapacity);
 		ID3D11DeviceContext_Unmap(directxState->context, (ID3D11Resource*)directxState->objectBuffer, 0);
 
 		// Input Assembler
 		ID3D11DeviceContext_IASetInputLayout(directxState->context, directxState->layout);
 		ID3D11DeviceContext_IASetPrimitiveTopology(directxState->context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		UINT stride = sizeof(struct Vertex);
+		UINT stride = sizeof(Vertex);
 		UINT offset = 0;
 		ID3D11DeviceContext_IASetVertexBuffers(directxState->context, 0, 1, &directxState->vbuffer, &stride, &offset);
 
@@ -622,10 +631,10 @@ EndFrameDirectX11(struct DirectX11State *directxState, struct FrameData *frameDa
 	}
 }
 
-static struct MapFileData 
-CreateMapFile(LPSTR fileName, enum MapFilePermissions permissions)
+static MapFileData 
+CreateMapFile(LPSTR fileName, MapFilePermissions permissions)
 {
-	struct MapFileData result = {};
+	MapFileData result = {};
 
 	u32 fileAccess = GENERIC_READ;
 	u32 fileProtection = PAGE_READONLY;
@@ -676,7 +685,7 @@ CreateMapFile(LPSTR fileName, enum MapFilePermissions permissions)
 }
 
 void
-CloseMapFile(struct MapFileData *mapData)
+CloseMapFile(MapFileData *mapData)
 {
 	CloseHandle(mapData->fileHandle);
 }
@@ -720,7 +729,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
         NULL, NULL, wc.hInstance, NULL);
     Assert(window && "Failed to create window");
 
-	struct DirectX11State directxState = InitDirectX11(window);
+	DirectX11State directxState = InitDirectX11(window);
 
     // show the window
     ShowWindow(window, SW_SHOWDEFAULT);
@@ -729,14 +738,14 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&c1);
 
-	struct GPUObjectData objectData[MaxObjectDataCapacity] =
+	GPUObjectData objectData[MaxObjectDataCapacity] =
 	{
 		{ { -0.50f, -0.50f, 1.0f,  0.0f }, { 1, 0, 0, 0 } },
 		{ { +0.50f, +0.50f, 0.50f, 0.0f }, { 0, 1, 0, 0 } },
 		{ { -0.50f, +0.50f, 0.25f, 0.0f }, { 0, 1, 0, 0 } },
 	};
 
-	struct MapFileData enemyInstancesMapData = CreateMapFile("enemy_instances.bin", MapFilePermitions_Read);
+	MapFileData enemyInstancesMapData = CreateMapFile("enemy_instances.bin", MapFilePermitions_Read);
 	EnemyInstances* enemyInstances = (EnemyInstances *)enemyInstancesMapData.data;
 
     for (;;)
@@ -754,7 +763,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
             continue;
         }
 
-		struct FrameData frameData = {};
+		FrameData frameData = {};
 
         // get current size for window client area
         RECT rect;
@@ -768,11 +777,14 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 			QueryPerformanceCounter(&c2);
 			f32 delta = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
 			c1 = c2;
+
+
+			// game loop
 		}
 
 		frameData.width = width;
 		frameData.height = height;
-		frameData.objectData = (struct GPUObjectData *)&objectData;
+		frameData.objectData = (GPUObjectData *)&objectData;
 		frameData.objectDataCount = 3;
 
 		EndFrameDirectX11(&directxState, &frameData);

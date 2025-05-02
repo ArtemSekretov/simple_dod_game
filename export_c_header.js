@@ -108,24 +108,65 @@ function buildCHeader(schema)
 			const columnStructName = `${sheetStructName}${undersoreToPascal(column.name)}`;
 			
 			let columnType;
-			
+			let exportStruct = false;
+
 			if(sources.length == 1)
 			{
 				const source = sources[0];
-				
-				columnType = source.type; 				
+				if(source.hasOwnProperty('count'))
+				{
+					const count = source.count;
+
+					if(count > 1)
+					{
+						exportStruct = true;
+					}
+					else
+					{
+						columnType = source.type;
+					}
+				}
+				else
+				{
+					columnType = source.type;
+				}
 			}
 			else
 			{				
-				exportTypes.structs.push({
-					name: columnStructName,
-					fields: sources.flatMap((source) => [ 
-						`${source.type} ${undersoreToPascal(source.name)}` 
-					])
-				});
-				
-				columnType = columnStructName; 	
+                exportStruct = true;
 			}
+			
+            if(exportStruct)
+            {
+                const fields = [];
+
+                sources.forEach((source) => {
+                    let field = '';
+                    if(source.hasOwnProperty('count'))
+                    {
+                        if(source.count > 1)
+                        {
+                            field = `${source.type} ${undersoreToPascal(source.name)}[${source.count}]`;
+                        }
+                        else
+                        {
+                            field = `${source.type} ${undersoreToPascal(source.name)}`;
+                        }
+                    }
+                    else
+                    {
+                        field = `${source.type} ${undersoreToPascal(source.name)}`;
+                    }
+                    fields.push(field);
+                });
+
+                exportTypes.structs.push({
+                name: columnStructName,
+                fields: fields
+                });
+        
+                columnType = columnStructName;
+            }
 			
 			exportTypes.functions.push({
 				declaration: `${columnType} *${columnStructName}Prt(${rootStructName} *root, ${sheetStructName} *sheet)`,
