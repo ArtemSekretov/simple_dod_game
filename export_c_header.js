@@ -151,7 +151,7 @@ function buildCHeader(schema)
 		text += '\n';
 		
 		exportTypes.constants.forEach((c) => {
-			text += `#define k${c.key.padEnd(40, ' ')} ${c.value};\n`;
+			text += `#define k${c.key.padEnd(40, ' ')} ${c.value}\n`;
 		});
 		
 		text += '\n';

@@ -12,6 +12,7 @@
 #include <math.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdint.h>
 
 // replace this with your favorite Assert() implementation
 #include <intrin.h>
@@ -28,13 +29,40 @@
 #define STR2(x) #x
 #define STR(x) STR2(x)
 
+#include "enemy_instances.h"
+
+typedef uint8_t u8;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef int8_t s8;
+typedef int32_t s32;
+typedef int64_t s64;
+
+typedef int32_t b32;
+
+typedef float f32;
+typedef double f64;
+
+struct MapFileData
+{
+	HANDLE fileHandle;
+	void* data;
+};
+
+enum MapFilePermissions
+{
+	MapFilePermitions_Read = 0,
+	MapFilePermitions_ReadWrite = 1
+};
+
 struct FrameData
 {
-	int width;
-    int height;
+	s32 width;
+    s32 height;
 
 	struct GPUObjectData *objectData;
-	int objectDataCount;
+	s32 objectDataCount;
 };
 
 struct DirectX11State
@@ -57,31 +85,33 @@ struct DirectX11State
 	ID3D11BlendState* blendState;
 	ID3D11DepthStencilState* depthState;
 
-	int currentWidth;
-    int currentHeight;
+	s32 currentWidth;
+    s32 currentHeight;
 };
 
 struct Vertex
 {
-	float position[2];
-	float uv[2];
+	f32 position[2];
+	f32 uv[2];
 };
 
 #define MaxObjectDataCapacity 256
 
 struct GPUObjectData
 {
-	float position_and_scale[4]; // xy - postion, z - scale, w - not used padding
-	float color[4];              // xyz - color, w - not used padding
+	f32 position_and_scale[4]; // xy - postion, z - scale, w - not used padding
+	f32 color[4];              // xyz - color, w - not used padding
 };
 
-static void FatalError(const char* message)
+static void
+FatalError(const char* message)
 {
     MessageBoxA(NULL, message, "Error", MB_ICONEXCLAMATION);
     ExitProcess(0);
 }
 
-static LRESULT CALLBACK WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
+static LRESULT CALLBACK 
+WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
     switch (msg)
     {
@@ -92,7 +122,8 @@ static LRESULT CALLBACK WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lpa
     return DefWindowProcW(wnd, msg, wparam, lparam);
 }
 
-static struct DirectX11State InitDirectX11(HWND window)
+static struct DirectX11State 
+InitDirectX11(HWND window)
 {
 	HRESULT hr;
 
@@ -359,7 +390,7 @@ static struct DirectX11State InitDirectX11(HWND window)
         D3D11_BUFFER_DESC desc =
         {
             // space for 4x4 float matrix (cbuffer0 from pixel shader)
-            .ByteWidth = 4 * 4 * sizeof(float),
+            .ByteWidth = 4 * 4 * sizeof(f32),
             .Usage = D3D11_USAGE_DYNAMIC,
             .BindFlags = D3D11_BIND_CONSTANT_BUFFER,
             .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
@@ -448,7 +479,8 @@ static struct DirectX11State InitDirectX11(HWND window)
 	return state;
 }
 
-static void EndFrameDirectX11(struct DirectX11State *directxState, struct FrameData *frameData)
+static void 
+EndFrameDirectX11(struct DirectX11State *directxState, struct FrameData *frameData)
 {
 	HRESULT hr;
 
@@ -523,8 +555,8 @@ static void EndFrameDirectX11(struct DirectX11State *directxState, struct FrameD
 
 		// setup 4x4c matrix in uniform
 		{
-			float aspect = (float)frameData->height / frameData->width;
-			float matrix[16] =
+			f32 aspect = (f32)frameData->height / frameData->width;
+			f32 matrix[16] =
 			{
 				0,      -1, 0, 0,
 				aspect,  0, 0, 0,
@@ -590,6 +622,65 @@ static void EndFrameDirectX11(struct DirectX11State *directxState, struct FrameD
 	}
 }
 
+static struct MapFileData 
+CreateMapFile(LPSTR fileName, enum MapFilePermissions permissions)
+{
+	struct MapFileData result = {};
+
+	u32 fileAccess = GENERIC_READ;
+	u32 fileProtection = PAGE_READONLY;
+	u32 memoryAccess = FILE_MAP_READ;
+
+	if (permissions == MapFilePermitions_ReadWrite)
+	{
+		fileAccess |= GENERIC_WRITE;
+		fileProtection = PAGE_READWRITE;
+		memoryAccess |= FILE_MAP_WRITE;
+	}
+
+	HANDLE file_handle = CreateFile(
+		"enemy_instances.bin",
+		fileAccess,
+		FILE_SHARE_READ,
+		NULL,
+		OPEN_EXISTING,
+		0,
+		NULL);
+	
+	HANDLE file_mapping_handle = CreateFileMapping(
+		file_handle,
+		NULL,
+		fileProtection,
+		// Passing zeroes for the high and low max-size params here will allow the
+		// entire file to be mappable.
+		0,
+		0,
+		NULL);
+
+	// We can close this now because the file mapping retains an open handle to
+	// the underlying file.
+	CloseHandle(file_handle);
+
+	void* data = MapViewOfFile(
+		file_mapping_handle,
+		memoryAccess,
+		0, // Offset high
+		0, // Offset low
+		// A zero here indicates we want to map the entire range.
+		0);
+
+	result.fileHandle = file_handle;
+	result.data = data;
+
+	return result;
+}
+
+void
+CloseMapFile(struct MapFileData *mapData)
+{
+	CloseHandle(mapData->fileHandle);
+}
+
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 {
     // register window class to have custom WindowProc callback
@@ -606,8 +697,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     Assert(atom && "Failed to register window class");
 
     // window properties - width, height and style
-    int width = CW_USEDEFAULT;
-    int height = CW_USEDEFAULT;
+    s32 width = CW_USEDEFAULT;
+    s32 height = CW_USEDEFAULT;
     // WS_EX_NOREDIRECTIONBITMAP flag here is needed to fix ugly bug with Windows 10
     // when window is resized and DXGI swap chain uses FLIP presentation model
     // DO NOT use it if you choose to use non-FLIP presentation model
@@ -645,6 +736,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 		{ { -0.50f, +0.50f, 0.25f, 0.0f }, { 0, 1, 0, 0 } },
 	};
 
+	struct MapFileData enemyInstancesMapData = CreateMapFile("enemy_instances.bin", MapFilePermitions_Read);
+	EnemyInstances* enemyInstances = (EnemyInstances *)enemyInstancesMapData.data;
+
     for (;;)
     {
         // process all incoming Windows messages
@@ -672,7 +766,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 		{
 			LARGE_INTEGER c2;
 			QueryPerformanceCounter(&c2);
-			float delta = (float)((double)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
+			f32 delta = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
 			c1 = c2;
 		}
 
@@ -683,4 +777,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 
 		EndFrameDirectX11(&directxState, &frameData);
     }
+
+	CloseMapFile(&enemyInstancesMapData);
 }
