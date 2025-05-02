@@ -1,8 +1,44 @@
 meta:
  name: enemy_instances
  size: uint16_t
- 
+
+constants:
+ - name: width
+   value: 5
+ - name: height
+   value: 10
+ - name: half_width
+   value: 2.5
+ - name: half_height
+   value: 5
+ - name: cell_width
+   value: 0.3125
+ - name: cell_height
+   value: 0.625
+ - name: half_cell_width
+   value: 0.15625
+ - name: half_cell_height
+   value: 0.3125
+
 sheets:
+ - name: enemy_instances
+   columns:
+    - name: start_time_delta_q4
+      sources: 
+       - name: start_time_delta_q4
+         type: uint8_t
+    - name: flat_enemy_variation_index
+      sources: 
+       - name: flat_enemy_variation_index
+         type: uint8_t
+    - name: flat_spawn_point_index
+      sources: 
+       - name: flat_spawn_point_index
+         type: uint8_t
+    - name: way_point_path_index
+      sources: 
+       - name: way_point_path_index
+         type: int8_t
  - name: way_points
    columns:
     - name: redused_x_y_q4
@@ -11,8 +47,37 @@ sheets:
          type: int8_t
        - name: redused_y_q4
          type: int8_t
-    - name: redused_x_y_q4_offset128
+ - name: way_point_paths_index
+   columns:
+    - name: way_point_paths
       sources: 
-       - name: redused_x_y_q4_offset128
+       - name: way_point_start_index
          type: uint16_t
-    
+       - name: way_point_count
+         type: uint8_t
+ - name: enemy_variation_types
+   columns:
+    - name: radius_q4
+      sources: 
+       - name: radius_q4
+         type: uint8_t
+    - name: movement_speed_q4
+      sources: 
+       - name: movement_speed_q4
+         type: uint8_t
+ - name: level_wave_index
+   columns:
+    - name: level_wave
+      sources: 
+       - name: enemy_instances_start_index
+         type: uint16_t
+       - name: enemy_instances_count
+         type: uint8_t
+ - name: spawn_points
+   columns:
+    - name: x_y_q4
+      sources: 
+       - name: x_q4
+         type: int8_t
+       - name: y_q4
+         type: int8_t

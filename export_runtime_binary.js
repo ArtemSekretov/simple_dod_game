@@ -99,7 +99,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 			let rowCapacity       = 0;
 			let sourceSheetValues = null;
 			let sourceSheetHeader = null;
-			
+						
 			if(sourceWorksheet)
 			{
 				sourceSheetValues = XLSX.utils.sheet_to_json(sourceWorksheet, {header: 1, blankrows: false});
@@ -128,14 +128,14 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 			
 			if(sheet.hasOwnProperty('capacity'))
 			{
-				rowCapacity = resolveExpression(sheet.capacity)|0;
+				rowCapacity = Math.max(rowCapacity, resolveExpression(sheet.capacity)|0);
 			}
 			
-			data.push( ...bytesAsSize([rowCount, offset], schema.meta.size) );
+			data.push( ...bytesAsSize([rowCount, rowCapacity, offset], schema.meta.size) );
 			
 			if(offset == 0)
 			{
-				const columns   = sheet.columns;
+				const columns = sheet.columns;
 				
 				exportDataSegments.push( {
 					name: sheetName,
@@ -332,7 +332,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 
 function resolveExpression(text)
 {
-	const code = '_result = ${text};';
+	const code = `_result = ${text};`;
 	const context = { ...vmContext };
 	vm.runInNewContext(code, context);
 	return context['_result'];
