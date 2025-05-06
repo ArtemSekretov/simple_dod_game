@@ -38,7 +38,9 @@ function buildImHexPattern(schema)
 		
 		const hasSheets = schema.hasOwnProperty('sheets');
 
-		const hasRootStruct = hasSheets;
+        const hasVariables = schema.hasOwnProperty('variables');
+
+		const hasRootStruct = hasSheets || hasVariables;
 		
 		if(!hasRootStruct)
 		{
@@ -47,24 +49,101 @@ function buildImHexPattern(schema)
 		
 		const rootStructName = undersoreToPascal(schema.meta.name);
 		
-		const sheets = schema.sheets;
-		
-		exportTypes.structs.push({
-			name: rootStructName,
-			fields: sheets.flatMap((sheet) => 
-				[`${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Count`,
-				 `${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Capacity`,
-				 `${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Offset`])
-		});
-		
 		exportTypes.locationMap.push({
 			map: `${rootStructName} ${lowerFirstCharacter(rootStructName)} @ 0x00`
 		});
-		
-		sheets.forEach( sheet => {
-			exportSheet(sheet, rootStructName, exportTypes);		
+
+        const fields = [];
+
+        if(hasSheets)
+        {
+		    const sheets = schema.sheets;
+            fields.push( ...sheets.flatMap((sheet) => 
+				[`${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Count`,
+				 `${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Capacity`,
+				 `${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Offset`]) );
+
+            sheets.forEach( sheet => {
+                exportSheet(sheet, rootStructName, exportTypes);		
+            });
+		}
+        
+        if(hasVariables)
+        {
+            const variables = schema.variables;
+        
+            variables.forEach((variable) => {
+                const types = variable.types;
+            
+                let variableType = '';
+                let exportStruct = false;
+
+                if(types.length == 1)
+                {
+                    type = types[0];
+                    if(type.hasOwnProperty('count'))
+                    {
+                        const count = type.count;
+
+                        if(count > 1)
+                        {
+                            exportStruct = true;
+                        }
+                        else
+                        {
+                            variableType = getImHexType(type.type);
+                        }
+                    }
+                    else
+                    {
+                        variableType = getImHexType(type.type);
+                    }
+                }
+                else
+                {
+                    exportStruct = true;
+                }
+
+                if(exportStruct)
+                {
+                    variableType = undersoreToPascal(variable.name);
+
+                    const valuableFields = [];
+
+                    types.forEach((t) => {
+                        let field = '';
+                        if(t.hasOwnProperty('count'))
+                        {
+                            if(t.count > 1)
+                            {
+                                field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}[${t.count}]`;
+                            }
+                            else
+                            {
+                                field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}`;
+                            }
+                        }
+                        else
+                        {
+                            field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}`;
+                        }
+                        valuableFields.push(field);
+                    });
+
+                    exportTypes.structs.push({
+                        name: variableType,
+                        fields: valuableFields
+                    });                    
+                }
+
+                fields.push(`${variableType} ${undersoreToPascal(variable.name)}`);
+            });
+        }
+		exportTypes.structs.push({
+			name: rootStructName,
+			fields: fields
 		});
-		
+			
 		return exportTypes;
 		
 		function exportSheet(sheet, rootStructName, exportTypes)

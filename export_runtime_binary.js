@@ -43,8 +43,9 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 		const data = [];
 
 		const hasSheets = schema.hasOwnProperty('sheets');
+        const hasVariables = schema.hasOwnProperty('variables');
 
-		const hasRootStruct = hasSheets;
+		const hasRootStruct = hasSheets || hasVariables;
 		
 		if(!hasRootStruct)
 		{
@@ -74,6 +75,38 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 				data.push( ...exportSheet(sheet, sourceWorksheet, exportDataSegments) );		
 			});
 		}
+
+        if(hasVariables)
+        {
+            const variables = schema.variables;
+
+            variables.forEach( (value) => {
+                const types = value.types;
+
+                const columnValues = [];
+
+                types.forEach((t, index) => {
+                    let columnCount = 1;
+                    if(t.hasOwnProperty('count'))
+                    {
+                        columnCount = resolveExpression(t.count)|0;
+                    }
+									
+                    let values = new Array(columnCount).fill(0);
+						
+                    columnValues.push({
+                        values: values,
+                        type: t.type
+                    });                    
+                });
+
+                for(let v = 0; v < columnValues.length; v++)
+                {
+                    const value = columnValues[v];
+                    data.push( ...bytesAsSize(value.values, value.type));
+                }
+            });
+        }
 
 		const reconstructedExportDataSeqments = [];
 		while(exportDataSegments.length)
@@ -200,21 +233,21 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 							else
 							{
 								let index = 0;
-								sourceSheetValues.forEach( (row, i) => {
+								sourceSheetValues.forEach( (row) => {
 									if(row[filterColumnIndex])
 									{
 										values[index] = row[sourceColumnIndex];
 										index += 1;	
 									}
 								});						
-							}	
-						
+							}
 						}
 					}
 					
 					columnValues.push({
 						values: values,
-						type: source.type
+						type: source.type,
+                        count: columnCount
 					});
 				});
 				exportDataSegments.push( {
@@ -234,7 +267,9 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 								for(let v = 0; v < columnValues.length; v++)
 								{
 									const value = columnValues[v];
-									data.push(...bytesAsSize([value.values[i]], value.type));
+                                    const index = i * value.count;
+                                    const slice = value.values.slice(index, index + value.count);
+                                    data.push( ...bytesAsSize(slice, value.type));
 								}
 							}
 							

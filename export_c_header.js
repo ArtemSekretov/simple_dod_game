@@ -38,8 +38,9 @@ function buildCHeader(schema)
 		};
 		
 		const hasSheets = schema.hasOwnProperty('sheets');
+        const hasVariables = schema.hasOwnProperty('variables');
 
-		const hasRootStruct = hasSheets;
+		const hasRootStruct = hasSheets || hasVariables;
 		
 		if(!hasRootStruct)
 		{
@@ -60,20 +61,98 @@ function buildCHeader(schema)
 		}
 		const rootStructName = undersoreToPascal(schema.meta.name);
 		
-		const sheets = schema.sheets;
-		
-		exportTypes.structs.push({
-			name: rootStructName,
-			fields: sheets.flatMap((sheet) => 
+        const fields = [];
+
+        if(hasSheets)
+        {
+		    const sheets = schema.sheets;
+            fields.push( ...sheets.flatMap((sheet) => 
 				[`${schema.meta.size} ${undersoreToPascal(sheet.name)}Count`,
 				 `${schema.meta.size} ${undersoreToPascal(sheet.name)}Capacity`,
-				 `${schema.meta.size} ${undersoreToPascal(sheet.name)}Offset`])
+				 `${schema.meta.size} ${undersoreToPascal(sheet.name)}Offset`]) );
+
+             sheets.forEach( sheet => {
+                exportSheet(sheet, rootStructName, exportTypes);		
+            });
+        }
+
+        if(hasVariables)
+        {
+            const variables = schema.variables;
+        
+            variables.forEach((variable) => {
+                const types = variable.types;
+            
+                let variableType = '';
+                let exportStruct = false;
+
+                if(types.length == 1)
+                {
+                    type = types[0];
+                    if(type.hasOwnProperty('count'))
+                    {
+                        const count = type.count;
+
+                        if(count > 1)
+                        {
+                            exportStruct = true;
+                        }
+                        else
+                        {
+                            variableType = type.type;
+                        }
+                    }
+                    else
+                    {
+                        variableType = type.type;
+                    }
+                }
+                else
+                {
+                    exportStruct = true;
+                }
+
+                if(exportStruct)
+                {
+                    variableType = undersoreToPascal(variable.name);
+
+                    const valuableFields = [];
+
+                    types.forEach((t) => {
+                        let field = '';
+                        if(t.hasOwnProperty('count'))
+                        {
+                            if(t.count > 1)
+                            {
+                                field = `${t.type} ${undersoreToPascal(t.name)}[${t.count}]`;
+                            }
+                            else
+                            {
+                                field = `${t.type} ${undersoreToPascal(t.name)}`;
+                            }
+                        }
+                        else
+                        {
+                            field = `${t.type} ${undersoreToPascal(t.name)}`;
+                        }
+                        valuableFields.push(field);
+                    });
+
+                    exportTypes.structs.push({
+                        name: variableType,
+                        fields: valuableFields
+                    });                    
+                }
+
+                fields.push(`${variableType} ${undersoreToPascal(variable.name)}`);
+            });
+        }
+
+		exportTypes.structs.push({
+			name: rootStructName,
+			fields: fields
 		});
-				
-		sheets.forEach( sheet => {
-			exportSheet(sheet, rootStructName, exportTypes);		
-		});
-		
+	    	
 		return exportTypes;
 		
 		function exportSheet(sheet, rootStructName, exportTypes)
@@ -161,8 +240,8 @@ function buildCHeader(schema)
                 });
 
                 exportTypes.structs.push({
-                name: columnStructName,
-                fields: fields
+                    name: columnStructName,
+                    fields: fields
                 });
         
                 columnType = columnStructName;
