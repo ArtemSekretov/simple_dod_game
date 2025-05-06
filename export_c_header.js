@@ -68,7 +68,6 @@ function buildCHeader(schema)
 		    const sheets = schema.sheets;
             fields.push( ...sheets.flatMap((sheet) => 
 				[`${schema.meta.size} ${undersoreToPascal(sheet.name)}Count`,
-				 `${schema.meta.size} ${undersoreToPascal(sheet.name)}Capacity`,
 				 `${schema.meta.size} ${undersoreToPascal(sheet.name)}Offset`]) );
 
              sheets.forEach( sheet => {
@@ -275,7 +274,9 @@ function buildCHeader(schema)
 		});
 		
 		text += '\n';
-		
+        text += '#pragma pack(push, 1)';
+        text += '\n';
+
 		exportTypes.structs.forEach((struct) => {
 			text += `struct ${struct.name}`
 			text += '\n';
@@ -288,7 +289,9 @@ function buildCHeader(schema)
 			text += '};'
 			text += '\n';
 		});
+        text += '#pragma pack(pop)';
 
+		text += '\n';		
 		text += '\n';		
 		
 		exportTypes.functions.forEach((fun) => {

@@ -1,0 +1,30 @@
+meta:
+ name: frame_data
+ size: uint16_t
+
+constants:
+ - name: max_object_data_capacity
+   value: 256
+
+variables:
+ - name: width
+   types:
+    - name: width
+      type: int32_t
+ - name: height
+   types:
+    - name: height
+      type: int32_t
+
+sheets:
+ - name: frame_data
+   capacity: max_object_data_capacity
+   columns:
+    - name: object_data
+      sources:
+       - name: position_and_scale
+         type: float
+         count: 4
+       - name: color
+         type: float
+         count: 4

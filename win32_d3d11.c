@@ -12,12 +12,6 @@
 #include <math.h>
 #include <string.h>
 #include <stddef.h>
-#include <stdint.h>
-
-// replace this with your favorite Assert() implementation
-#include <intrin.h>
-#define Assert(cond) do { if (!(cond)) __debugbreak(); } while (0)
-#define AssertHR(hr) Assert(SUCCEEDED(hr))
 
 #pragma comment (lib, "gdi32")
 #pragma comment (lib, "user32")
@@ -29,20 +23,15 @@
 #define STR2(x) #x
 #define STR(x) STR2(x)
 
+#include "types.h"
+#include "math.h"
 #include "enemy_instances.h"
+#include "frame_data.h"
 
-typedef uint8_t u8;
-typedef uint32_t u32;
-typedef uint64_t u64;
+#include "enemy_instances_update.c"
+#include "enemy_instances_draw.c"
 
-typedef int8_t s8;
-typedef int32_t s32;
-typedef int64_t s64;
-
-typedef int32_t b32;
-
-typedef float f32;
-typedef double f64;
+#define AssertHR(hr) Assert(SUCCEEDED(hr))
 
 #ifndef __cplusplus
 typedef struct MapFileData      MapFileData;
@@ -52,8 +41,6 @@ typedef struct DirectX11State   DirectX11State;
 typedef struct Vertex           Vertex;
 typedef struct GPUObjectData    GPUObjectData;
 #endif
-
-#define MaxObjectDataCapacity 256
 
 struct MapFileData
 {
@@ -65,15 +52,6 @@ enum MapFilePermissions
 {
 	MapFilePermitions_Read = 0,
 	MapFilePermitions_ReadWrite = 1
-};
-
-struct FrameData
-{
-	s32 width;
-    s32 height;
-
-	GPUObjectData *objectData;
-	s32 objectDataCount;
 };
 
 struct DirectX11State
@@ -104,12 +82,6 @@ struct Vertex
 {
 	f32 position[2];
 	f32 uv[2];
-};
-
-struct GPUObjectData
-{
-	f32 position_and_scale[4]; // xy - postion, z - scale, w - not used padding
-	f32 color[4];              // xyz - color, w - not used padding
 };
 
 static void
@@ -326,7 +298,7 @@ InitDirectX11(HWND window)
             "                                                           \n"
             "cbuffer cbuffer1 : register(b1)                            \n" // b1 = constant buffer bound to slot 1
             "{                                                          \n"
-            "  ObjectData objects[" STR(MaxObjectDataCapacity) "];      \n"
+            "  ObjectData objects[" STR(kMaxObjectDataCapacity) "];      \n"
             "}                                                          \n"
 			"                                                           \n"
             "float sd_circle( float2 p, float r )                       \n"
@@ -411,7 +383,7 @@ InitDirectX11(HWND window)
     {
         D3D11_BUFFER_DESC desc =
         {
-            .ByteWidth = sizeof(GPUObjectData) * MaxObjectDataCapacity,
+            .ByteWidth = sizeof(FrameDataFrameDataObjectData) * kMaxObjectDataCapacity,
             .Usage = D3D11_USAGE_DYNAMIC,
             .BindFlags = D3D11_BIND_CONSTANT_BUFFER,
             .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
@@ -489,26 +461,26 @@ InitDirectX11(HWND window)
 }
 
 static void 
-EndFrameDirectX11(DirectX11State *directxState, FrameData *frameData)
+EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 {
 	HRESULT hr;
 
 	// resize swap chain if needed
-	if (directxState->rtView == NULL || frameData->width != directxState->currentWidth || frameData->height != directxState->currentHeight)
+	if (directx_state->rtView == NULL || frame_data->Width != directx_state->currentWidth || frame_data->Height != directx_state->currentHeight)
 	{
-		if (directxState->rtView)
+		if (directx_state->rtView)
 		{
 			// release old swap chain buffers
-			ID3D11DeviceContext_ClearState(directxState->context);
-			ID3D11RenderTargetView_Release(directxState->rtView);
-			ID3D11DepthStencilView_Release(directxState->dsView);
-			directxState->rtView = NULL;
+			ID3D11DeviceContext_ClearState(directx_state->context);
+			ID3D11RenderTargetView_Release(directx_state->rtView);
+			ID3D11DepthStencilView_Release(directx_state->dsView);
+			directx_state->rtView = NULL;
 		}
 
 		// resize to new size for non-zero size
-		if (frameData->width != 0 && frameData->height != 0)
+		if (frame_data->Width != 0 && frame_data->Height != 0)
 		{
-			hr = IDXGISwapChain1_ResizeBuffers(directxState->swapChain, 0, frameData->width, frameData->height, DXGI_FORMAT_UNKNOWN, 0);
+			hr = IDXGISwapChain1_ResizeBuffers(directx_state->swapChain, 0, frame_data->Width, frame_data->Height, DXGI_FORMAT_UNKNOWN, 0);
 			if (FAILED(hr))
 			{
 				FatalError("Failed to resize swap chain!");
@@ -516,14 +488,14 @@ EndFrameDirectX11(DirectX11State *directxState, FrameData *frameData)
 
 			// create RenderTarget view for new backbuffer texture
 			ID3D11Texture2D* backbuffer;
-			IDXGISwapChain1_GetBuffer(directxState->swapChain, 0, &IID_ID3D11Texture2D, (void**)&backbuffer);
-			ID3D11Device_CreateRenderTargetView(directxState->device, (ID3D11Resource*)backbuffer, NULL, &directxState->rtView);
+			IDXGISwapChain1_GetBuffer(directx_state->swapChain, 0, &IID_ID3D11Texture2D, (void**)&backbuffer);
+			ID3D11Device_CreateRenderTargetView(directx_state->device, (ID3D11Resource*)backbuffer, NULL, &directx_state->rtView);
 			ID3D11Texture2D_Release(backbuffer);
 
 			D3D11_TEXTURE2D_DESC depthDesc =
 			{
-				.Width = frameData->width,
-				.Height = frameData->height,
+				.Width = frame_data->Width,
+				.Height = frame_data->Height,
 				.MipLevels = 1,
 				.ArraySize = 1,
 				.Format = DXGI_FORMAT_D32_FLOAT, // or use DXGI_FORMAT_D32_FLOAT_S8X24_UINT if you need stencil
@@ -534,37 +506,37 @@ EndFrameDirectX11(DirectX11State *directxState, FrameData *frameData)
 
 			// create new depth stencil texture & DepthStencil view
 			ID3D11Texture2D* depth;
-			ID3D11Device_CreateTexture2D(directxState->device, &depthDesc, NULL, &depth);
-			ID3D11Device_CreateDepthStencilView(directxState->device, (ID3D11Resource*)depth, NULL, &directxState->dsView);
+			ID3D11Device_CreateTexture2D(directx_state->device, &depthDesc, NULL, &depth);
+			ID3D11Device_CreateDepthStencilView(directx_state->device, (ID3D11Resource*)depth, NULL, &directx_state->dsView);
 			ID3D11Texture2D_Release(depth);
 		}
 
-		directxState->currentWidth = frameData->width;
-		directxState->currentHeight = frameData->height;
+		directx_state->currentWidth = frame_data->Width;
+		directx_state->currentHeight = frame_data->Height;
 	}
 
 	// can render only if window size is non-zero - we must have backbuffer & RenderTarget view created
-	if (directxState->rtView)
+	if (directx_state->rtView)
 	{
 		// output viewport covering all client area of window
 		D3D11_VIEWPORT viewport =
 		{
 			.TopLeftX = 0,
 			.TopLeftY = 0,
-			.Width = (FLOAT)frameData->width,
-			.Height = (FLOAT)frameData->height,
+			.Width = (FLOAT)frame_data->Width,
+			.Height = (FLOAT)frame_data->Height,
 			.MinDepth = 0,
 			.MaxDepth = 1,
 		};
 
 		// clear screen
 		FLOAT color[] = { 0.392f, 0.584f, 0.929f, 1.f };
-		ID3D11DeviceContext_ClearRenderTargetView(directxState->context, directxState->rtView, color);
-		ID3D11DeviceContext_ClearDepthStencilView(directxState->context, directxState->dsView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+		ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->rtView, color);
+		ID3D11DeviceContext_ClearDepthStencilView(directx_state->context, directx_state->dsView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
 		// setup 4x4c matrix in uniform
 		{
-			f32 aspect = (f32)frameData->height / frameData->width;
+			f32 aspect = (f32)frame_data->Height / frame_data->Width;
 			f32 matrix[16] =
 			{
 				0,      -1, 0, 0,
@@ -574,49 +546,54 @@ EndFrameDirectX11(DirectX11State *directxState, FrameData *frameData)
 			};
 
 			D3D11_MAPPED_SUBRESOURCE mapped;
-			ID3D11DeviceContext_Map(directxState->context, (ID3D11Resource*)directxState->ubuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+			ID3D11DeviceContext_Map(directx_state->context, (ID3D11Resource*)directx_state->ubuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
 			memcpy(mapped.pData, matrix, sizeof(matrix));
-			ID3D11DeviceContext_Unmap(directxState->context, (ID3D11Resource*)directxState->ubuffer, 0);
+			ID3D11DeviceContext_Unmap(directx_state->context, (ID3D11Resource*)directx_state->ubuffer, 0);
 		}
 
 		// setup object data in uniform
-		D3D11_MAPPED_SUBRESOURCE mapped;
-		ID3D11DeviceContext_Map(directxState->context, (ID3D11Resource*)directxState->objectBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
-		memcpy(mapped.pData, frameData->objectData, sizeof(GPUObjectData) * MaxObjectDataCapacity);
-		ID3D11DeviceContext_Unmap(directxState->context, (ID3D11Resource*)directxState->objectBuffer, 0);
+		
+        D3D11_MAPPED_SUBRESOURCE mapped;
+		ID3D11DeviceContext_Map(directx_state->context, (ID3D11Resource*)directx_state->objectBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+		
+        FrameDataFrameData* frame_data_sheet = FrameDataFrameDataPrt(frame_data);
+        FrameDataFrameDataObjectData* object_data = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
+        memcpy(mapped.pData, object_data, sizeof(FrameDataFrameDataObjectData) * kMaxObjectDataCapacity);
+		ID3D11DeviceContext_Unmap(directx_state->context, (ID3D11Resource*)directx_state->objectBuffer, 0);
+            
 		// Input Assembler
-		ID3D11DeviceContext_IASetInputLayout(directxState->context, directxState->layout);
-		ID3D11DeviceContext_IASetPrimitiveTopology(directxState->context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		ID3D11DeviceContext_IASetInputLayout(directx_state->context, directx_state->layout);
+		ID3D11DeviceContext_IASetPrimitiveTopology(directx_state->context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		UINT stride = sizeof(Vertex);
 		UINT offset = 0;
-		ID3D11DeviceContext_IASetVertexBuffers(directxState->context, 0, 1, &directxState->vbuffer, &stride, &offset);
+		ID3D11DeviceContext_IASetVertexBuffers(directx_state->context, 0, 1, &directx_state->vbuffer, &stride, &offset);
 
 		// Vertex Shader
-		ID3D11DeviceContext_VSSetConstantBuffers(directxState->context, 0, 1, &directxState->ubuffer);
-		ID3D11DeviceContext_VSSetConstantBuffers(directxState->context, 1, 1, &directxState->objectBuffer);
-		ID3D11DeviceContext_VSSetShader(directxState->context, directxState->vshader, NULL, 0);
+		ID3D11DeviceContext_VSSetConstantBuffers(directx_state->context, 0, 1, &directx_state->ubuffer);
+		ID3D11DeviceContext_VSSetConstantBuffers(directx_state->context, 1, 1, &directx_state->objectBuffer);
+		ID3D11DeviceContext_VSSetShader(directx_state->context, directx_state->vshader, NULL, 0);
 
 		// Rasterizer Stage
-		ID3D11DeviceContext_RSSetViewports(directxState->context, 1, &viewport);
-		ID3D11DeviceContext_RSSetState(directxState->context, directxState->rasterizerState);
+		ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &viewport);
+		ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizerState);
 
 		// Pixel Shader
-		ID3D11DeviceContext_PSSetShader(directxState->context, directxState->pshader, NULL, 0);
+		ID3D11DeviceContext_PSSetShader(directx_state->context, directx_state->pshader, NULL, 0);
 
 		// Output Merger
-		ID3D11DeviceContext_OMSetBlendState(directxState->context, directxState->blendState, NULL, ~0U);
-		ID3D11DeviceContext_OMSetDepthStencilState(directxState->context, directxState->depthState, 0);
-		ID3D11DeviceContext_OMSetRenderTargets(directxState->context, 1, &directxState->rtView, directxState->dsView);
+		ID3D11DeviceContext_OMSetBlendState(directx_state->context, directx_state->blendState, NULL, ~0U);
+		ID3D11DeviceContext_OMSetDepthStencilState(directx_state->context, directx_state->depthState, 0);
+		ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->rtView, directx_state->dsView);
 
 		// Draw objects with 6 vertices
-		ID3D11DeviceContext_DrawInstanced(directxState->context, 6, frameData->objectDataCount, 0, 0);
+		ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, frame_data->FrameDataCount, 0, 0);
 			
 	}
 
 	// change to FALSE to disable vsync
 	BOOL vsync = TRUE;
-	hr = IDXGISwapChain1_Present(directxState->swapChain, vsync ? 1 : 0, 0);
+	hr = IDXGISwapChain1_Present(directx_state->swapChain, vsync ? 1 : 0, 0);
 	if (hr == DXGI_STATUS_OCCLUDED)
 	{
 		// window is minimized, cannot vsync - instead sleep a bit
@@ -644,11 +621,11 @@ CreateMapFile(LPSTR fileName, MapFilePermissions permissions)
 	{
 		fileAccess |= GENERIC_WRITE;
 		fileProtection = PAGE_READWRITE;
-		memoryAccess |= FILE_MAP_WRITE;
+		memoryAccess = FILE_MAP_WRITE;
 	}
 
 	HANDLE file_handle = CreateFile(
-		"enemy_instances.bin",
+		fileName,
 		fileAccess,
 		FILE_SHARE_READ,
 		NULL,
@@ -656,6 +633,8 @@ CreateMapFile(LPSTR fileName, MapFilePermissions permissions)
 		0,
 		NULL);
 	
+    Assert(file_handle != INVALID_HANDLE_VALUE);
+
 	HANDLE file_mapping_handle = CreateFileMapping(
 		file_handle,
 		NULL,
@@ -665,6 +644,8 @@ CreateMapFile(LPSTR fileName, MapFilePermissions permissions)
 		0,
 		0,
 		NULL);
+
+    Assert(file_mapping_handle != NULL);
 
 	// We can close this now because the file mapping retains an open handle to
 	// the underlying file.
@@ -678,7 +659,9 @@ CreateMapFile(LPSTR fileName, MapFilePermissions permissions)
 		// A zero here indicates we want to map the entire range.
 		0);
 
-	result.fileHandle = file_handle;
+    Assert(data != NULL);
+
+	result.fileHandle = file_mapping_handle;
 	result.data = data;
 
 	return result;
@@ -687,6 +670,7 @@ CreateMapFile(LPSTR fileName, MapFilePermissions permissions)
 void
 CloseMapFile(MapFileData *mapData)
 {
+    UnmapViewOfFile(mapData->data);
 	CloseHandle(mapData->fileHandle);
 }
 
@@ -738,15 +722,13 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&c1);
 
-	GPUObjectData objectData[MaxObjectDataCapacity] =
-	{
-		{ { -0.50f, -0.50f, 1.0f,  0.0f }, { 1, 0, 0, 0 } },
-		{ { +0.50f, +0.50f, 0.50f, 0.0f }, { 0, 1, 0, 0 } },
-		{ { -0.50f, +0.50f, 0.25f, 0.0f }, { 0, 1, 0, 0 } },
-	};
+	MapFileData enemy_instances_map_data = CreateMapFile("enemy_instances.bin", MapFilePermitions_Read);
+	EnemyInstances* enemy_instances = (EnemyInstances *)enemy_instances_map_data.data;
+	
+    MapFileData frame_data_map_data = CreateMapFile("frame_data.bin", MapFilePermitions_ReadWrite);
+    FrameData* frame_data = (FrameData *)frame_data_map_data.data;
 
-	MapFileData enemyInstancesMapData = CreateMapFile("enemy_instances.bin", MapFilePermitions_Read);
-	EnemyInstances* enemyInstances = (EnemyInstances *)enemyInstancesMapData.data;
+    f64 time = 0.0;
 
     for (;;)
     {
@@ -763,13 +745,15 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
             continue;
         }
 
-		FrameData frameData = {};
-
         // get current size for window client area
         RECT rect;
         GetClientRect(window, &rect);
         width = rect.right - rect.left;
         height = rect.bottom - rect.top;
+
+        frame_data->Width          = width;
+		frame_data->Height         = height;
+        frame_data->FrameDataCount = 0;
 
 		if (width != 0 && height != 0)
 		{
@@ -778,17 +762,16 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 			f32 delta = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
 			c1 = c2;
 
+            enemy_instances_update(time);
 
-			// game loop
+            enemy_instances_draw(frame_data);
+
+            time += delta;
 		}
 
-		frameData.width = width;
-		frameData.height = height;
-		frameData.objectData = (GPUObjectData *)&objectData;
-		frameData.objectDataCount = 3;
-
-		EndFrameDirectX11(&directxState, &frameData);
+		EndFrameDirectX11(&directxState, frame_data);
     }
 
-	CloseMapFile(&enemyInstancesMapData);
+	CloseMapFile(&enemy_instances_map_data);
+	CloseMapFile(&frame_data_map_data);
 }

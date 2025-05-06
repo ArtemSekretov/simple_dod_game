@@ -60,7 +60,6 @@ function buildImHexPattern(schema)
 		    const sheets = schema.sheets;
             fields.push( ...sheets.flatMap((sheet) => 
 				[`${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Count`,
-				 `${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Capacity`,
 				 `${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Offset`]) );
 
             sheets.forEach( sheet => {
@@ -154,6 +153,13 @@ function buildImHexPattern(schema)
 			
 			const sheetName = sheet.name;
 			
+            let rowCapacity = 0;
+
+			if(sheet.hasOwnProperty('capacity'))
+			{
+				rowCapacity = resolveExpression(sheet.capacity)|0;
+			}
+
 			exportTypes.structs.push({
 				name: sheetStructName,
 				fields: columns.flatMap((column) => [ 
@@ -165,11 +171,11 @@ function buildImHexPattern(schema)
 			});
 			
 			columns.forEach( column => {
-				exportColumn(column, rootStructName, sheetName, exportTypes);
+				exportColumn(column, rootStructName, rowCapacity, sheetName, exportTypes);
 			});
 		}
 		
-		function exportColumn(column, rootStructName, sheetName, exportTypes)
+		function exportColumn(column, rootStructName, rowCapacity, sheetName, exportTypes)
 		{
 			const sources = column.sources;
 			
@@ -239,7 +245,7 @@ function buildImHexPattern(schema)
 				columnType = columnStructName;
 			}
 			exportTypes.locationMap.push({
-				map: `${columnType} ${lowerFirstCharacter(columnStructName)}[${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(sheetName)}Capacity] @ ${lowerFirstCharacter(sheetStructName)}.${undersoreToPascal(column.name)}Offset`
+				map: `${columnType} ${lowerFirstCharacter(columnStructName)}[GetCapacity(${rowCapacity}, ${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(sheetName)}Count)] @ ${lowerFirstCharacter(sheetStructName)}.${undersoreToPascal(column.name)}Offset`
 			});	
 			
 		}
@@ -261,8 +267,17 @@ function buildImHexPattern(schema)
 	
 	function exportTypesToText(exportTypes)
 	{
-		let text = '';
+		let text = 'fn GetCapacity(u16 capacity, u16 count)\n';
+		text += '{\n';
+		text += '  u16 result = capacity;\n';
+		text += '  if(result == 0) {\n';
+		text += '    result = count;\n';
+		text += '  }\n';
+		text += '  return result;\n';
+		text += '};\n';
 		
+        text += '\n';
+
 		exportTypes.structs.forEach((struct) => {
 			text += `struct ${struct.name} {`
 			text += '\n';
@@ -290,7 +305,7 @@ function buildImHexPattern(schema)
 
 function resolveExpression(text)
 {
-	const code = '_result = ${text};';
+	const code = `_result = ${text};`;
 	const context = { ...vmContext };
 	vm.runInNewContext(code, context);
 	return context['_result'];

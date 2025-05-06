@@ -19,6 +19,28 @@ constants:
    value: 0.15625
  - name: half_cell_height
    value: 0.3125
+ - name: max_waves_per_level
+   value: 4
+ - name: max_instance_delta_time
+   value: 64
+ - name: max_variations_per_enemy_type
+   value: 8
+ - name: max_enemy_type
+   value: 8
+ - name: spawn_grid_resolution
+   value: 16
+ - name: max_wave_start_time
+   value: 64
+ - name: max_way_point_paths
+   value: 127
+ - name: max_movement_speed
+   value: 16
+ - name: max_radius
+   value: 16
+ - name: max_instances_per_wave
+   value: 64
+ - name: max_way_points_per_path
+   value: 256
 
 sheets:
  - name: enemy_instances

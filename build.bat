@@ -8,10 +8,14 @@ where /q node && (
 	
 	IF NOT EXIST build mkdir build
 
-	node export_runtime_binary.js enemy_instances.shema.yml build/enemy_instances.bin simple_dod_game.xlsx
-	node export_imhex_pattern.js enemy_instances.shema.yml enemy_instances.hexpat
-	node export_c_header.js enemy_instances.shema.yml enemy_instances.h
+	node export_runtime_binary.js enemy_instances.schema.yml build/enemy_instances.bin simple_dod_game.xlsx
+	node export_imhex_pattern.js enemy_instances.schema.yml enemy_instances.hexpat
+	node export_c_header.js enemy_instances.schema.yml enemy_instances.h
 	
+    node export_runtime_binary.js frame_data.schema.yml build/frame_data.bin
+    node export_imhex_pattern.js frame_data.schema.yml frame_data.hexpat
+    node export_c_header.js frame_data.schema.yml frame_data.h
+
 	pushd build
 
 	where /q cl && (

@@ -164,7 +164,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 				rowCapacity = Math.max(rowCapacity, resolveExpression(sheet.capacity)|0);
 			}
 			
-			data.push( ...bytesAsSize([rowCount, rowCapacity, offset], schema.meta.size) );
+			data.push( ...bytesAsSize([rowCount, offset], schema.meta.size) );
 			
 			if(offset == 0)
 			{
