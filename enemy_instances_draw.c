@@ -7,7 +7,7 @@ enemy_instances_draw(FrameData *frame_data)
 
     s32 array_count = ArrayCount(g_enemy_instances_positions);
    
-    Assert(array_count == kMaxInstancesPerWave);
+    Assert(array_count == kEnemyInstancesMaxInstancesPerWave);
 
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
@@ -22,7 +22,7 @@ enemy_instances_draw(FrameData *frame_data)
         v2 enemy_instance_position = g_enemy_instances_positions[i];
 
         u16 object_index = frame_data->FrameDataCount;
-        object_index = object_index % kMaxObjectDataCapacity;
+        object_index = object_index % kFrameDataMaxObjectDataCapacity;
 
         FrameDataFrameDataObjectData *object_data = object_data_column + object_index;
 

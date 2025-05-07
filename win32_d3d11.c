@@ -36,10 +36,8 @@
 #ifndef __cplusplus
 typedef struct MapFileData      MapFileData;
 typedef enum MapFilePermissions MapFilePermissions;
-typedef struct FrameData        FrameData;
 typedef struct DirectX11State   DirectX11State;
 typedef struct Vertex           Vertex;
-typedef struct GPUObjectData    GPUObjectData;
 #endif
 
 struct MapFileData
@@ -51,7 +49,8 @@ struct MapFileData
 enum MapFilePermissions
 {
 	MapFilePermitions_Read = 0,
-	MapFilePermitions_ReadWrite = 1
+    MapFilePermitions_ReadWriteCopy = 1,
+	MapFilePermitions_ReadWrite = 2
 };
 
 struct DirectX11State
@@ -298,7 +297,7 @@ InitDirectX11(HWND window)
             "                                                           \n"
             "cbuffer cbuffer1 : register(b1)                            \n" // b1 = constant buffer bound to slot 1
             "{                                                          \n"
-            "  ObjectData objects[" STR(kMaxObjectDataCapacity) "];      \n"
+            "  ObjectData objects[" STR(kFrameDataMaxObjectDataCapacity) "];      \n"
             "}                                                          \n"
 			"                                                           \n"
             "float sd_circle( float2 p, float r )                       \n"
@@ -383,7 +382,7 @@ InitDirectX11(HWND window)
     {
         D3D11_BUFFER_DESC desc =
         {
-            .ByteWidth = sizeof(FrameDataFrameDataObjectData) * kMaxObjectDataCapacity,
+            .ByteWidth = sizeof(FrameDataFrameDataObjectData) * kFrameDataMaxObjectDataCapacity,
             .Usage = D3D11_USAGE_DYNAMIC,
             .BindFlags = D3D11_BIND_CONSTANT_BUFFER,
             .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
@@ -461,7 +460,7 @@ InitDirectX11(HWND window)
 }
 
 static void 
-EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
+EndFrameDirectX11(DirectX11State *directx_state, v2 game_area, FrameData *frame_data)
 {
 	HRESULT hr;
 
@@ -518,13 +517,37 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 	// can render only if window size is non-zero - we must have backbuffer & RenderTarget view created
 	if (directx_state->rtView)
 	{
+        f32 game_aspect = game_area.x / game_area.y;
+
+        f32 window_aspect = (f32)frame_data->Width / frame_data->Height;
+
+        f32 vp_x;
+        f32 vp_y;
+        f32 vp_width;
+        f32 vp_height;
+
+        if (window_aspect > game_aspect)
+        {
+            vp_width = frame_data->Height * game_aspect;
+            vp_height = (f32)frame_data->Height;
+            vp_x = (frame_data->Width - vp_width) * 0.5f;
+            vp_y = 0.0f;
+        }
+        else
+        {
+            vp_width = (f32)frame_data->Width;
+            vp_height = frame_data->Width / game_aspect;
+            vp_x = 0.0f;
+            vp_y = (frame_data->Height - vp_height) * 0.5f;
+        }
+
 		// output viewport covering all client area of window
 		D3D11_VIEWPORT viewport =
 		{
-			.TopLeftX = 0,
-			.TopLeftY = 0,
-			.Width = (FLOAT)frame_data->Width,
-			.Height = (FLOAT)frame_data->Height,
+			.TopLeftX = vp_x,
+			.TopLeftY = vp_y,
+			.Width = vp_width,
+			.Height = vp_height,
 			.MinDepth = 0,
 			.MaxDepth = 1,
 		};
@@ -536,13 +559,32 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 
 		// setup 4x4c matrix in uniform
 		{
-			f32 aspect = (f32)frame_data->Height / frame_data->Width;
+            v2 half_game_area = v2_scale(game_area, 0.5f);
+
+            f32 left = -half_game_area.x;
+            f32 right = half_game_area.x;
+            f32 bottom = -half_game_area.y;
+            f32 top = half_game_area.y;
+            f32 near_clip_plane = 0.0f;
+            f32 far_clip_plane = 1.0f;
+
+            f32 a = 2.0f / (right - left);
+            f32 b = 2.0f / (top - bottom);
+
+            f32 a1 = (left + right) / (right - left);
+            f32 b1 = (top + bottom) / (top - bottom);
+
+            f32 n = near_clip_plane;
+            f32 f = far_clip_plane;
+            f32 d = 2.0f / (n - f);
+            f32 e = (n + f) / (n - f);
+
 			f32 matrix[16] =
 			{
-				0,      -1, 0, 0,
-				aspect,  0, 0, 0,
-				0,       0, 0, 0,
-				0,       0, 0, 1,
+				a, 0, 0, -a1,
+				0, b, 0, -b1,
+				0, 0, d, e,
+				0, 0, 0, 1,
 			};
 
 			D3D11_MAPPED_SUBRESOURCE mapped;
@@ -559,7 +601,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         FrameDataFrameData* frame_data_sheet = FrameDataFrameDataPrt(frame_data);
         FrameDataFrameDataObjectData* object_data = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
-        memcpy(mapped.pData, object_data, sizeof(FrameDataFrameDataObjectData) * kMaxObjectDataCapacity);
+        memcpy(mapped.pData, object_data, sizeof(FrameDataFrameDataObjectData) * kFrameDataMaxObjectDataCapacity);
 		ID3D11DeviceContext_Unmap(directx_state->context, (ID3D11Resource*)directx_state->objectBuffer, 0);
             
 		// Input Assembler
@@ -617,7 +659,12 @@ CreateMapFile(LPSTR fileName, MapFilePermissions permissions)
 	u32 fileProtection = PAGE_READONLY;
 	u32 memoryAccess = FILE_MAP_READ;
 
-	if (permissions == MapFilePermitions_ReadWrite)
+    if (permissions == MapFilePermitions_ReadWriteCopy)
+    {
+        fileProtection = PAGE_WRITECOPY;
+        memoryAccess = FILE_MAP_COPY;
+    }
+	else if (permissions == MapFilePermitions_ReadWrite)
 	{
 		fileAccess |= GENERIC_WRITE;
 		fileProtection = PAGE_READWRITE;
@@ -725,10 +772,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 	MapFileData enemy_instances_map_data = CreateMapFile("enemy_instances.bin", MapFilePermitions_Read);
 	EnemyInstances* enemy_instances = (EnemyInstances *)enemy_instances_map_data.data;
 	
-    MapFileData frame_data_map_data = CreateMapFile("frame_data.bin", MapFilePermitions_ReadWrite);
+    MapFileData frame_data_map_data = CreateMapFile("frame_data.bin", MapFilePermitions_ReadWriteCopy);
     FrameData* frame_data = (FrameData *)frame_data_map_data.data;
 
     f64 time = 0.0;
+
+    v2 game_area = V2(kEnemyInstancesWidth, kEnemyInstancesHeight);
 
     for (;;)
     {
@@ -762,14 +811,14 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 			f32 delta = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
 			c1 = c2;
 
-            enemy_instances_update(time);
+            enemy_instances_update(enemy_instances, delta);
 
             enemy_instances_draw(frame_data);
 
             time += delta;
 		}
 
-		EndFrameDirectX11(&directxState, frame_data);
+		EndFrameDirectX11(&directxState, game_area, frame_data);
     }
 
 	CloseMapFile(&enemy_instances_map_data);

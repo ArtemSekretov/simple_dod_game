@@ -47,19 +47,20 @@ function buildCHeader(schema)
 			return exportTypes;
 		}
 		
+        const rootStructName = undersoreToPascal(schema.meta.name);
+
 		if(schema.hasOwnProperty('constants'))
 		{
 			const constants = schema.constants;
 			
 			constants.forEach((c) => {
 				exportTypes.constants.push({
-					key: undersoreToPascal(c.name),
+					key: `${rootStructName}${undersoreToPascal(c.name)}`,
 					value: c.value
 				});
 			});
 			
 		}
-		const rootStructName = undersoreToPascal(schema.meta.name);
 		
         const fields = [];
 
