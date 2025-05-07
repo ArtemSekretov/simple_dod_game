@@ -23,6 +23,10 @@
 #define STR2(x) #x
 #define STR(x) STR2(x)
 
+#ifndef NDEBUG
+#include "enable_console_output.h"
+#endif
+
 #include "types.h"
 #include "math.h"
 #include "enemy_instances.h"
@@ -723,6 +727,11 @@ CloseMapFile(MapFileData *mapData)
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 {
+
+#ifndef NDEBUG
+    enable_console();
+#endif
+
     // register window class to have custom WindowProc callback
     WNDCLASSEXW wc =
     {
@@ -813,7 +822,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 
             enemy_instances_update(enemy_instances, delta);
 
-            enemy_instances_draw(frame_data);
+            enemy_instances_draw(enemy_instances, frame_data);
 
             time += delta;
 		}

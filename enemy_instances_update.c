@@ -15,7 +15,7 @@ u8 g_player_grid_x = 0;
 static void
 enemy_instances_spawn(EnemyInstances* enemy_instances)
 {
-    u8 flat_wave_index = (g_level_index << 2) * g_wave_index;
+    u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesEnemyInstances *enemy_instances_sheet  = EnemyInstancesEnemyInstancesPrt(enemy_instances);
@@ -63,7 +63,7 @@ enemy_instances_spawn(EnemyInstances* enemy_instances)
 static void
 enemy_instances_move(EnemyInstances* enemy_instances, f32 delta)
 {
-    u8 flat_wave_index = (g_level_index << 2) * g_wave_index;
+    u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet          = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesEnemyInstances *enemy_instances_sheet           = EnemyInstancesEnemyInstancesPrt(enemy_instances);
@@ -96,7 +96,7 @@ enemy_instances_move(EnemyInstances* enemy_instances, f32 delta)
 
         u8  movement_speed_q4 = enemy_variations_movement_speed_q4[flat_enemy_variation_index];
         f32 movement_speed = ((f32)movement_speed_q4) * kQ4ToFloat;
-        f32 frame_move_dist = movement_speed + delta;
+        f32 frame_move_dist = movement_speed * delta;
 
         s8 way_point_path_id = enemy_instance_way_point_path_index[enemy_instances_index];
         u8 way_point_path_index = ((u8)abs(way_point_path_id)) + (g_player_grid_x & (way_point_path_id < 0));
@@ -144,7 +144,7 @@ enemy_instances_move(EnemyInstances* enemy_instances, f32 delta)
 static void
 enemy_instances_next_wave(EnemyInstances* enemy_instances)
 {
-    u8 flat_wave_index = (g_level_index << 2) * g_wave_index;
+    u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesLevelWaveIndexLevelWave *level_wave_index_instance = EnemyInstancesLevelWaveIndexLevelWavePrt(enemy_instances, level_wave_index_sheet);
@@ -168,9 +168,8 @@ enemy_instances_next_wave(EnemyInstances* enemy_instances)
 
 static void
 enemy_instances_update(EnemyInstances* enemy_instances, f32 delta)
-{
-   
-    u8 flat_wave_index = (g_level_index << 2) * g_wave_index;
+{  
+    u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesLevelWaveIndexLevelWave *level_wave_index_instance = EnemyInstancesLevelWaveIndexLevelWavePrt(enemy_instances, level_wave_index_sheet);
