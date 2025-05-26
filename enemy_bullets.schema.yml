@@ -1,0 +1,43 @@
+meta:
+ name: enemy_bullets
+ size: uint16_t
+
+sheets:
+ - name: enemy_bullet_types
+   columns:
+    - name: x_y_q7
+      sources: 
+       - name: x_q7
+         type: int8_t
+       - name: y_q7
+         type: int8_t
+    - name: time_cast_q4
+      sources: 
+       - name: time_cast_q4
+         type: uint8_t
+    - name: time_loop_q4
+      sources: 
+       - name: time_loop_q4
+         type: uint8_t
+    - name: time_delay_q4
+      sources: 
+       - name: time_delay_q4
+         type: uint8_t
+    - name: quantity
+      sources: 
+       - name: quantity
+         type: uint8_t
+    - name: bullet_type_index
+      sources: 
+       - name: bullet_type_index
+         type: uint8_t
+ - name: bullet_types
+   columns:
+    - name: radius_q4
+      sources: 
+       - name: radius_q4
+         type: uint8_t
+    - name: movement_speed_q4
+      sources: 
+       - name: movement_speed_q4
+         type: uint8_t

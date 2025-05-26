@@ -15,6 +15,22 @@ variables:
    types:
     - name: height
       type: int32_t
+ - name: viewport_x
+   types:
+    - name: viewport_x
+      type: float
+ - name: viewport_y
+   types:
+    - name: viewport_y
+      type: float
+ - name: viewport_width
+   types:
+    - name: viewport_width
+      type: float
+ - name: viewport_height
+   types:
+    - name: viewport_height
+      type: float
 
 sheets:
  - name: frame_data

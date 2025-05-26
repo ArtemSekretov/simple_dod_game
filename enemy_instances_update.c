@@ -10,7 +10,23 @@ u8  g_wave_instances_spawned_count = 0;
 f32 g_wave_spawn_last_time         = 0.0f;
 f32 g_wave_time                    = 0.0f;
 
-u8 g_player_grid_x = 0;
+u8  g_player_grid_x = 0;
+
+static v2 
+spawn_position(u8 index, EnemyInstancesSpawnPointsXYQ4 *spawn_points_xy_q4)
+{
+    if (index > 63)
+    {
+        return g_enemy_instances_positions[index - 64];
+    }
+
+    EnemyInstancesSpawnPointsXYQ4 spawn_point_xy_q4 = spawn_points_xy_q4[index];
+
+    f32 spawn_x = ((f32)spawn_point_xy_q4.XQ4) * kQ4ToFloat;
+    f32 spawn_y = ((f32)spawn_point_xy_q4.YQ4) * kQ4ToFloat;
+
+    return V2(spawn_x, spawn_y);
+}
 
 static void
 enemy_instances_spawn(EnemyInstances* enemy_instances)
@@ -24,8 +40,8 @@ enemy_instances_spawn(EnemyInstances* enemy_instances)
     EnemyInstancesLevelWaveIndexLevelWave *level_wave_index_instance = EnemyInstancesLevelWaveIndexLevelWavePrt(enemy_instances, level_wave_index_sheet);
     EnemyInstancesLevelWaveIndexLevelWave wave_instance = level_wave_index_instance[flat_wave_index];
 
-    u8 *enemy_instances_start_time_delta_q4    = EnemyInstancesEnemyInstancesStartTimeDeltaQ4Prt(enemy_instances, enemy_instances_sheet);
-    u8 *enemy_instances_flat_spawn_point_index = EnemyInstancesEnemyInstancesFlatSpawnPointIndexPrt(enemy_instances, enemy_instances_sheet);
+    u16 *enemy_instances_start_time_q4          = EnemyInstancesEnemyInstancesStartTimeQ4Prt(enemy_instances, enemy_instances_sheet);
+    u8  *enemy_instances_flat_spawn_point_index = EnemyInstancesEnemyInstancesFlatSpawnPointIndexPrt(enemy_instances, enemy_instances_sheet);
 
     EnemyInstancesSpawnPointsXYQ4 *spawn_points_xy_q4 = EnemyInstancesSpawnPointsXYQ4Prt(enemy_instances, spawn_points_sheet);
 
@@ -35,23 +51,20 @@ enemy_instances_spawn(EnemyInstances* enemy_instances)
         
         u16 enemy_instances_index = wave_instance.EnemyInstancesStartIndex + wave_instance_index;
 
-        u8 start_time_delta_q4 = enemy_instances_start_time_delta_q4[enemy_instances_index];
+        u16 start_time_q4 = enemy_instances_start_time_q4[enemy_instances_index];
         
-        f32 start_time_delta = ((f32)start_time_delta_q4) * kQ4ToFloat;
+        f32 start_time = ((f32)start_time_q4) * kQ4ToFloat;
 
-        f32 start_time = g_wave_spawn_last_time + start_time_delta;
         if (g_wave_time < start_time)
         {
             break;
         }
 
         u8 flat_spawn_point_index = enemy_instances_flat_spawn_point_index[enemy_instances_index];
-        EnemyInstancesSpawnPointsXYQ4 spawn_point_xy_q4 = spawn_points_xy_q4[flat_spawn_point_index];
 
-        f32 spawn_x = ((f32)spawn_point_xy_q4.XQ4) * kQ4ToFloat;
-        f32 spawn_y = ((f32)spawn_point_xy_q4.YQ4) * kQ4ToFloat;
+        v2 spawn_point = spawn_position(flat_spawn_point_index, spawn_points_xy_q4);
 
-        g_enemy_instances_positions[wave_instance_index] = V2(spawn_x, spawn_y);
+        g_enemy_instances_positions[wave_instance_index] = spawn_point;
         g_enemy_instances_way_point_index[wave_instance_index] = 0;
         g_enemy_instances_live |= 1ULL << wave_instance_index;
 
@@ -67,16 +80,16 @@ enemy_instances_move(EnemyInstances* enemy_instances, f32 delta)
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet          = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesEnemyInstances *enemy_instances_sheet           = EnemyInstancesEnemyInstancesPrt(enemy_instances);
-    EnemyInstancesEnemyVariationTypes *enemy_variations_sheet     = EnemyInstancesEnemyVariationTypesPrt(enemy_instances);
+    EnemyInstancesEnemyTypes *enemy_sheet                         = EnemyInstancesEnemyTypesPrt(enemy_instances);
     EnemyInstancesWayPointPathsIndex *way_point_paths_index_sheet = EnemyInstancesWayPointPathsIndexPrt(enemy_instances);
     EnemyInstancesWayPoints *way_points_sheet                     = EnemyInstancesWayPointsPrt(enemy_instances);
 
     EnemyInstancesLevelWaveIndexLevelWave *level_wave_index_instance = EnemyInstancesLevelWaveIndexLevelWavePrt(enemy_instances, level_wave_index_sheet);
     EnemyInstancesLevelWaveIndexLevelWave wave_instance = level_wave_index_instance[flat_wave_index];
 
-    u8 *enemy_instances_flat_enemy_variation_index = EnemyInstancesEnemyInstancesFlatEnemyVariationIndexPrt(enemy_instances, enemy_instances_sheet);
+    u8 *enemy_instances_enemy_index = EnemyInstancesEnemyInstancesEnemyIndexPrt(enemy_instances, enemy_instances_sheet);
 
-    u8 *enemy_variations_movement_speed_q4 = EnemyInstancesEnemyVariationTypesMovementSpeedQ4Prt(enemy_instances, enemy_variations_sheet);
+    u8 *enemy_movement_speed_q4 = EnemyInstancesEnemyTypesMovementSpeedQ4Prt(enemy_instances, enemy_sheet);
 
     s8 *enemy_instance_way_point_path_index = EnemyInstancesEnemyInstancesWayPointPathIndexPrt(enemy_instances, enemy_instances_sheet);
 
@@ -92,9 +105,9 @@ enemy_instances_move(EnemyInstances* enemy_instances, f32 delta)
         }
 
         u16 enemy_instances_index = wave_instance.EnemyInstancesStartIndex + wave_instance_index;
-        u8 flat_enemy_variation_index = enemy_instances_flat_enemy_variation_index[enemy_instances_index];
+        u8 enemy_index = enemy_instances_enemy_index[enemy_instances_index];
 
-        u8  movement_speed_q4 = enemy_variations_movement_speed_q4[flat_enemy_variation_index];
+        u8  movement_speed_q4 = enemy_movement_speed_q4[enemy_index];
         f32 movement_speed = ((f32)movement_speed_q4) * kQ4ToFloat;
         f32 frame_move_dist = movement_speed * delta;
 

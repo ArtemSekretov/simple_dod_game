@@ -5,12 +5,12 @@ enemy_instances_draw(EnemyInstances* enemy_instances, FrameData *frame_data)
     u64 enemy_instances_live = g_enemy_instances_live;
     u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
 
-    EnemyInstancesLevelWaveIndex *level_wave_index_sheet      = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
-    EnemyInstancesEnemyInstances *enemy_instances_sheet       = EnemyInstancesEnemyInstancesPrt(enemy_instances);
-    EnemyInstancesEnemyVariationTypes *enemy_variations_sheet = EnemyInstancesEnemyVariationTypesPrt(enemy_instances);
+    EnemyInstancesLevelWaveIndex *level_wave_index_sheet = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
+    EnemyInstancesEnemyInstances *enemy_instances_sheet  = EnemyInstancesEnemyInstancesPrt(enemy_instances);
+    EnemyInstancesEnemyTypes     *enemy_sheet            = EnemyInstancesEnemyTypesPrt(enemy_instances);
     
-    u8 *enemy_instances_flat_enemy_variation_index = EnemyInstancesEnemyInstancesFlatEnemyVariationIndexPrt(enemy_instances, enemy_instances_sheet);
-    u8 *enemy_variations_radius_q4 = EnemyInstancesEnemyVariationTypesRadiusQ4Prt(enemy_instances, enemy_variations_sheet);
+    u8 *enemy_instances_enemy_index = EnemyInstancesEnemyInstancesEnemyIndexPrt(enemy_instances, enemy_instances_sheet);
+    u8 *enemy_radius_q4 = EnemyInstancesEnemyTypesRadiusQ4Prt(enemy_instances, enemy_sheet);
 
     EnemyInstancesLevelWaveIndexLevelWave *level_wave_index_instance = EnemyInstancesLevelWaveIndexLevelWavePrt(enemy_instances, level_wave_index_sheet);
     EnemyInstancesLevelWaveIndexLevelWave wave_instance = level_wave_index_instance[flat_wave_index];
@@ -26,9 +26,9 @@ enemy_instances_draw(EnemyInstances* enemy_instances, FrameData *frame_data)
         }
 
         u16 enemy_instances_index = wave_instance.EnemyInstancesStartIndex + wave_instance_index;
-        u8 flat_enemy_variation_index = enemy_instances_flat_enemy_variation_index[enemy_instances_index];
+        u8 flat_enemy_variation_index = enemy_instances_enemy_index[enemy_instances_index];
 
-        u8 radius_q4 = enemy_variations_radius_q4[flat_enemy_variation_index];
+        u8 radius_q4 = enemy_radius_q4[flat_enemy_variation_index];
         f32 radius = ((f32)radius_q4) * kQ4ToFloat;
 
         v2 enemy_instance_position = g_enemy_instances_positions[wave_instance_index];
@@ -42,9 +42,9 @@ enemy_instances_draw(EnemyInstances* enemy_instances, FrameData *frame_data)
         object_data->PositionAndScale[1] = enemy_instance_position.y;
         object_data->PositionAndScale[2] = radius;
 
-        object_data->Color[0] = 1.0f;
-        object_data->Color[1] = 0.0f;
-        object_data->Color[2] = 0.0f;
+        object_data->Color[0] = 0.0f;
+        object_data->Color[1] = 1.0f;
+        object_data->Color[2] = 1.0f;
 
         frame_data->FrameDataCount += 1;
 

@@ -16,6 +16,10 @@ where /q node && (
     node export_imhex_pattern.js frame_data.schema.yml frame_data.hexpat
     node export_c_header.js frame_data.schema.yml frame_data.h
 
+    node export_runtime_binary.js enemy_bullets.schema.yml build/enemy_bullets.bin simple_dod_game.xlsx
+    node export_imhex_pattern.js enemy_bullets.schema.yml enemy_bullets.hexpat
+    node export_c_header.js enemy_bullets.schema.yml enemy_bullets.h
+
 	pushd build
 
 	where /q cl && (

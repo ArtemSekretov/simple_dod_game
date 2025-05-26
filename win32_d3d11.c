@@ -29,8 +29,10 @@
 
 #include "types.h"
 #include "math.h"
+
 #include "enemy_instances.h"
 #include "frame_data.h"
+#include "enemy_bullets.h"
 
 #include "enemy_instances_update.c"
 #include "enemy_instances_draw.c"
@@ -107,7 +109,7 @@ WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
 }
 
 static DirectX11State 
-InitDirectX11(HWND window)
+InitDirectX11(HWND window, f32 projection_martix[16])
 {
 	HRESULT hr;
 
@@ -375,11 +377,11 @@ InitDirectX11(HWND window)
         {
             // space for 4x4 float matrix (cbuffer0 from pixel shader)
             .ByteWidth = 4 * 4 * sizeof(f32),
-            .Usage = D3D11_USAGE_DYNAMIC,
+            .Usage = D3D11_USAGE_IMMUTABLE,
             .BindFlags = D3D11_BIND_CONSTANT_BUFFER,
-            .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
         };
-        ID3D11Device_CreateBuffer(device, &desc, NULL, &ubuffer);
+        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = projection_martix };
+        ID3D11Device_CreateBuffer(device, &desc, &initial, &ubuffer);
     }
 
     ID3D11Buffer* objectBuffer;
@@ -464,7 +466,7 @@ InitDirectX11(HWND window)
 }
 
 static void 
-EndFrameDirectX11(DirectX11State *directx_state, v2 game_area, FrameData *frame_data)
+EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 {
 	HRESULT hr;
 
@@ -521,37 +523,13 @@ EndFrameDirectX11(DirectX11State *directx_state, v2 game_area, FrameData *frame_
 	// can render only if window size is non-zero - we must have backbuffer & RenderTarget view created
 	if (directx_state->rtView)
 	{
-        f32 game_aspect = game_area.x / game_area.y;
-
-        f32 window_aspect = (f32)frame_data->Width / frame_data->Height;
-
-        f32 vp_x;
-        f32 vp_y;
-        f32 vp_width;
-        f32 vp_height;
-
-        if (window_aspect > game_aspect)
-        {
-            vp_width = frame_data->Height * game_aspect;
-            vp_height = (f32)frame_data->Height;
-            vp_x = (frame_data->Width - vp_width) * 0.5f;
-            vp_y = 0.0f;
-        }
-        else
-        {
-            vp_width = (f32)frame_data->Width;
-            vp_height = frame_data->Width / game_aspect;
-            vp_x = 0.0f;
-            vp_y = (frame_data->Height - vp_height) * 0.5f;
-        }
-
 		// output viewport covering all client area of window
 		D3D11_VIEWPORT viewport =
 		{
-			.TopLeftX = vp_x,
-			.TopLeftY = vp_y,
-			.Width = vp_width,
-			.Height = vp_height,
+			.TopLeftX = frame_data->ViewportX,
+			.TopLeftY = frame_data->ViewportY,
+			.Width = frame_data->ViewportWidth,
+			.Height = frame_data->ViewportHeight,
 			.MinDepth = 0,
 			.MaxDepth = 1,
 		};
@@ -561,44 +539,7 @@ EndFrameDirectX11(DirectX11State *directx_state, v2 game_area, FrameData *frame_
 		ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->rtView, color);
 		ID3D11DeviceContext_ClearDepthStencilView(directx_state->context, directx_state->dsView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
-		// setup 4x4c matrix in uniform
-		{
-            v2 half_game_area = v2_scale(game_area, 0.5f);
-
-            f32 left = -half_game_area.x;
-            f32 right = half_game_area.x;
-            f32 bottom = -half_game_area.y;
-            f32 top = half_game_area.y;
-            f32 near_clip_plane = 0.0f;
-            f32 far_clip_plane = 1.0f;
-
-            f32 a = 2.0f / (right - left);
-            f32 b = 2.0f / (top - bottom);
-
-            f32 a1 = (left + right) / (right - left);
-            f32 b1 = (top + bottom) / (top - bottom);
-
-            f32 n = near_clip_plane;
-            f32 f = far_clip_plane;
-            f32 d = 2.0f / (n - f);
-            f32 e = (n + f) / (n - f);
-
-			f32 matrix[16] =
-			{
-				a, 0, 0, -a1,
-				0, b, 0, -b1,
-				0, 0, d, e,
-				0, 0, 0, 1,
-			};
-
-			D3D11_MAPPED_SUBRESOURCE mapped;
-			ID3D11DeviceContext_Map(directx_state->context, (ID3D11Resource*)directx_state->ubuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
-			memcpy(mapped.pData, matrix, sizeof(matrix));
-			ID3D11DeviceContext_Unmap(directx_state->context, (ID3D11Resource*)directx_state->ubuffer, 0);
-		}
-
-		// setup object data in uniform
-		
+		// setup object data in uniform		
         D3D11_MAPPED_SUBRESOURCE mapped;
 		ID3D11DeviceContext_Map(directx_state->context, (ID3D11Resource*)directx_state->objectBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
 		
@@ -725,6 +666,67 @@ CloseMapFile(MapFileData *mapData)
 	CloseHandle(mapData->fileHandle);
 }
 
+void
+begin_frame(FrameData *frame_data, f32 game_aspect, s32 screen_width, s32 screen_height)
+{
+    frame_data->Width          = screen_width;
+    frame_data->Height         = screen_height;
+    frame_data->FrameDataCount = 0;
+
+    f32 window_aspect = (f32)frame_data->Width / frame_data->Height;
+
+    if (window_aspect > game_aspect)
+    {
+        frame_data->ViewportWidth = frame_data->Height * game_aspect;
+        frame_data->ViewportHeight = (f32)frame_data->Height;
+        frame_data->ViewportX = (frame_data->Width - frame_data->ViewportWidth) * 0.5f;
+        frame_data->ViewportY = 0.0f;
+    }
+    else
+    {
+        frame_data->ViewportWidth = (f32)frame_data->Width;
+        frame_data->ViewportHeight = frame_data->Width / game_aspect;
+        frame_data->ViewportX = 0.0f;
+        frame_data->ViewportY = (frame_data->Height - frame_data->ViewportHeight) * 0.5f;
+    }
+}
+
+void
+setup_projection_matrix(f32 projection_martix[16], v2 game_area)
+{
+    v2 half_game_area = v2_scale(game_area, 0.5f);
+
+    f32 left = -half_game_area.x;
+    f32 right = half_game_area.x;
+    f32 bottom = -half_game_area.y;
+    f32 top = half_game_area.y;
+    f32 near_clip_plane = 0.0f;
+    f32 far_clip_plane = 1.0f;
+
+    f32 a = 2.0f / (right - left);
+    f32 b = 2.0f / (top - bottom);
+
+    f32 a1 = (left + right) / (right - left);
+    f32 b1 = (top + bottom) / (top - bottom);
+
+    f32 n = near_clip_plane;
+    f32 f = far_clip_plane;
+    f32 d = 2.0f / (n - f);
+    f32 e = (n + f) / (n - f);
+
+    // a, 0, 0, -a1,
+    // 0, b, 0, -b1,
+    // 0, 0, d,  e,
+    // 0, 0, 0,  1,
+    projection_martix[0]  =  a;
+    projection_martix[3]  = -a1;
+    projection_martix[5]  =  b;
+    projection_martix[7]  = -b1;
+    projection_martix[10] =  d;
+    projection_martix[11] =  e;
+    projection_martix[15] =  1;
+}
+
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 {
 
@@ -769,7 +771,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
         NULL, NULL, wc.hInstance, NULL);
     Assert(window && "Failed to create window");
 
-	DirectX11State directxState = InitDirectX11(window);
+    v2 game_area = V2(kEnemyInstancesWidth, kEnemyInstancesHeight);
+
+    f32 projection_matrix[16] = { 0 };
+    setup_projection_matrix(projection_matrix, game_area);
+
+	DirectX11State directxState = InitDirectX11(window, projection_matrix);
 
     // show the window
     ShowWindow(window, SW_SHOWDEFAULT);
@@ -779,14 +786,17 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     QueryPerformanceCounter(&c1);
 
 	MapFileData enemy_instances_map_data = CreateMapFile("enemy_instances.bin", MapFilePermitions_Read);
-	EnemyInstances* enemy_instances = (EnemyInstances *)enemy_instances_map_data.data;
+	EnemyInstances* enemy_instances      = (EnemyInstances *)enemy_instances_map_data.data;
 	
+    MapFileData enemy_bullets_map_data = CreateMapFile("enemy_bullets.bin", MapFilePermitions_Read);
+	EnemyBullets* enemy_bullets        = (EnemyBullets *)enemy_bullets_map_data.data;
+
     MapFileData frame_data_map_data = CreateMapFile("frame_data.bin", MapFilePermitions_ReadWriteCopy);
-    FrameData* frame_data = (FrameData *)frame_data_map_data.data;
+    FrameData* frame_data           = (FrameData *)frame_data_map_data.data;
 
     f64 time = 0.0;
 
-    v2 game_area = V2(kEnemyInstancesWidth, kEnemyInstancesHeight);
+    f32 game_aspect = game_area.x / game_area.y;
 
     for (;;)
     {
@@ -809,9 +819,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
         width = rect.right - rect.left;
         height = rect.bottom - rect.top;
 
-        frame_data->Width          = width;
-		frame_data->Height         = height;
-        frame_data->FrameDataCount = 0;
+        begin_frame(frame_data, game_aspect, width, height);
 
 		if (width != 0 && height != 0)
 		{
@@ -827,9 +835,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
             time += delta;
 		}
 
-		EndFrameDirectX11(&directxState, game_area, frame_data);
+		EndFrameDirectX11(&directxState, frame_data);
     }
 
 	CloseMapFile(&enemy_instances_map_data);
+	CloseMapFile(&enemy_bullets_map_data);
 	CloseMapFile(&frame_data_map_data);
 }

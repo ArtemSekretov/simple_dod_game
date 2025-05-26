@@ -76,27 +76,16 @@ function buildImHexPattern(schema)
             
                 let variableType = '';
                 let exportStruct = false;
+                let variableCount = 1;
 
                 if(types.length == 1)
                 {
                     type = types[0];
                     if(type.hasOwnProperty('count'))
                     {
-                        const count = type.count;
-
-                        if(count > 1)
-                        {
-                            exportStruct = true;
-                        }
-                        else
-                        {
-                            variableType = getImHexType(type.type);
-                        }
+                        variableCount = type.count;
                     }
-                    else
-                    {
-                        variableType = getImHexType(type.type);
-                    }
+                    variableType = getImHexType(type.type);
                 }
                 else
                 {
@@ -135,7 +124,14 @@ function buildImHexPattern(schema)
                     });                    
                 }
 
-                fields.push(`${variableType} ${undersoreToPascal(variable.name)}`);
+                if(variableCount > 1)
+                {
+                    fields.push(`${variableType} ${undersoreToPascal(variable.name)}[${variableCount}]`);
+                }
+                else
+                {
+                    fields.push(`${variableType} ${undersoreToPascal(variable.name)}`);
+                }
             });
         }
 		exportTypes.structs.push({
