@@ -1,5 +1,5 @@
 
-void
+static void
 enemy_instances_draw(EnemyInstances* enemy_instances, FrameData *frame_data)
 {
     u64 enemy_instances_live = g_enemy_instances_live;
@@ -33,20 +33,17 @@ enemy_instances_draw(EnemyInstances* enemy_instances, FrameData *frame_data)
 
         v2 enemy_instance_position = g_enemy_instances_positions[wave_instance_index];
 
-        u16 object_index = frame_data->FrameDataCount;
-        object_index = object_index % kFrameDataMaxObjectDataCapacity;
-
-        FrameDataFrameDataObjectData *object_data = object_data_column + object_index;
+        FrameDataFrameDataObjectData *object_data = object_data_column + frame_data->FrameDataCount;
 
         object_data->PositionAndScale[0] = enemy_instance_position.x;
         object_data->PositionAndScale[1] = enemy_instance_position.y;
-        object_data->PositionAndScale[2] = radius;
+        object_data->PositionAndScale[2] = radius * 2.0f;
 
         object_data->Color[0] = 0.0f;
         object_data->Color[1] = 1.0f;
         object_data->Color[2] = 1.0f;
 
-        frame_data->FrameDataCount += 1;
+        frame_data->FrameDataCount = (frame_data->FrameDataCount + 1) % kFrameDataMaxObjectDataCapacity;
 
     }
 }

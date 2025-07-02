@@ -35,7 +35,9 @@
 #include "enemy_bullets.h"
 
 #include "enemy_instances_update.c"
+#include "enemy_bullets_update.c"
 #include "enemy_instances_draw.c"
+#include "enemy_bullets_draw.c"
 
 #define AssertHR(hr) Assert(SUCCEEDED(hr))
 
@@ -829,8 +831,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 			c1 = c2;
 
             enemy_instances_update(enemy_instances, delta);
+            enemy_bullets_update(enemy_instances, enemy_bullets, delta);
 
             enemy_instances_draw(enemy_instances, frame_data);
+            enemy_bullets_draw(enemy_bullets, frame_data);
 
             time += delta;
 		}

@@ -87,15 +87,13 @@ enemy_instances_move(EnemyInstances* enemy_instances, f32 delta)
     EnemyInstancesLevelWaveIndexLevelWave *level_wave_index_instance = EnemyInstancesLevelWaveIndexLevelWavePrt(enemy_instances, level_wave_index_sheet);
     EnemyInstancesLevelWaveIndexLevelWave wave_instance = level_wave_index_instance[flat_wave_index];
 
-    u8 *enemy_instances_enemy_index = EnemyInstancesEnemyInstancesEnemyIndexPrt(enemy_instances, enemy_instances_sheet);
-
-    u8 *enemy_movement_speed_q4 = EnemyInstancesEnemyTypesMovementSpeedQ4Prt(enemy_instances, enemy_sheet);
-
-    s8 *enemy_instance_way_point_path_index = EnemyInstancesEnemyInstancesWayPointPathIndexPrt(enemy_instances, enemy_instances_sheet);
-
+    u16 *enemy_instances_start_time_q4                                   = EnemyInstancesEnemyInstancesStartTimeQ4Prt(enemy_instances, enemy_instances_sheet);
+    u8 *enemy_instances_enemy_index                                      = EnemyInstancesEnemyInstancesEnemyIndexPrt(enemy_instances, enemy_instances_sheet);
+    s8 *enemy_instance_way_point_path_index                              = EnemyInstancesEnemyInstancesWayPointPathIndexPrt(enemy_instances, enemy_instances_sheet);
+    u8 *enemy_movement_speed_q4                                          = EnemyInstancesEnemyTypesMovementSpeedQ4Prt(enemy_instances, enemy_sheet);
+    EnemyInstancesWayPointsRedusedXYQ4 *way_points                       = EnemyInstancesWayPointsRedusedXYQ4Prt(enemy_instances, way_points_sheet);
     EnemyInstancesWayPointPathsIndexWayPointPaths *way_point_paths_index = EnemyInstancesWayPointPathsIndexWayPointPathsPrt(enemy_instances, way_point_paths_index_sheet);
-
-    EnemyInstancesWayPointsRedusedXYQ4 *way_points = EnemyInstancesWayPointsRedusedXYQ4Prt(enemy_instances, way_points_sheet);
+    u8 *enemy_instance_way_point_time_out_q4                             = EnemyInstancesWayPointPathsIndexTimeOutQ4Prt(enemy_instances, way_point_paths_index_sheet);
 
     for (u8 wave_instance_index = 0; wave_instance_index < g_wave_instances_spawned_count; wave_instance_index++)
     {
@@ -107,6 +105,10 @@ enemy_instances_move(EnemyInstances* enemy_instances, f32 delta)
         u16 enemy_instances_index = wave_instance.EnemyInstancesStartIndex + wave_instance_index;
         u8 enemy_index = enemy_instances_enemy_index[enemy_instances_index];
 
+        u16 start_time_q4 = enemy_instances_start_time_q4[enemy_instances_index];
+        f32 start_time = ((f32)start_time_q4) * kQ4ToFloat;
+        f32 enemy_instance_time = g_wave_time - start_time;
+
         u8  movement_speed_q4 = enemy_movement_speed_q4[enemy_index];
         f32 movement_speed = ((f32)movement_speed_q4) * kQ4ToFloat;
         f32 frame_move_dist = movement_speed * delta;
@@ -115,8 +117,11 @@ enemy_instances_move(EnemyInstances* enemy_instances, f32 delta)
         u8 way_point_path_index = ((u8)abs(way_point_path_id)) + (g_player_grid_x & (way_point_path_id < 0));
 
         EnemyInstancesWayPointPathsIndexWayPointPaths way_point_path_index_way_point = way_point_paths_index[way_point_path_index];
+        
+        u8 way_point_time_out_q4 = enemy_instance_way_point_time_out_q4[way_point_path_index];
+        f32 way_point_time_out   = ((f32)way_point_time_out_q4) * kQ4ToFloat;
 
-        while (1)
+        for(u8 i = 0; i < 4; i++)
         {
             u8 way_point_index = g_enemy_instances_way_point_index[wave_instance_index];
 
@@ -131,10 +136,14 @@ enemy_instances_move(EnemyInstances* enemy_instances, f32 delta)
             v2  way_point_v         = v2_sub(way_point, current_position);
             f32 way_point_dist      = v2_length(way_point_v);
             f32 way_point_move_dist = fminf(way_point_dist, frame_move_dist);
-            v2  way_point_move_v    = v2_scale(way_point_v, way_point_move_dist / way_point_dist);
-            v2  next_position       = v2_add(current_position, way_point_move_v);
 
-            g_enemy_instances_positions[wave_instance_index] = next_position;
+            if (way_point_dist > 0.0f)
+            {
+                v2 way_point_move_v = v2_scale(way_point_v, way_point_move_dist / way_point_dist);
+                v2 next_position = v2_add(current_position, way_point_move_v);
+
+                g_enemy_instances_positions[wave_instance_index] = next_position;
+            }
 
             if (way_point_dist > frame_move_dist)
             {
@@ -143,9 +152,16 @@ enemy_instances_move(EnemyInstances* enemy_instances, f32 delta)
 
             frame_move_dist -= way_point_dist;
 
-            if (way_point_index == (way_point_path_index_way_point.WayPointCount - 1))
+            s32 is_end_of_path = way_point_index == (way_point_path_index_way_point.WayPointCount - 1);
+            s32 is_time_out    = enemy_instance_time > way_point_time_out;
+
+            if (is_end_of_path && is_time_out)
             {
                 g_enemy_instances_live &= ~(1ULL << wave_instance_index);
+                break;
+            }
+            else if (is_end_of_path)
+            {
                 break;
             }
 

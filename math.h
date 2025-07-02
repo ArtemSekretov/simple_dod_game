@@ -1,6 +1,8 @@
 #pragma once
 
 #define kQ4ToFloat 0.0625f
+#define kQ7ToFloat 0.0078125f
+#define kQ8ToFloat 0.00390625f
 
 inline v2
 V2(f32 x, f32 y)

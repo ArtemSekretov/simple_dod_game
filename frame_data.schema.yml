@@ -4,7 +4,7 @@ meta:
 
 constants:
  - name: max_object_data_capacity
-   value: 256
+   value: 512
 
 variables:
  - name: width

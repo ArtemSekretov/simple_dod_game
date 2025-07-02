@@ -2,14 +2,20 @@ meta:
  name: enemy_bullets
  size: uint16_t
 
+constants:
+ - name: enemy_bullets_max_instance_count
+   value: 256
+ - name: max_enemy_bullet_types_per_enemy_type
+   value: 16
+
 sheets:
  - name: enemy_bullet_types
    columns:
-    - name: x_y_q7
+    - name: local_x_y_q7
       sources: 
-       - name: x_q7
+       - name: local_x_q7
          type: int8_t
-       - name: y_q7
+       - name: local_y_q7
          type: int8_t
     - name: time_cast_q4
       sources: 
@@ -33,9 +39,9 @@ sheets:
          type: uint8_t
  - name: bullet_types
    columns:
-    - name: radius_q4
+    - name: radius_q8
       sources: 
-       - name: radius_q4
+       - name: radius_q8
          type: uint8_t
     - name: movement_speed_q4
       sources: 
