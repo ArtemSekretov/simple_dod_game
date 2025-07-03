@@ -1,0 +1,54 @@
+meta:
+ name: enemy_bullets_update
+ size: uint16_t
+
+constants:
+ - name: enemy_bullets_max_instance_count
+   value: 256
+ - name: max_enemy_bullet_types_per_enemy_type
+   value: 16
+ - name: max_instances_per_wave
+   value: 64
+
+variables:
+ - name: wave_spawn_count
+   types:
+    - name: wave_spawn_count
+      type: int32_t
+ - name: last_flat_wave_index
+   types:
+    - name: last_flat_wave_index
+      type: uint8_t
+
+sheets:
+ - name: bullets
+   capacity: enemy_bullets_max_instance_count
+   columns:
+    - name: current_position
+      sources:
+       - name: current_position
+         type: float
+         count: 2
+    - name: end_position
+      sources:
+       - name: end_position
+         type: float
+         count: 2
+    - name: type_index
+      sources:
+       - name: type_index
+         type: uint8_t
+ - name: enemy_bullets
+   capacity: max_instances_per_wave
+   columns:
+    - name: spawn_count
+      sources:
+       - name: spawn_count
+         type: uint8_t
+         count: max_enemy_bullet_types_per_enemy_type
+
+ref:
+ - name: enemy_bullets_bin
+   type: enemy_bullets
+ - name: enemy_instances_bin
+   type: enemy_instances

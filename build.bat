@@ -21,6 +21,10 @@ where /q node && (
     node export_imhex_pattern.js enemy_bullets.schema.yml generated/enemy_bullets.hexpat
     node export_c_header.js enemy_bullets.schema.yml generated/enemy_bullets.h
 
+    node export_c_header.js enemy_bullets_update.schema.yml generated/enemy_bullets_update.h
+    node export_runtime_binary.js enemy_bullets_update.schema.yml build/enemy_bullets_update.bin
+    node export_imhex_pattern.js enemy_bullets_update.schema.yml generated/enemy_bullets_update.hexpat
+
 	pushd build
 
 	where /q cl && (

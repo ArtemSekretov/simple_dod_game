@@ -33,6 +33,7 @@
 #include "enemy_instances.h"
 #include "frame_data.h"
 #include "enemy_bullets.h"
+#include "enemy_bullets_update.h"
 
 #include "enemy_instances_update.c"
 #include "enemy_bullets_update.c"
@@ -796,6 +797,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     MapFileData frame_data_map_data = CreateMapFile("frame_data.bin", MapFilePermitions_ReadWriteCopy);
     FrameData* frame_data           = (FrameData *)frame_data_map_data.data;
 
+    MapFileData enemy_bullets_update_map_data = CreateMapFile("enemy_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
+    EnemyBulletsUpdate* enemy_bullets_update_data  = (EnemyBulletsUpdate *)enemy_bullets_update_map_data.data;
+
     f64 time = 0.0;
 
     f32 game_aspect = game_area.x / game_area.y;
@@ -845,4 +849,5 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 	CloseMapFile(&enemy_instances_map_data);
 	CloseMapFile(&enemy_bullets_map_data);
 	CloseMapFile(&frame_data_map_data);
+	CloseMapFile(&enemy_bullets_update_map_data);
 }

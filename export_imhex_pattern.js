@@ -83,7 +83,7 @@ function buildImHexPattern(schema)
                     type = types[0];
                     if(type.hasOwnProperty('count'))
                     {
-                        variableCount = type.count;
+                        variableCount = resolveExpression(type.count)|0;
                     }
                     variableType = getImHexType(type.type);
                 }
@@ -102,9 +102,10 @@ function buildImHexPattern(schema)
                         let field = '';
                         if(t.hasOwnProperty('count'))
                         {
-                            if(t.count > 1)
+                            const count = resolveExpression(t.count)|0;
+                            if(count > 1)
                             {
-                                field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}[${t.count}]`;
+                                field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}[${count}]`;
                             }
                             else
                             {
@@ -188,7 +189,7 @@ function buildImHexPattern(schema)
 				
 				if(source.hasOwnProperty('count'))
 				{
-					const count = source.count;
+					const count = resolveExpression(source.count)|0;
 
 					if(count > 1)
 					{
@@ -217,9 +218,10 @@ function buildImHexPattern(schema)
 					let field = '';
 					if(source.hasOwnProperty('count'))
 					{
-						if(source.count > 1)
+                        const count = resolveExpression(source.count)|0;
+						if(count > 1)
 						{
-							field = `${getImHexType(source.type)} ${undersoreToPascal(source.name)}[${source.count}]`;
+							field = `${getImHexType(source.type)} ${undersoreToPascal(source.name)}[${count}]`;
 						}
 						else
 						{

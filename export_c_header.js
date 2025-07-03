@@ -34,7 +34,8 @@ function buildCHeader(schema)
 		const exportTypes = {
 			constants:   [],
 			structs:     [],
-			functions:   []
+			functions:   [],
+            refStructs:  []
 		};
 		
 		const hasSheets = schema.hasOwnProperty('sheets');
@@ -92,7 +93,7 @@ function buildCHeader(schema)
                     type = types[0];
                     if(type.hasOwnProperty('count'))
                     {
-                        variableCount = type.count;
+                        variableCount = resolveExpression(type.count)|0;
                     }
                     variableType = type.type;
                 }
@@ -111,9 +112,10 @@ function buildCHeader(schema)
                         let field = '';
                         if(t.hasOwnProperty('count'))
                         {
-                            if(t.count > 1)
+                            const count = resolveExpression(t.count)|0;
+                            if(count > 1)
                             {
-                                field = `${t.type} ${undersoreToPascal(t.name)}[${t.count}]`;
+                                field = `${t.type} ${undersoreToPascal(t.name)}[${count}]`;
                             }
                             else
                             {
@@ -148,7 +150,37 @@ function buildCHeader(schema)
 			name: rootStructName,
 			fields: fields
 		});
-	    	
+	    
+        if(schema.hasOwnProperty('ref'))
+        {
+            const contextStructName = `${rootStructName}Context`
+
+            const contextStruct = {
+                name: contextStructName,
+                fields: [],
+            };
+
+            if(hasRootStruct)
+            {
+                contextStruct.fields.push(`${rootStructName} *Root`);
+            }
+
+            contextStruct.fields.push( ...schema.ref.map(ref => {
+                const refName = undersoreToPascal(ref.name);
+                const refType = undersoreToPascal(ref.type);
+
+                return `${refType} *${refName}`;
+            }));
+
+            exportTypes.refStructs.push( ...schema.ref.map(ref => {
+                const refType = undersoreToPascal(ref.type);
+
+                return refType;
+            }));
+
+            exportTypes.structs.push(contextStruct);
+        }
+
 		return exportTypes;
 		
 		function exportSheet(sheet, rootStructName, exportTypes)
@@ -190,7 +222,7 @@ function buildCHeader(schema)
 				const source = sources[0];
 				if(source.hasOwnProperty('count'))
 				{
-					const count = source.count;
+					const count = resolveExpression(source.count)|0;
 
 					if(count > 1)
 					{
@@ -219,9 +251,10 @@ function buildCHeader(schema)
                     let field = '';
                     if(source.hasOwnProperty('count'))
                     {
-                        if(source.count > 1)
+                        const count = resolveExpression(source.count)|0;
+                        if(count > 1)
                         {
-                            field = `${source.type} ${undersoreToPascal(source.name)}[${source.count}]`;
+                            field = `${source.type} ${undersoreToPascal(source.name)}[${count}]`;
                         }
                         else
                         {
@@ -262,6 +295,9 @@ function buildCHeader(schema)
 		text += '#ifndef __cplusplus\n';
 		exportTypes.structs.forEach((struct) => {
 			text += `typedef struct ${struct.name.padEnd(40, ' ')} ${struct.name};\n`;
+		});
+        exportTypes.refStructs.forEach((struct) => {
+			text += `typedef struct ${struct.padEnd(40, ' ')} ${struct};\n`;
 		});		
 		text += '#endif\n';
 		text += '\n';
@@ -310,7 +346,7 @@ function buildCHeader(schema)
 
 function resolveExpression(text)
 {
-	const code = '_result = ${text};';
+	const code = `_result = ${text};`;
 	const context = { ...vmContext };
 	vm.runInNewContext(code, context);
 	return context['_result'];

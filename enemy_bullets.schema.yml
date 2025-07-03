@@ -2,12 +2,6 @@ meta:
  name: enemy_bullets
  size: uint16_t
 
-constants:
- - name: enemy_bullets_max_instance_count
-   value: 256
- - name: max_enemy_bullet_types_per_enemy_type
-   value: 16
-
 sheets:
  - name: enemy_bullet_types
    columns:

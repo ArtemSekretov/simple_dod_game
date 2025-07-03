@@ -1,4 +1,8 @@
 
+#define kEnemyBulletsEnemyBulletsMaxInstanceCount 256
+#define kEnemyBulletsMaxEnemyBulletTypesPerEnemyType 16
+#define kEnemyInstancesMaxInstancesPerWave    64
+
 v2 g_enemy_bullets_positions[kEnemyBulletsEnemyBulletsMaxInstanceCount] = { 0 };
 v2 g_enemy_bullets_end_positions[kEnemyBulletsEnemyBulletsMaxInstanceCount] = { 0 };
 u8 g_enemy_bullets_type_index[kEnemyBulletsEnemyBulletsMaxInstanceCount] = { 0 };
