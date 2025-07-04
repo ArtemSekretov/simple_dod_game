@@ -1,7 +1,11 @@
 
 static void
-enemy_bullets_draw(EnemyBullets* enemy_bullets, FrameData *frame_data)
+enemy_bullets_draw(EnemyBulletsDrawContext *context)
 {
+    EnemyBulletsUpdate *enemy_bullets_update = context->EnemyBulletsUpdateBin;
+    EnemyBullets *enemy_bullets              = context->EnemyBulletsBin;
+    FrameData *frame_data                    = context->FrameDataBin;
+
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
@@ -9,12 +13,16 @@ enemy_bullets_draw(EnemyBullets* enemy_bullets, FrameData *frame_data)
 
     u8 *enemy_bullet_types_radius_q8         = EnemyBulletsBulletTypesRadiusQ8Prt(enemy_bullets, enemy_bullet_types_sheet);
    
-    s32 draw_count = min(kEnemyBulletsEnemyBulletsMaxInstanceCount, g_enemy_bullets_wave_spawn_count);
+    s32 draw_count = min(kEnemyBulletsUpdateEnemyBulletsMaxInstanceCount, enemy_bullets_update->WaveSpawnCount);
     
+    EnemyBulletsUpdateBulletPositions *enemy_bullet_update_positions_sheet = EnemyBulletsUpdateBulletPositionsPrt(enemy_bullets_update);
+    v2 *enemy_bullets_positions                                            = (v2 *)EnemyBulletsUpdateBulletPositionsCurrentPositionPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
+    uint8_t *enemy_bullets_type_index                                      = EnemyBulletsUpdateBulletPositionsTypeIndexPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
+
     for (s32 i = 0; i < draw_count; i++)
     {
-        v2 bullet_position     = g_enemy_bullets_positions[i];
-        u8 bullet_type_index   = g_enemy_bullets_type_index[i];
+        v2 bullet_position   = enemy_bullets_positions[i];
+        u8 bullet_type_index = enemy_bullets_type_index[i];
 
         u8 bullet_radius_q8 = enemy_bullet_types_radius_q8[bullet_type_index];
         f32 bullet_radius   = ((f32)bullet_radius_q8) * kQ8ToFloat;

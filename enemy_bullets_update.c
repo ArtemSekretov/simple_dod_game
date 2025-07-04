@@ -1,22 +1,10 @@
-
-#define kEnemyBulletsEnemyBulletsMaxInstanceCount 256
-#define kEnemyBulletsMaxEnemyBulletTypesPerEnemyType 16
-#define kEnemyInstancesMaxInstancesPerWave    64
-
-v2 g_enemy_bullets_positions[kEnemyBulletsEnemyBulletsMaxInstanceCount] = { 0 };
-v2 g_enemy_bullets_end_positions[kEnemyBulletsEnemyBulletsMaxInstanceCount] = { 0 };
-u8 g_enemy_bullets_type_index[kEnemyBulletsEnemyBulletsMaxInstanceCount] = { 0 };
-
-u8 g_enemy_bullets_spawn_count[kEnemyInstancesMaxInstancesPerWave * kEnemyBulletsMaxEnemyBulletTypesPerEnemyType] = { 0 };
-
-s32 g_enemy_bullets_next_index = 0;
-s32 g_enemy_bullets_wave_spawn_count = 0;
-
-u8 g_enemy_bullets_last_flat_wave_index = 0;
-
 static void
-enemy_bullets_spawn(EnemyInstances* enemy_instances, EnemyBullets* enemy_bullets)
+enemy_bullets_spawn(EnemyBulletsUpdateContext *context)
 {
+    EnemyInstances *enemy_instances          = context->EnemyInstancesBin;
+    EnemyBullets *enemy_bullets              = context->EnemyBulletsBin;
+    EnemyBulletsUpdate *enemy_bullets_update = context->Root;
+
     u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet  = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
@@ -39,6 +27,14 @@ enemy_bullets_spawn(EnemyInstances* enemy_instances, EnemyBullets* enemy_bullets
     u8 *enemy_bullets_time_delay_q4 = EnemyBulletsEnemyBulletTypesTimeDelayQ4Prt(enemy_bullets, enemy_bullet_types_sheet);
     u8 *enemy_bullets_type_quantity = EnemyBulletsEnemyBulletTypesQuantityPrt(enemy_bullets, enemy_bullet_types_sheet);
     u8 *enemy_bullets_type_index    = EnemyBulletsEnemyBulletTypesBulletTypeIndexPrt(enemy_bullets, enemy_bullet_types_sheet);
+
+    EnemyBulletsUpdateBulletPositions *enemy_bullet_update_positions_sheet = EnemyBulletsUpdateBulletPositionsPrt(enemy_bullets_update);
+    v2 *enemy_bullets_update_positions                                     = (v2 *)EnemyBulletsUpdateBulletPositionsCurrentPositionPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
+    v2 *enemy_bullets_update_end_positions                                 = (v2 *)EnemyBulletsUpdateBulletPositionsEndPositionPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
+    uint8_t *enemy_bullets_update_type_index                               = EnemyBulletsUpdateBulletPositionsTypeIndexPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
+
+    EnemyBulletsUpdateEnemyBullets *enemy_bullets_update_sheet                 = EnemyBulletsUpdateEnemyBulletsPrt(enemy_bullets_update);
+    EnemyBulletsUpdateEnemyBulletsSpawnCount *enemy_bullets_update_spawn_count = EnemyBulletsUpdateEnemyBulletsSpawnCountPrt(enemy_bullets_update, enemy_bullets_update_sheet);
 
     f32 bullet_end_length = 5.0f * max(kEnemyInstancesWidth, kEnemyInstancesHeight);
 
@@ -102,39 +98,49 @@ enemy_bullets_spawn(EnemyInstances* enemy_instances, EnemyBullets* enemy_bullets
                 expected_spawn_count += min(bullet_quantity - 1, (u8)(fmodf(time_start, bullet_time_loop) / bullet_time_delay));
             }
 
-            u8 actual_spawn_count = g_enemy_bullets_spawn_count[(wave_instance_index * kEnemyBulletsMaxEnemyBulletTypesPerEnemyType) + i];
+            EnemyBulletsUpdateEnemyBulletsSpawnCount *enemy_bullets_spawn_count = &enemy_bullets_update_spawn_count[wave_instance_index];
+
+            u8 actual_spawn_count = enemy_bullets_spawn_count->SpawnCount[i];
             
             if (expected_spawn_count <= actual_spawn_count)
             {
                 continue;
             }
 
-            g_enemy_bullets_positions[g_enemy_bullets_next_index] = spawn_position;
-            g_enemy_bullets_end_positions[g_enemy_bullets_next_index] = end_position;
-            g_enemy_bullets_type_index[g_enemy_bullets_next_index] = bullet_type_index;
+            enemy_bullets_update_positions[enemy_bullets_update->BulletPositionsCount] = spawn_position;
+            enemy_bullets_update_end_positions[enemy_bullets_update->BulletPositionsCount] = end_position;
+            enemy_bullets_update_type_index[enemy_bullets_update->BulletPositionsCount] = bullet_type_index;
 
-            g_enemy_bullets_next_index = (g_enemy_bullets_next_index + 1) % kEnemyBulletsEnemyBulletsMaxInstanceCount;
-            g_enemy_bullets_wave_spawn_count++;
-            g_enemy_bullets_spawn_count[(wave_instance_index * kEnemyBulletsMaxEnemyBulletTypesPerEnemyType) + i]++;
+            enemy_bullets_update->BulletPositionsCount = (enemy_bullets_update->BulletPositionsCount + 1) % kEnemyBulletsUpdateEnemyBulletsMaxInstanceCount;
+            enemy_bullets_update->WaveSpawnCount++;
+            enemy_bullets_spawn_count->SpawnCount[i]++;
         }
     }
 }
 
 static void
-enemy_bullets_move(EnemyBullets* enemy_bullets, f32 delta)
+enemy_bullets_move(EnemyBulletsUpdateContext *context, f32 delta)
 {
+    EnemyBullets* enemy_bullets              = context->EnemyBulletsBin;
+    EnemyBulletsUpdate *enemy_bullets_update = context->Root;
+
+    EnemyBulletsUpdateBulletPositions *enemy_bullet_update_positions_sheet = EnemyBulletsUpdateBulletPositionsPrt(enemy_bullets_update);
+    v2 *enemy_bullets_positions                                            = (v2 *)EnemyBulletsUpdateBulletPositionsCurrentPositionPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
+    v2 *enemy_bullets_end_positions                                        = (v2 *)EnemyBulletsUpdateBulletPositionsEndPositionPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
+    uint8_t *enemy_bullets_type_index                                      = EnemyBulletsUpdateBulletPositionsTypeIndexPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
+
     EnemyBulletsBulletTypes *enemy_bullet_types_sheet = EnemyBulletsBulletTypesPrt(enemy_bullets);
 
     u8 *enemy_bullet_types_radius_q8         = EnemyBulletsBulletTypesRadiusQ8Prt(enemy_bullets, enemy_bullet_types_sheet);
     u8 *enemy_bullet_types_movement_speed_q4 = EnemyBulletsBulletTypesMovementSpeedQ4Prt(enemy_bullets, enemy_bullet_types_sheet);
    
-    s32 update_count = min(kEnemyBulletsEnemyBulletsMaxInstanceCount, g_enemy_bullets_wave_spawn_count);
+    s32 update_count = min(kEnemyBulletsUpdateEnemyBulletsMaxInstanceCount, enemy_bullets_update->WaveSpawnCount);
     
     for (s32 i = 0; i < update_count; i++)
     {
-        v2 bullet_position     = g_enemy_bullets_positions[i];
-        v2 bullet_end_position = g_enemy_bullets_end_positions[i];
-        u8 bullet_type_index   = g_enemy_bullets_type_index[i];
+        v2 bullet_position     = enemy_bullets_positions[i];
+        v2 bullet_end_position = enemy_bullets_end_positions[i];
+        u8 bullet_type_index   = enemy_bullets_type_index[i];
 
         u8 bullet_radius_q8 = enemy_bullet_types_radius_q8[bullet_type_index];
         f32 bullet_radius   = ((f32)bullet_radius_q8) * kQ8ToFloat;
@@ -159,24 +165,29 @@ enemy_bullets_move(EnemyBullets* enemy_bullets, f32 delta)
         v2 move_v        = v2_scale(dv, enemy_bullet_frame_move_dist / dv_length);
         v2 move_position = v2_add(bullet_position, move_v);
 
-        g_enemy_bullets_positions[i] = move_position;
+        enemy_bullets_positions[i] = move_position;
     }
 }
 
 static void
-enemy_bullets_update(EnemyInstances* enemy_instances, EnemyBullets* enemy_bullets, f32 delta)
+enemy_bullets_update(EnemyBulletsUpdateContext *context, f32 delta)
 {
+    EnemyBulletsUpdate *enemy_bullets_update = context->Root;
+
+    EnemyBulletsUpdateEnemyBullets *enemy_bullets_update_sheet                 = EnemyBulletsUpdateEnemyBulletsPrt(enemy_bullets_update);
+    EnemyBulletsUpdateEnemyBulletsSpawnCount *enemy_bullets_update_spawn_count = EnemyBulletsUpdateEnemyBulletsSpawnCountPrt(enemy_bullets_update, enemy_bullets_update_sheet);
+
     u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
 
-    if (flat_wave_index != g_enemy_bullets_last_flat_wave_index)
+    if (flat_wave_index != enemy_bullets_update->LastFlatWaveIndex)
     {
-        memset(g_enemy_bullets_spawn_count, 0, kEnemyInstancesMaxInstancesPerWave * kEnemyBulletsMaxEnemyBulletTypesPerEnemyType);
-        g_enemy_bullets_next_index = 0;
-        g_enemy_bullets_wave_spawn_count = 0;
+        memset(enemy_bullets_update_spawn_count, 0, kEnemyBulletsUpdateMaxEnemyBulletTypesPerEnemyType * kEnemyBulletsUpdateMaxInstancesPerWave);
+        enemy_bullets_update->WaveSpawnCount = 0;
+        enemy_bullets_update->BulletPositionsCount = 0;
 
-        g_enemy_bullets_last_flat_wave_index = flat_wave_index;
+        enemy_bullets_update->LastFlatWaveIndex = flat_wave_index;
     }
 
-    enemy_bullets_spawn(enemy_instances, enemy_bullets);
-    enemy_bullets_move(enemy_bullets, delta);
+    enemy_bullets_spawn(context);
+    enemy_bullets_move(context, delta);
 }

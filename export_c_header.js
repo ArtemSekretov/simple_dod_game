@@ -33,20 +33,16 @@ function buildCHeader(schema)
 	{
 		const exportTypes = {
 			constants:   [],
-			structs:     [],
+			packStructs: [],
+            structs:     [],
 			functions:   [],
-            refStructs:  []
+            refStructs:  [],
 		};
 		
 		const hasSheets = schema.hasOwnProperty('sheets');
         const hasVariables = schema.hasOwnProperty('variables');
 
 		const hasRootStruct = hasSheets || hasVariables;
-		
-		if(!hasRootStruct)
-		{
-			return exportTypes;
-		}
 		
         const rootStructName = undersoreToPascal(schema.meta.name);
 
@@ -129,7 +125,7 @@ function buildCHeader(schema)
                         valuableFields.push(field);
                     });
 
-                    exportTypes.structs.push({
+                    exportTypes.packStructs.push({
                         name: variableType,
                         fields: valuableFields
                     });                    
@@ -146,11 +142,14 @@ function buildCHeader(schema)
             });
         }
 
-		exportTypes.structs.push({
-			name: rootStructName,
-			fields: fields
-		});
-	    
+        if(hasRootStruct)
+        {
+            exportTypes.packStructs.push({
+                name: rootStructName,
+                fields: fields
+            });
+        }	   
+        
         if(schema.hasOwnProperty('ref'))
         {
             const contextStructName = `${rootStructName}Context`
@@ -191,7 +190,7 @@ function buildCHeader(schema)
 			
 			const sheetName = sheet.name;
 			
-			exportTypes.structs.push({
+			exportTypes.packStructs.push({
 				name: sheetStructName,
 				fields: columns.flatMap((column) => [ 
 					`${schema.meta.size} ${undersoreToPascal(column.name)}Offset` ])
@@ -268,7 +267,7 @@ function buildCHeader(schema)
                     fields.push(field);
                 });
 
-                exportTypes.structs.push({
+                exportTypes.packStructs.push({
                     name: columnStructName,
                     fields: fields
                 });
@@ -293,7 +292,10 @@ function buildCHeader(schema)
 		text += '\n';
 		
 		text += '#ifndef __cplusplus\n';
-		exportTypes.structs.forEach((struct) => {
+		exportTypes.packStructs.forEach((struct) => {
+			text += `typedef struct ${struct.name.padEnd(40, ' ')} ${struct.name};\n`;
+		});
+        exportTypes.structs.forEach((struct) => {
 			text += `typedef struct ${struct.name.padEnd(40, ' ')} ${struct.name};\n`;
 		});
         exportTypes.refStructs.forEach((struct) => {
@@ -302,31 +304,55 @@ function buildCHeader(schema)
 		text += '#endif\n';
 		text += '\n';
 		
-		exportTypes.constants.forEach((c) => {
-			text += `#define k${c.key.padEnd(40, ' ')} ${c.value}\n`;
-		});
-		
-		text += '\n';
-        text += '#pragma pack(push, 1)';
-        text += '\n';
+        if(exportTypes.constants.length > 0)
+        {
+            exportTypes.constants.forEach((c) => {
+                text += `#define k${c.key.padEnd(40, ' ')} ${c.value}\n`;
+            });
 
-		exportTypes.structs.forEach((struct) => {
-			text += `struct ${struct.name}`
-			text += '\n';
-			text += '{';
-			text += '\n';
-			struct.fields.forEach((field) => {
-				text += `  ${field};`;
-				text += '\n';
-			});
-			text += '};'
-			text += '\n';
-		});
-        text += '#pragma pack(pop)';
+            text += '\n';
+        }
 
-		text += '\n';		
-		text += '\n';		
+        if(exportTypes.packStructs.length > 0)
+        {
+            text += '#pragma pack(push, 1)';
+            text += '\n';
+
+            exportTypes.packStructs.forEach((struct) => {
+                text += `struct ${struct.name}`
+                text += '\n';
+                text += '{';
+                text += '\n';
+                struct.fields.forEach((field) => {
+                    text += `  ${field};`;
+                    text += '\n';
+                });
+                text += '};'
+                text += '\n';
+            });
+            text += '#pragma pack(pop)';
+            text += '\n';
+            text += '\n';
+        }		
 		
+        if(exportTypes.structs.length > 0)
+        {
+            exportTypes.structs.forEach((struct) => {
+                text += `struct ${struct.name}`
+                text += '\n';
+                text += '{';
+                text += '\n';
+                struct.fields.forEach((field) => {
+                    text += `  ${field};`;
+                    text += '\n';
+                });
+                text += '};'
+                text += '\n';
+            });
+        
+            text += '\n';
+        }
+
 		exportTypes.functions.forEach((fun) => {
 			text += `static inline`
 			text += '\n';

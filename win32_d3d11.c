@@ -34,6 +34,7 @@
 #include "frame_data.h"
 #include "enemy_bullets.h"
 #include "enemy_bullets_update.h"
+#include "enemy_bullets_draw.h"
 
 #include "enemy_instances_update.c"
 #include "enemy_bullets_update.c"
@@ -789,16 +790,26 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     QueryPerformanceCounter(&c1);
 
 	MapFileData enemy_instances_map_data = CreateMapFile("enemy_instances.bin", MapFilePermitions_Read);
-	EnemyInstances* enemy_instances      = (EnemyInstances *)enemy_instances_map_data.data;
+	EnemyInstances *enemy_instances      = (EnemyInstances *)enemy_instances_map_data.data;
 	
     MapFileData enemy_bullets_map_data = CreateMapFile("enemy_bullets.bin", MapFilePermitions_Read);
-	EnemyBullets* enemy_bullets        = (EnemyBullets *)enemy_bullets_map_data.data;
+	EnemyBullets *enemy_bullets        = (EnemyBullets *)enemy_bullets_map_data.data;
 
     MapFileData frame_data_map_data = CreateMapFile("frame_data.bin", MapFilePermitions_ReadWriteCopy);
-    FrameData* frame_data           = (FrameData *)frame_data_map_data.data;
+    FrameData *frame_data           = (FrameData *)frame_data_map_data.data;
 
     MapFileData enemy_bullets_update_map_data = CreateMapFile("enemy_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
-    EnemyBulletsUpdate* enemy_bullets_update_data  = (EnemyBulletsUpdate *)enemy_bullets_update_map_data.data;
+    EnemyBulletsUpdate *enemy_bullets_update_data  = (EnemyBulletsUpdate *)enemy_bullets_update_map_data.data;
+
+    EnemyBulletsUpdateContext enemy_bullets_update_context;
+    enemy_bullets_update_context.Root              = enemy_bullets_update_data;
+    enemy_bullets_update_context.EnemyBulletsBin   = enemy_bullets;
+    enemy_bullets_update_context.EnemyInstancesBin = enemy_instances;
+
+    EnemyBulletsDrawContext enemy_bullets_draw_context;
+    enemy_bullets_draw_context.EnemyBulletsBin       = enemy_bullets;
+    enemy_bullets_draw_context.EnemyBulletsUpdateBin = enemy_bullets_update_data;
+    enemy_bullets_draw_context.FrameDataBin          = frame_data;
 
     f64 time = 0.0;
 
@@ -835,10 +846,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 			c1 = c2;
 
             enemy_instances_update(enemy_instances, delta);
-            enemy_bullets_update(enemy_instances, enemy_bullets, delta);
+            enemy_bullets_update(&enemy_bullets_update_context, delta);
 
             enemy_instances_draw(enemy_instances, frame_data);
-            enemy_bullets_draw(enemy_bullets, frame_data);
+            enemy_bullets_draw(&enemy_bullets_draw_context);
 
             time += delta;
 		}

@@ -21,7 +21,7 @@ variables:
       type: uint8_t
 
 sheets:
- - name: bullets
+ - name: bullet_positions
    capacity: enemy_bullets_max_instance_count
    columns:
     - name: current_position
