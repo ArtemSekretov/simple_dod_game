@@ -1,8 +1,12 @@
 
 static void
-enemy_instances_draw(EnemyInstances* enemy_instances, FrameData *frame_data)
+enemy_instances_draw(EnemyInstancesDrawContext *context)
 {
-    u64 enemy_instances_live = g_enemy_instances_live;
+    FrameData *frame_data                        = context->FrameDataBin;
+    EnemyInstances *enemy_instances              = context->EnemyInstancesBin;
+    EnemyInstancesUpdate *enemy_instances_update = context->EnemyInstancesUpdateBin;
+
+    u64 enemy_instances_live = enemy_instances_update->InstancesLive;
     u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
@@ -18,7 +22,10 @@ enemy_instances_draw(EnemyInstances* enemy_instances, FrameData *frame_data)
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
-    for (u8 wave_instance_index = 0; wave_instance_index < g_wave_instances_spawned_count; wave_instance_index++)
+    EnemyInstancesUpdateEnemyPositions *enemy_instances_update_positions_sheet = EnemyInstancesUpdateEnemyPositionsPrt(enemy_instances_update);
+    v2 *enemy_instances_positions                                              = (v2 *)EnemyInstancesUpdateEnemyPositionsPositionsPrt(enemy_instances_update, enemy_instances_update_positions_sheet);
+
+    for (u8 wave_instance_index = 0; wave_instance_index < enemy_instances_update->EnemyPositionsCount; wave_instance_index++)
     {
         if ((enemy_instances_live & (1ULL << wave_instance_index)) == 0)
         {
@@ -31,7 +38,7 @@ enemy_instances_draw(EnemyInstances* enemy_instances, FrameData *frame_data)
         u8 radius_q4 = enemy_radius_q4[flat_enemy_variation_index];
         f32 radius = ((f32)radius_q4) * kQ4ToFloat;
 
-        v2 enemy_instance_position = g_enemy_instances_positions[wave_instance_index];
+        v2 enemy_instance_position = enemy_instances_positions[wave_instance_index];
 
         FrameDataFrameDataObjectData *object_data = object_data_column + frame_data->FrameDataCount;
 

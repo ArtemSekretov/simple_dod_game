@@ -35,6 +35,8 @@
 #include "enemy_bullets.h"
 #include "enemy_bullets_update.h"
 #include "enemy_bullets_draw.h"
+#include "enemy_instances_update.h"
+#include "enemy_instances_draw.h"
 
 #include "enemy_instances_update.c"
 #include "enemy_bullets_update.c"
@@ -780,7 +782,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     f32 projection_matrix[16] = { 0 };
     setup_projection_matrix(projection_matrix, game_area);
 
-	DirectX11State directxState = InitDirectX11(window, projection_matrix);
+	DirectX11State directx_state = InitDirectX11(window, projection_matrix);
 
     // show the window
     ShowWindow(window, SW_SHOWDEFAULT);
@@ -798,18 +800,31 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     MapFileData frame_data_map_data = CreateMapFile("frame_data.bin", MapFilePermitions_ReadWriteCopy);
     FrameData *frame_data           = (FrameData *)frame_data_map_data.data;
 
-    MapFileData enemy_bullets_update_map_data = CreateMapFile("enemy_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
-    EnemyBulletsUpdate *enemy_bullets_update_data  = (EnemyBulletsUpdate *)enemy_bullets_update_map_data.data;
+    MapFileData enemy_bullets_update_map_data     = CreateMapFile("enemy_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
+    EnemyBulletsUpdate *enemy_bullets_update_data = (EnemyBulletsUpdate *)enemy_bullets_update_map_data.data;
+
+    MapFileData enemy_instances_update_map_data       = CreateMapFile("enemy_instances_update.bin", MapFilePermitions_ReadWriteCopy);
+    EnemyInstancesUpdate *enemy_instances_update_data = (EnemyInstancesUpdate *)enemy_instances_update_map_data.data;
 
     EnemyBulletsUpdateContext enemy_bullets_update_context;
-    enemy_bullets_update_context.Root              = enemy_bullets_update_data;
-    enemy_bullets_update_context.EnemyBulletsBin   = enemy_bullets;
-    enemy_bullets_update_context.EnemyInstancesBin = enemy_instances;
+    enemy_bullets_update_context.Root                    = enemy_bullets_update_data;
+    enemy_bullets_update_context.EnemyBulletsBin         = enemy_bullets;
+    enemy_bullets_update_context.EnemyInstancesBin       = enemy_instances;
+    enemy_bullets_update_context.EnemyInstancesUpdateBin = enemy_instances_update_data;
 
     EnemyBulletsDrawContext enemy_bullets_draw_context;
     enemy_bullets_draw_context.EnemyBulletsBin       = enemy_bullets;
     enemy_bullets_draw_context.EnemyBulletsUpdateBin = enemy_bullets_update_data;
     enemy_bullets_draw_context.FrameDataBin          = frame_data;
+
+    EnemyInstancesUpdateContext enemy_instances_update_context;
+    enemy_instances_update_context.Root              = enemy_instances_update_data;
+    enemy_instances_update_context.EnemyInstancesBin = enemy_instances;
+
+    EnemyInstancesDrawContext enemy_instances_draw_context;
+    enemy_instances_draw_context.EnemyInstancesBin       = enemy_instances;
+    enemy_instances_draw_context.EnemyInstancesUpdateBin = enemy_instances_update_data;
+    enemy_instances_draw_context.FrameDataBin            = frame_data;
 
     f64 time = 0.0;
 
@@ -845,20 +860,21 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 			f32 delta = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
 			c1 = c2;
 
-            enemy_instances_update(enemy_instances, delta);
+            enemy_instances_update(&enemy_instances_update_context, delta);
             enemy_bullets_update(&enemy_bullets_update_context, delta);
 
-            enemy_instances_draw(enemy_instances, frame_data);
+            enemy_instances_draw(&enemy_instances_draw_context);
             enemy_bullets_draw(&enemy_bullets_draw_context);
 
             time += delta;
 		}
 
-		EndFrameDirectX11(&directxState, frame_data);
+		EndFrameDirectX11(&directx_state, frame_data);
     }
 
 	CloseMapFile(&enemy_instances_map_data);
 	CloseMapFile(&enemy_bullets_map_data);
 	CloseMapFile(&frame_data_map_data);
 	CloseMapFile(&enemy_bullets_update_map_data);
+	CloseMapFile(&enemy_instances_update_map_data);
 }

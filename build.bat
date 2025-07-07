@@ -27,6 +27,12 @@ where /q node && (
 
     node export_c_header.js enemy_bullets_draw.schema.yml generated/enemy_bullets_draw.h
 
+    node export_c_header.js enemy_instances_update.schema.yml generated/enemy_instances_update.h
+    node export_runtime_binary.js enemy_instances_update.schema.yml build/enemy_instances_update.bin
+    node export_imhex_pattern.js enemy_instances_update.schema.yml generated/enemy_instances_update.hexpat
+
+    node export_c_header.js enemy_instances_draw.schema.yml generated/enemy_instances_draw.h
+
 	pushd build
 
 	where /q cl && (

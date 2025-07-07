@@ -257,7 +257,8 @@ function buildImHexPattern(schema)
 				'int16_t' : 's16',
 				'uint32_t': 'u32',
 				'int32_t' : 's32',
-				'float'   : 'float'
+				'float'   : 'float',
+                'uint64_t': 'u64',
 			}				
 			return typeMap[type];
 		}

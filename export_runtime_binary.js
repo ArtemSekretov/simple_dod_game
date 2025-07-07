@@ -360,6 +360,19 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 					return [...byte_array];
 				}
 				break;
+                case 'uint64_t':
+				{
+					const u64_buffer = new ArrayBuffer(8 * values.length);
+					const u32_array  = new Uint32Array(u64_buffer);
+					const byte_array = new Uint8Array(u64_buffer);
+					values.forEach((value, index) => {
+						u32_array[(index * 2) + 0] = value >>> 0;
+                        u32_array[(index * 2) + 1] = 0;
+					});
+					
+					return [...byte_array];
+				}
+				break;
 			}
 		}
 	}

@@ -52,3 +52,5 @@ ref:
    type: enemy_bullets
  - name: enemy_instances_bin
    type: enemy_instances
+ - name: enemy_instances_update_bin
+   type: enemy_instances_update

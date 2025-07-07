@@ -1,9 +1,10 @@
 static void
 enemy_bullets_spawn(EnemyBulletsUpdateContext *context)
 {
-    EnemyInstances *enemy_instances          = context->EnemyInstancesBin;
-    EnemyBullets *enemy_bullets              = context->EnemyBulletsBin;
-    EnemyBulletsUpdate *enemy_bullets_update = context->Root;
+    EnemyInstances *enemy_instances              = context->EnemyInstancesBin;
+    EnemyInstancesUpdate *enemy_instances_update = context->EnemyInstancesUpdateBin;
+    EnemyBullets *enemy_bullets                  = context->EnemyBulletsBin;
+    EnemyBulletsUpdate *enemy_bullets_update     = context->Root;
 
     u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
 
@@ -36,11 +37,14 @@ enemy_bullets_spawn(EnemyBulletsUpdateContext *context)
     EnemyBulletsUpdateEnemyBullets *enemy_bullets_update_sheet                 = EnemyBulletsUpdateEnemyBulletsPrt(enemy_bullets_update);
     EnemyBulletsUpdateEnemyBulletsSpawnCount *enemy_bullets_update_spawn_count = EnemyBulletsUpdateEnemyBulletsSpawnCountPrt(enemy_bullets_update, enemy_bullets_update_sheet);
 
+    EnemyInstancesUpdateEnemyPositions *enemy_instances_update_positions_sheet = EnemyInstancesUpdateEnemyPositionsPrt(enemy_instances_update);
+    v2 *enemy_instances_positions                                              = (v2 *)EnemyInstancesUpdateEnemyPositionsPositionsPrt(enemy_instances_update, enemy_instances_update_positions_sheet);
+
     f32 bullet_end_length = 5.0f * max(kEnemyInstancesWidth, kEnemyInstancesHeight);
 
-    for (u8 wave_instance_index = 0; wave_instance_index < g_wave_instances_spawned_count; wave_instance_index++)
+    for (u8 wave_instance_index = 0; wave_instance_index < enemy_instances_update->EnemyPositionsCount; wave_instance_index++)
     {
-        if ((g_enemy_instances_live & (1ULL << wave_instance_index)) == 0)
+        if ((enemy_instances_update->InstancesLive & (1ULL << wave_instance_index)) == 0)
         {
             continue;
         }
@@ -51,9 +55,9 @@ enemy_bullets_spawn(EnemyBulletsUpdateContext *context)
         u16 start_time_q4 = enemy_instances_start_time_q4[enemy_instances_index];
         f32 start_time = ((f32)start_time_q4) * kQ4ToFloat;
 
-        f32 enemy_instance_time = g_wave_time - start_time;
+        f32 enemy_instance_time = enemy_instances_update->WaveTime - start_time;
 
-        v2 enemy_instance_position = g_enemy_instances_positions[wave_instance_index];
+        v2 enemy_instance_position = enemy_instances_positions[wave_instance_index];
 
         EnemyInstancesEnemyTypesEnemyBulletTypes enemy_bullets_type = enemy_types_enemy_bullet_types[enemy_index];
 

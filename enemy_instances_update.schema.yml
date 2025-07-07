@@ -1,0 +1,39 @@
+meta:
+ name: enemy_instances_update
+ size: uint16_t
+
+constants:
+ - name: max_instance_count
+   value: 64
+
+variables:
+ - name: instances_live
+   types:
+    - name: instances_live
+      type: uint64_t
+ - name: wave_spawn_last_time
+   types:
+    - name: wave_spawn_last_time
+      type: float
+ - name: wave_time
+   types:
+    - name: wave_time
+      type: float
+
+sheets:
+ - name: enemy_positions
+   capacity: max_instance_count
+   columns:
+    - name: positions
+      sources:
+       - name: positions
+         type: float
+         count: 2
+    - name: way_point_index
+      sources:
+       - name: way_point_index
+         type: uint8_t
+
+ref:
+ - name: enemy_instances_bin
+   type: enemy_instances
