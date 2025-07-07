@@ -33,6 +33,10 @@ where /q node && (
 
     node export_c_header.js enemy_instances_draw.schema.yml generated/enemy_instances_draw.h
 
+    node export_c_header.js game_state.schema.yml generated/game_state.h
+    node export_runtime_binary.js game_state.schema.yml build/game_state.bin
+    node export_imhex_pattern.js game_state.schema.yml generated/game_state.hexpat
+
 	pushd build
 
 	where /q cl && (

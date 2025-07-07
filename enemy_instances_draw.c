@@ -5,9 +5,10 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
     FrameData *frame_data                        = context->FrameDataBin;
     EnemyInstances *enemy_instances              = context->EnemyInstancesBin;
     EnemyInstancesUpdate *enemy_instances_update = context->EnemyInstancesUpdateBin;
+    GameState *game_state                        = context->GameStateBin;
 
     u64 enemy_instances_live = enemy_instances_update->InstancesLive;
-    u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
+    u8 flat_wave_index = (game_state->LevelIndex << 2) + enemy_instances_update->WaveIndex;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesEnemyInstances *enemy_instances_sheet  = EnemyInstancesEnemyInstancesPrt(enemy_instances);

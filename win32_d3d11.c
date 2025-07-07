@@ -30,6 +30,8 @@
 #include "types.h"
 #include "math.h"
 
+#include "game_state.h"
+
 #include "enemy_instances.h"
 #include "frame_data.h"
 #include "enemy_bullets.h"
@@ -787,9 +789,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     // show the window
     ShowWindow(window, SW_SHOWDEFAULT);
 
-    LARGE_INTEGER freq, c1;
-    QueryPerformanceFrequency(&freq);
-    QueryPerformanceCounter(&c1);
+    MapFileData game_state_map_data = CreateMapFile("game_state.bin", MapFilePermitions_ReadWriteCopy);
+    GameState *game_state           = (GameState *)game_state_map_data.data;
 
 	MapFileData enemy_instances_map_data = CreateMapFile("enemy_instances.bin", MapFilePermitions_Read);
 	EnemyInstances *enemy_instances      = (EnemyInstances *)enemy_instances_map_data.data;
@@ -811,6 +812,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     enemy_bullets_update_context.EnemyBulletsBin         = enemy_bullets;
     enemy_bullets_update_context.EnemyInstancesBin       = enemy_instances;
     enemy_bullets_update_context.EnemyInstancesUpdateBin = enemy_instances_update_data;
+    enemy_bullets_update_context.GameStateBin            = game_state;
 
     EnemyBulletsDrawContext enemy_bullets_draw_context;
     enemy_bullets_draw_context.EnemyBulletsBin       = enemy_bullets;
@@ -820,15 +822,21 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     EnemyInstancesUpdateContext enemy_instances_update_context;
     enemy_instances_update_context.Root              = enemy_instances_update_data;
     enemy_instances_update_context.EnemyInstancesBin = enemy_instances;
+    enemy_instances_update_context.GameStateBin      = game_state;
 
     EnemyInstancesDrawContext enemy_instances_draw_context;
     enemy_instances_draw_context.EnemyInstancesBin       = enemy_instances;
     enemy_instances_draw_context.EnemyInstancesUpdateBin = enemy_instances_update_data;
     enemy_instances_draw_context.FrameDataBin            = frame_data;
+    enemy_instances_draw_context.GameStateBin            = game_state;
 
-    f64 time = 0.0;
+    game_state->Time = 0.0;
 
     f32 game_aspect = game_area.x / game_area.y;
+
+    LARGE_INTEGER freq, c1;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&c1);
 
     for (;;)
     {
@@ -857,16 +865,18 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 		{
 			LARGE_INTEGER c2;
 			QueryPerformanceCounter(&c2);
-			f32 delta = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
+			game_state->TimeDelta = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
 			c1 = c2;
 
-            enemy_instances_update(&enemy_instances_update_context, delta);
-            enemy_bullets_update(&enemy_bullets_update_context, delta);
+            enemy_instances_update(&enemy_instances_update_context);
+            enemy_bullets_update(&enemy_bullets_update_context);
 
             enemy_instances_draw(&enemy_instances_draw_context);
             enemy_bullets_draw(&enemy_bullets_draw_context);
 
-            time += delta;
+            game_state->Time += game_state->TimeDelta;
+            game_state->PlayTime += game_state->TimeDelta;
+            game_state->FrameCounter++;
 		}
 
 		EndFrameDirectX11(&directx_state, frame_data);
@@ -877,4 +887,5 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 	CloseMapFile(&frame_data_map_data);
 	CloseMapFile(&enemy_bullets_update_map_data);
 	CloseMapFile(&enemy_instances_update_map_data);
+	CloseMapFile(&game_state_map_data);
 }

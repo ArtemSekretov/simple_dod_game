@@ -1,9 +1,4 @@
 
-u8  g_level_index = 0;
-u8  g_wave_index  = 0;
-
-u8  g_player_grid_x = 0;
-
 static v2 
 spawn_position(u8 index, EnemyInstancesSpawnPointsXYQ4 *spawn_points_xy_q4, v2 *enemy_instances_positions)
 {
@@ -25,8 +20,9 @@ enemy_instances_spawn(EnemyInstancesUpdateContext *context)
 {
     EnemyInstances *enemy_instances              = context->EnemyInstancesBin;
     EnemyInstancesUpdate *enemy_instances_update = context->Root;
+    GameState *game_state                        = context->GameStateBin;
 
-    u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
+    u8 flat_wave_index = (game_state->LevelIndex << 2) + enemy_instances_update->WaveIndex;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesEnemyInstances *enemy_instances_sheet  = EnemyInstancesEnemyInstancesPrt(enemy_instances);
@@ -73,12 +69,13 @@ enemy_instances_spawn(EnemyInstancesUpdateContext *context)
 }
 
 static void
-enemy_instances_move(EnemyInstancesUpdateContext *context, f32 delta)
+enemy_instances_move(EnemyInstancesUpdateContext *context)
 {
     EnemyInstances *enemy_instances              = context->EnemyInstancesBin;
     EnemyInstancesUpdate *enemy_instances_update = context->Root;
+    GameState *game_state                        = context->GameStateBin;
 
-    u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
+    u8 flat_wave_index = (game_state->LevelIndex << 2) + enemy_instances_update->WaveIndex;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet          = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesEnemyInstances *enemy_instances_sheet           = EnemyInstancesEnemyInstancesPrt(enemy_instances);
@@ -117,10 +114,10 @@ enemy_instances_move(EnemyInstancesUpdateContext *context, f32 delta)
 
         u8  movement_speed_q4 = enemy_movement_speed_q4[enemy_index];
         f32 movement_speed = ((f32)movement_speed_q4) * kQ4ToFloat;
-        f32 frame_move_dist = movement_speed * delta;
+        f32 frame_move_dist = movement_speed * game_state->TimeDelta;
 
         s8 way_point_path_id = enemy_instance_way_point_path_index[enemy_instances_index];
-        u8 way_point_path_index = ((u8)abs(way_point_path_id)) + (g_player_grid_x & (way_point_path_id < 0));
+        u8 way_point_path_index = ((u8)abs(way_point_path_id)) + (game_state->PlayerGridX & (way_point_path_id < 0));
 
         EnemyInstancesWayPointPathsIndexWayPointPaths way_point_path_index_way_point = way_point_paths_index[way_point_path_index];
         
@@ -181,8 +178,9 @@ enemy_instances_next_wave(EnemyInstancesUpdateContext *context)
 {
     EnemyInstances *enemy_instances              = context->EnemyInstancesBin;
     EnemyInstancesUpdate *enemy_instances_update = context->Root;
+    GameState *game_state                        = context->GameStateBin;
 
-    u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
+    u8 flat_wave_index = (game_state->LevelIndex << 2) + enemy_instances_update->WaveIndex;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesLevelWaveIndexLevelWave *level_wave_index_instance = EnemyInstancesLevelWaveIndexLevelWavePrt(enemy_instances, level_wave_index_sheet);
@@ -198,26 +196,27 @@ enemy_instances_next_wave(EnemyInstancesUpdateContext *context)
         return;
     }
 
-    g_wave_index++;
+    enemy_instances_update->WaveIndex++;
     enemy_instances_update->WaveSpawnLastTime   = 0.0f;
     enemy_instances_update->WaveTime            = 0.0f;
     enemy_instances_update->EnemyPositionsCount = 0;
 }
 
 static void
-enemy_instances_update(EnemyInstancesUpdateContext *context, f32 delta)
+enemy_instances_update(EnemyInstancesUpdateContext *context)
 {  
     EnemyInstances *enemy_instances              = context->EnemyInstancesBin;
     EnemyInstancesUpdate *enemy_instances_update = context->Root;
+    GameState *game_state                        = context->GameStateBin;
 
-    u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
+    u8 flat_wave_index = (game_state->LevelIndex << 2) + enemy_instances_update->WaveIndex;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesLevelWaveIndexLevelWave *level_wave_index_instance = EnemyInstancesLevelWaveIndexLevelWavePrt(enemy_instances, level_wave_index_sheet);
     EnemyInstancesLevelWaveIndexLevelWave wave_instance = level_wave_index_instance[flat_wave_index];
 
     b32 is_empty_wave = wave_instance.EnemyInstancesCount == 0;
-    b32 is_all_waves_complete = g_wave_index == kEnemyInstancesMaxWavesPerLevel;
+    b32 is_all_waves_complete = enemy_instances_update->WaveIndex == kEnemyInstancesMaxWavesPerLevel;
 
     if (is_empty_wave || is_all_waves_complete)
     {
@@ -225,8 +224,8 @@ enemy_instances_update(EnemyInstancesUpdateContext *context, f32 delta)
     }
 
     enemy_instances_spawn(context);
-    enemy_instances_move(context, delta);
+    enemy_instances_move(context);
 
-    enemy_instances_update->WaveTime += delta;
+    enemy_instances_update->WaveTime += game_state->TimeDelta;
     enemy_instances_next_wave(context);
 }

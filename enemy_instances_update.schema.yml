@@ -19,6 +19,10 @@ variables:
    types:
     - name: wave_time
       type: float
+ - name: wave_index
+   types:
+    - name: wave_index
+      type: uint8_t
 
 sheets:
  - name: enemy_positions
@@ -37,3 +41,5 @@ sheets:
 ref:
  - name: enemy_instances_bin
    type: enemy_instances
+ - name: game_state_bin
+   type: game_state

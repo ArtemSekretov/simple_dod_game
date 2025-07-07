@@ -1,0 +1,33 @@
+meta:
+ name: game_state
+ size: uint16_t
+
+variables:
+ - name: frame_counter
+   types:
+    - name: frame_counter
+      type: int64_t
+ - name: time_delta
+   types:
+    - name: time_delta
+      type: float
+ - name: play_time
+   types:
+    - name: play_time
+      type: float
+ - name: time
+   types:
+    - name: time
+      type: double
+ - name: state
+   types:
+    - name: state
+      type: uint32_t
+ - name: level_index
+   types:
+    - name: level_index
+      type: uint8_t
+ - name: player_grid_x
+   types:
+    - name: player_grid_x
+      type: uint8_t

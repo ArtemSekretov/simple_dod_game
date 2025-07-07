@@ -372,6 +372,31 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 					
 					return [...byte_array];
 				}
+                case 'int64_t':
+				{
+					const s64_buffer = new ArrayBuffer(8 * values.length);
+					const s32_array  = new Int32Array(s64_buffer);
+					const byte_array = new Uint8Array(s64_buffer);
+					values.forEach((value, index) => {
+						s32_array[(index * 2) + 0] = value >>> 0;
+                        s32_array[(index * 2) + 1] = 0;
+					});
+					
+					return [...byte_array];
+				}
+				break;
+                case 'double':
+				{
+					const f64_buffer = new ArrayBuffer(8 * values.length);
+					const f32_array  = new Float32Array(f64_buffer);
+					const byte_array = new Uint8Array(f64_buffer);
+					values.forEach((value, index) => {
+						f32_array[(index * 2) + 0] = value;
+						f32_array[(index * 2) + 1] = 0;
+					});
+					
+					return [...byte_array];
+				}
 				break;
 			}
 		}

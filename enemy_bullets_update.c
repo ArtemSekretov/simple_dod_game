@@ -5,8 +5,9 @@ enemy_bullets_spawn(EnemyBulletsUpdateContext *context)
     EnemyInstancesUpdate *enemy_instances_update = context->EnemyInstancesUpdateBin;
     EnemyBullets *enemy_bullets                  = context->EnemyBulletsBin;
     EnemyBulletsUpdate *enemy_bullets_update     = context->Root;
+    GameState *game_state                        = context->GameStateBin;
 
-    u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
+    u8 flat_wave_index = (game_state->LevelIndex << 2) + enemy_instances_update->WaveIndex;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet  = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesEnemyInstances *enemy_instances_sheet   = EnemyInstancesEnemyInstancesPrt(enemy_instances);
@@ -123,10 +124,11 @@ enemy_bullets_spawn(EnemyBulletsUpdateContext *context)
 }
 
 static void
-enemy_bullets_move(EnemyBulletsUpdateContext *context, f32 delta)
+enemy_bullets_move(EnemyBulletsUpdateContext *context)
 {
     EnemyBullets* enemy_bullets              = context->EnemyBulletsBin;
     EnemyBulletsUpdate *enemy_bullets_update = context->Root;
+    GameState *game_state                    = context->GameStateBin;
 
     EnemyBulletsUpdateBulletPositions *enemy_bullet_update_positions_sheet = EnemyBulletsUpdateBulletPositionsPrt(enemy_bullets_update);
     v2 *enemy_bullets_positions                                            = (v2 *)EnemyBulletsUpdateBulletPositionsCurrentPositionPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
@@ -162,7 +164,7 @@ enemy_bullets_move(EnemyBulletsUpdateContext *context, f32 delta)
             continue;
         }
 
-        f32 enemy_bullet_frame_move_dist = delta * bullet_movement_speed;
+        f32 enemy_bullet_frame_move_dist = game_state->TimeDelta * bullet_movement_speed;
 
         v2 dv            = v2_sub(bullet_end_position, bullet_position);
         f32 dv_length    = v2_length(dv);
@@ -174,14 +176,16 @@ enemy_bullets_move(EnemyBulletsUpdateContext *context, f32 delta)
 }
 
 static void
-enemy_bullets_update(EnemyBulletsUpdateContext *context, f32 delta)
+enemy_bullets_update(EnemyBulletsUpdateContext *context)
 {
-    EnemyBulletsUpdate *enemy_bullets_update = context->Root;
+    EnemyBulletsUpdate *enemy_bullets_update     = context->Root;
+    EnemyInstancesUpdate *enemy_instances_update = context->EnemyInstancesUpdateBin;
+    GameState *game_state                        = context->GameStateBin;
 
     EnemyBulletsUpdateEnemyBullets *enemy_bullets_update_sheet                 = EnemyBulletsUpdateEnemyBulletsPrt(enemy_bullets_update);
     EnemyBulletsUpdateEnemyBulletsSpawnCount *enemy_bullets_update_spawn_count = EnemyBulletsUpdateEnemyBulletsSpawnCountPrt(enemy_bullets_update, enemy_bullets_update_sheet);
 
-    u8 flat_wave_index = (g_level_index << 2) + g_wave_index;
+    u8 flat_wave_index = (game_state->LevelIndex << 2) + enemy_instances_update->WaveIndex;
 
     if (flat_wave_index != enemy_bullets_update->LastFlatWaveIndex)
     {
@@ -193,5 +197,5 @@ enemy_bullets_update(EnemyBulletsUpdateContext *context, f32 delta)
     }
 
     enemy_bullets_spawn(context);
-    enemy_bullets_move(context, delta);
+    enemy_bullets_move(context);
 }
