@@ -48,8 +48,8 @@ sheets:
          count: max_enemy_bullet_types_per_enemy_type
 
 ref:
- - name: enemy_bullets_bin
-   type: enemy_bullets
+ - name: source_bullets_bin
+   type: source_bullets
  - name: enemy_instances_bin
    type: enemy_instances
  - name: enemy_instances_update_bin

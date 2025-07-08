@@ -34,7 +34,7 @@
 
 #include "enemy_instances.h"
 #include "frame_data.h"
-#include "enemy_bullets.h"
+#include "source_bullets.h"
 #include "enemy_bullets_update.h"
 #include "enemy_bullets_draw.h"
 #include "enemy_instances_update.h"
@@ -796,7 +796,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 	EnemyInstances *enemy_instances      = (EnemyInstances *)enemy_instances_map_data.data;
 	
     MapFileData enemy_bullets_map_data = CreateMapFile("enemy_bullets.bin", MapFilePermitions_Read);
-	EnemyBullets *enemy_bullets        = (EnemyBullets *)enemy_bullets_map_data.data;
+	SourceBullets *enemy_bullets        = (SourceBullets *)enemy_bullets_map_data.data;
 
     MapFileData frame_data_map_data = CreateMapFile("frame_data.bin", MapFilePermitions_ReadWriteCopy);
     FrameData *frame_data           = (FrameData *)frame_data_map_data.data;
@@ -809,13 +809,13 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 
     EnemyBulletsUpdateContext enemy_bullets_update_context;
     enemy_bullets_update_context.Root                    = enemy_bullets_update_data;
-    enemy_bullets_update_context.EnemyBulletsBin         = enemy_bullets;
+    enemy_bullets_update_context.SourceBulletsBin        = enemy_bullets;
     enemy_bullets_update_context.EnemyInstancesBin       = enemy_instances;
     enemy_bullets_update_context.EnemyInstancesUpdateBin = enemy_instances_update_data;
     enemy_bullets_update_context.GameStateBin            = game_state;
 
     EnemyBulletsDrawContext enemy_bullets_draw_context;
-    enemy_bullets_draw_context.EnemyBulletsBin       = enemy_bullets;
+    enemy_bullets_draw_context.SourceBulletsBin      = enemy_bullets;
     enemy_bullets_draw_context.EnemyBulletsUpdateBin = enemy_bullets_update_data;
     enemy_bullets_draw_context.FrameDataBin          = frame_data;
 

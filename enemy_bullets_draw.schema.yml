@@ -3,8 +3,8 @@ meta:
  size: uint16_t
 
 ref:
- - name: enemy_bullets_bin
-   type: enemy_bullets
+ - name: source_bullets_bin
+   type: source_bullets
  - name: enemy_bullets_update_bin
    type: enemy_bullets_update
  - name: frame_data_bin

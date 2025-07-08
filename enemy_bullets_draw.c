@@ -3,15 +3,15 @@ static void
 enemy_bullets_draw(EnemyBulletsDrawContext *context)
 {
     EnemyBulletsUpdate *enemy_bullets_update = context->EnemyBulletsUpdateBin;
-    EnemyBullets *enemy_bullets              = context->EnemyBulletsBin;
+    SourceBullets *source_bullets            = context->SourceBulletsBin;
     FrameData *frame_data                    = context->FrameDataBin;
 
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
-    EnemyBulletsBulletTypes *enemy_bullet_types_sheet = EnemyBulletsBulletTypesPrt(enemy_bullets);
+    SourceBulletsBulletTypes *source_bullet_types_sheet = SourceBulletsBulletTypesPrt(source_bullets);
 
-    u8 *enemy_bullet_types_radius_q8         = EnemyBulletsBulletTypesRadiusQ8Prt(enemy_bullets, enemy_bullet_types_sheet);
+    u8 *source_bullet_types_radius_q8  = SourceBulletsBulletTypesRadiusQ8Prt(source_bullets, source_bullet_types_sheet);
    
     s32 draw_count = min(kEnemyBulletsUpdateEnemyBulletsMaxInstanceCount, enemy_bullets_update->WaveSpawnCount);
     
@@ -24,7 +24,7 @@ enemy_bullets_draw(EnemyBulletsDrawContext *context)
         v2 bullet_position   = enemy_bullets_positions[i];
         u8 bullet_type_index = enemy_bullets_type_index[i];
 
-        u8 bullet_radius_q8 = enemy_bullet_types_radius_q8[bullet_type_index];
+        u8 bullet_radius_q8 = source_bullet_types_radius_q8[bullet_type_index];
         f32 bullet_radius   = ((f32)bullet_radius_q8) * kQ8ToFloat;
 
         if ((fabsf(bullet_position.x) - bullet_radius) > kEnemyInstancesHalfWidth)

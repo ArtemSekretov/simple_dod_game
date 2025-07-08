@@ -1,9 +1,9 @@
 meta:
- name: enemy_bullets
+ name: source_bullets
  size: uint16_t
 
 sheets:
- - name: enemy_bullet_types
+ - name: source_bullet_types
    columns:
     - name: local_x_y_q7
       sources: 
@@ -40,4 +40,12 @@ sheets:
     - name: movement_speed_q4
       sources: 
        - name: movement_speed_q4
+         type: uint8_t
+ - name: source_types
+   columns:
+    - name: source_bullet_types
+      sources: 
+       - name: source_bullet_type_start_index
+         type: uint8_t
+       - name: source_bullet_type_count
          type: uint8_t

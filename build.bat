@@ -9,7 +9,7 @@ where /q node && (
 	IF NOT EXIST build mkdir build
     IF NOT EXIST generated mkdir generated
 
-	node export_runtime_binary.js enemy_instances.schema.yml build/enemy_instances.bin simple_dod_game.xlsx
+	node export_runtime_binary.js enemy_instances.schema.yml build/enemy_instances.bin enemy_instances.xlsx
 	node export_imhex_pattern.js enemy_instances.schema.yml generated/enemy_instances.hexpat
 	node export_c_header.js enemy_instances.schema.yml generated/enemy_instances.h
 	
@@ -17,9 +17,10 @@ where /q node && (
     node export_imhex_pattern.js frame_data.schema.yml generated/frame_data.hexpat
     node export_c_header.js frame_data.schema.yml generated/frame_data.h
 
-    node export_runtime_binary.js enemy_bullets.schema.yml build/enemy_bullets.bin simple_dod_game.xlsx
-    node export_imhex_pattern.js enemy_bullets.schema.yml generated/enemy_bullets.hexpat
-    node export_c_header.js enemy_bullets.schema.yml generated/enemy_bullets.h
+    node export_runtime_binary.js source_bullets.schema.yml build/enemy_bullets.bin enemy_bullets.xlsx
+    node export_runtime_binary.js source_bullets.schema.yml build/hero_bullets.bin hero_bullets.xlsx
+    node export_imhex_pattern.js source_bullets.schema.yml generated/source_bullets.hexpat
+    node export_c_header.js source_bullets.schema.yml generated/source_bullets.h
 
     node export_c_header.js enemy_bullets_update.schema.yml generated/enemy_bullets_update.h
     node export_runtime_binary.js enemy_bullets_update.schema.yml build/enemy_bullets_update.bin
