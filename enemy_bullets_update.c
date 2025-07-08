@@ -21,14 +21,14 @@ enemy_bullets_spawn(EnemyBulletsUpdateContext *context)
     SourceBulletsSourceTypes *source_bullets_types_sheet      = SourceBulletsSourceTypesPrt(source_bullets);
     SourceBulletsSourceBulletTypes *source_bullet_types_sheet = SourceBulletsSourceBulletTypesPrt(source_bullets);
 
-    SourceBulletsSourceTypesSourceBulletTypes *enemy_types_enemy_bullet_types = SourceBulletsSourceTypesSourceBulletTypesPrt(source_bullets, source_bullets_types_sheet);
+    SourceBulletsSourceTypesSourceBulletTypes *source_types_enemy_bullet_types = SourceBulletsSourceTypesSourceBulletTypesPrt(source_bullets, source_bullets_types_sheet);
 
-    SourceBulletsSourceBulletTypesLocalXYQ7 *enemy_bullets_local_positions_q7 = SourceBulletsSourceBulletTypesLocalXYQ7Prt(source_bullets, source_bullet_types_sheet);
-    u8 *enemy_bullets_time_cast_q4  = SourceBulletsSourceBulletTypesTimeCastQ4Prt(source_bullets, source_bullet_types_sheet);
-    u8 *enemy_bullets_time_loop_q4  = SourceBulletsSourceBulletTypesTimeLoopQ4Prt(source_bullets, source_bullet_types_sheet);
-    u8 *enemy_bullets_time_delay_q4 = SourceBulletsSourceBulletTypesTimeDelayQ4Prt(source_bullets, source_bullet_types_sheet);
-    u8 *enemy_bullets_type_quantity = SourceBulletsSourceBulletTypesQuantityPrt(source_bullets, source_bullet_types_sheet);
-    u8 *enemy_bullets_type_index    = SourceBulletsSourceBulletTypesBulletTypeIndexPrt(source_bullets, source_bullet_types_sheet);
+    SourceBulletsSourceBulletTypesLocalXYQ7 *source_bullets_local_positions_q7 = SourceBulletsSourceBulletTypesLocalXYQ7Prt(source_bullets, source_bullet_types_sheet);
+    u8 *source_bullets_time_cast_q4  = SourceBulletsSourceBulletTypesTimeCastQ4Prt(source_bullets, source_bullet_types_sheet);
+    u8 *source_bullets_time_loop_q4  = SourceBulletsSourceBulletTypesTimeLoopQ4Prt(source_bullets, source_bullet_types_sheet);
+    u8 *source_bullets_time_delay_q4 = SourceBulletsSourceBulletTypesTimeDelayQ4Prt(source_bullets, source_bullet_types_sheet);
+    u8 *source_bullets_type_quantity = SourceBulletsSourceBulletTypesQuantityPrt(source_bullets, source_bullet_types_sheet);
+    u8 *source_bullets_type_index    = SourceBulletsSourceBulletTypesBulletTypeIndexPrt(source_bullets, source_bullet_types_sheet);
 
     EnemyBulletsUpdateBulletPositions *enemy_bullet_update_positions_sheet = EnemyBulletsUpdateBulletPositionsPrt(enemy_bullets_update);
     v2 *enemy_bullets_update_positions                                     = (v2 *)EnemyBulletsUpdateBulletPositionsCurrentPositionPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
@@ -60,13 +60,13 @@ enemy_bullets_spawn(EnemyBulletsUpdateContext *context)
 
         v2 enemy_instance_position = enemy_instances_positions[wave_instance_index];
 
-        SourceBulletsSourceTypesSourceBulletTypes enemy_bullets_type = enemy_types_enemy_bullet_types[enemy_index];
+        SourceBulletsSourceTypesSourceBulletTypes source_bullets_type = source_types_enemy_bullet_types[enemy_index];
 
-        for (u8 i = 0; i < enemy_bullets_type.SourceBulletTypeCount; i++)
+        for (u8 i = 0; i < source_bullets_type.SourceBulletTypeCount; i++)
         {
-            u8 enemy_bullet_index = enemy_bullets_type.SourceBulletTypeStartIndex + i;
+            u8 source_bullet_index = source_bullets_type.SourceBulletTypeStartIndex + i;
 
-            SourceBulletsSourceBulletTypesLocalXYQ7 bullet_local_position_q7 = enemy_bullets_local_positions_q7[enemy_bullet_index];
+            SourceBulletsSourceBulletTypesLocalXYQ7 bullet_local_position_q7 = source_bullets_local_positions_q7[source_bullet_index];
             v2 local_position = V2(((f32)bullet_local_position_q7.LocalXQ7) * kQ7ToFloat,
                                    ((f32)bullet_local_position_q7.LocalYQ7) * kQ7ToFloat);
 
@@ -76,17 +76,17 @@ enemy_bullets_spawn(EnemyBulletsUpdateContext *context)
             v2 spawn_position = v2_add(enemy_instance_position, local_position);
             v2 end_position = v2_add(enemy_instance_position, end_vector);
 
-            u8 bullet_time_cast_q4 = enemy_bullets_time_cast_q4[enemy_bullet_index];
+            u8 bullet_time_cast_q4 = source_bullets_time_cast_q4[source_bullet_index];
             f32 bullet_time_cast = ((f32)bullet_time_cast_q4) * kQ4ToFloat;
 
-            u8 bullet_time_loop_q4 = enemy_bullets_time_loop_q4[enemy_bullet_index];
+            u8 bullet_time_loop_q4 = source_bullets_time_loop_q4[source_bullet_index];
             f32 bullet_time_loop = ((f32)bullet_time_loop_q4) * kQ4ToFloat;
 
-            u8 bullet_time_delay_q4 = enemy_bullets_time_delay_q4[enemy_bullet_index];
+            u8 bullet_time_delay_q4 = source_bullets_time_delay_q4[source_bullet_index];
             f32 bullet_time_delay = ((f32)bullet_time_delay_q4) * kQ4ToFloat;
 
-            u8 bullet_quantity = enemy_bullets_type_quantity[enemy_bullet_index];
-            u8 bullet_type_index = enemy_bullets_type_index[enemy_bullet_index];
+            u8 bullet_quantity = source_bullets_type_quantity[source_bullet_index];
+            u8 bullet_type_index = source_bullets_type_index[source_bullet_index];
        
             f32 time_start = enemy_instance_time - bullet_time_cast;
 
@@ -135,10 +135,10 @@ enemy_bullets_move(EnemyBulletsUpdateContext *context)
     v2 *enemy_bullets_end_positions                                        = (v2 *)EnemyBulletsUpdateBulletPositionsEndPositionPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
     uint8_t *enemy_bullets_type_index                                      = EnemyBulletsUpdateBulletPositionsTypeIndexPrt(enemy_bullets_update, enemy_bullet_update_positions_sheet);
 
-    SourceBulletsBulletTypes *enemy_bullet_types_sheet = SourceBulletsBulletTypesPrt(source_bullets);
+    SourceBulletsBulletTypes *source_bullet_types_sheet = SourceBulletsBulletTypesPrt(source_bullets);
 
-    u8 *enemy_bullet_types_radius_q8         = SourceBulletsBulletTypesRadiusQ8Prt(source_bullets, enemy_bullet_types_sheet);
-    u8 *enemy_bullet_types_movement_speed_q4 = SourceBulletsBulletTypesMovementSpeedQ4Prt(source_bullets, enemy_bullet_types_sheet);
+    u8 *source_bullet_types_radius_q8         = SourceBulletsBulletTypesRadiusQ8Prt(source_bullets, source_bullet_types_sheet);
+    u8 *source_bullet_types_movement_speed_q4 = SourceBulletsBulletTypesMovementSpeedQ4Prt(source_bullets, source_bullet_types_sheet);
    
     s32 update_count = min(kEnemyBulletsUpdateEnemyBulletsMaxInstanceCount, enemy_bullets_update->WaveSpawnCount);
     
@@ -148,10 +148,10 @@ enemy_bullets_move(EnemyBulletsUpdateContext *context)
         v2 bullet_end_position = enemy_bullets_end_positions[i];
         u8 bullet_type_index   = enemy_bullets_type_index[i];
 
-        u8 bullet_radius_q8 = enemy_bullet_types_radius_q8[bullet_type_index];
+        u8 bullet_radius_q8 = source_bullet_types_radius_q8[bullet_type_index];
         f32 bullet_radius   = ((f32)bullet_radius_q8) * kQ8ToFloat;
 
-        u8 bullet_movement_speed_q4 = enemy_bullet_types_movement_speed_q4[bullet_type_index];
+        u8 bullet_movement_speed_q4 = source_bullet_types_movement_speed_q4[bullet_type_index];
         f32 bullet_movement_speed   = ((f32)bullet_movement_speed_q4) * kQ4ToFloat;
 
         if ((fabsf(bullet_position.x) - bullet_radius) > kEnemyInstancesHalfWidth)
@@ -164,11 +164,11 @@ enemy_bullets_move(EnemyBulletsUpdateContext *context)
             continue;
         }
 
-        f32 enemy_bullet_frame_move_dist = game_state->TimeDelta * bullet_movement_speed;
+        f32 source_bullet_frame_move_dist = game_state->TimeDelta * bullet_movement_speed;
 
         v2 dv            = v2_sub(bullet_end_position, bullet_position);
         f32 dv_length    = v2_length(dv);
-        v2 move_v        = v2_scale(dv, enemy_bullet_frame_move_dist / dv_length);
+        v2 move_v        = v2_scale(dv, source_bullet_frame_move_dist / dv_length);
         v2 move_position = v2_add(bullet_position, move_v);
 
         enemy_bullets_positions[i] = move_position;
