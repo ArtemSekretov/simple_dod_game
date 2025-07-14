@@ -1,5 +1,5 @@
 meta:
- name: source_bullets
+ name: bullets
  size: uint16_t
 
 sheets:

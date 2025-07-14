@@ -1,0 +1,11 @@
+meta:
+ name: bullets_draw
+ size: uint16_t
+
+ref:
+ - name: bullets_bin
+   type: bullets
+ - name: bullets_update_bin
+   type: bullets_update
+ - name: frame_data_bin
+   type: frame_data

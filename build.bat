@@ -17,16 +17,16 @@ where /q node && (
     node export_imhex_pattern.js frame_data.schema.yml generated/frame_data.hexpat
     node export_c_header.js frame_data.schema.yml generated/frame_data.h
 
-    node export_runtime_binary.js source_bullets.schema.yml build/enemy_bullets.bin enemy_bullets.xlsx
-    node export_runtime_binary.js source_bullets.schema.yml build/hero_bullets.bin hero_bullets.xlsx
-    node export_imhex_pattern.js source_bullets.schema.yml generated/source_bullets.hexpat
-    node export_c_header.js source_bullets.schema.yml generated/source_bullets.h
+    node export_runtime_binary.js bullets.schema.yml build/enemy_bullets.bin enemy_bullets.xlsx
+    node export_runtime_binary.js bullets.schema.yml build/hero_bullets.bin hero_bullets.xlsx
+    node export_imhex_pattern.js bullets.schema.yml generated/bullets.hexpat
+    node export_c_header.js bullets.schema.yml generated/bullets.h
 
-    node export_c_header.js enemy_bullets_update.schema.yml generated/enemy_bullets_update.h
-    node export_runtime_binary.js enemy_bullets_update.schema.yml build/enemy_bullets_update.bin
-    node export_imhex_pattern.js enemy_bullets_update.schema.yml generated/enemy_bullets_update.hexpat
+    node export_c_header.js bullets_update.schema.yml generated/bullets_update.h
+    node export_runtime_binary.js bullets_update.schema.yml build/enemy_bullets_update.bin
+    node export_imhex_pattern.js bullets_update.schema.yml generated/bullets_update.hexpat
 
-    node export_c_header.js enemy_bullets_draw.schema.yml generated/enemy_bullets_draw.h
+    node export_c_header.js bullets_draw.schema.yml generated/bullets_draw.h
 
     node export_c_header.js enemy_instances_update.schema.yml generated/enemy_instances_update.h
     node export_runtime_binary.js enemy_instances_update.schema.yml build/enemy_instances_update.bin

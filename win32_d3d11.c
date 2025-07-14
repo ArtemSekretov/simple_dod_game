@@ -34,16 +34,19 @@
 
 #include "enemy_instances.h"
 #include "frame_data.h"
-#include "source_bullets.h"
-#include "enemy_bullets_update.h"
-#include "enemy_bullets_draw.h"
+
+#include "bullets.h"
+#include "bullets_update.h"
+#include "bullets_draw.h"
+
 #include "enemy_instances_update.h"
 #include "enemy_instances_draw.h"
 
 #include "enemy_instances_update.c"
-#include "enemy_bullets_update.c"
 #include "enemy_instances_draw.c"
-#include "enemy_bullets_draw.c"
+
+#include "bullets_update.c"
+#include "bullets_draw.c"
 
 #define AssertHR(hr) Assert(SUCCEEDED(hr))
 
@@ -796,28 +799,31 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 	EnemyInstances *enemy_instances      = (EnemyInstances *)enemy_instances_map_data.data;
 	
     MapFileData enemy_bullets_map_data = CreateMapFile("enemy_bullets.bin", MapFilePermitions_Read);
-	SourceBullets *enemy_bullets        = (SourceBullets *)enemy_bullets_map_data.data;
+	Bullets *enemy_bullets             = (Bullets *)enemy_bullets_map_data.data;
+
+    MapFileData hero_bullets_map_data = CreateMapFile("hero_bullets.bin", MapFilePermitions_Read);
+	Bullets *hero_bullets             = (Bullets *)hero_bullets_map_data.data;
 
     MapFileData frame_data_map_data = CreateMapFile("frame_data.bin", MapFilePermitions_ReadWriteCopy);
     FrameData *frame_data           = (FrameData *)frame_data_map_data.data;
 
-    MapFileData enemy_bullets_update_map_data     = CreateMapFile("enemy_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
-    EnemyBulletsUpdate *enemy_bullets_update_data = (EnemyBulletsUpdate *)enemy_bullets_update_map_data.data;
+    MapFileData enemy_bullets_update_map_data = CreateMapFile("enemy_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
+    BulletsUpdate *enemy_bullets_update_data  = (BulletsUpdate *)enemy_bullets_update_map_data.data;
 
     MapFileData enemy_instances_update_map_data       = CreateMapFile("enemy_instances_update.bin", MapFilePermitions_ReadWriteCopy);
     EnemyInstancesUpdate *enemy_instances_update_data = (EnemyInstancesUpdate *)enemy_instances_update_map_data.data;
 
-    EnemyBulletsUpdateContext enemy_bullets_update_context;
+    BulletsUpdateContext enemy_bullets_update_context;
     enemy_bullets_update_context.Root                    = enemy_bullets_update_data;
-    enemy_bullets_update_context.SourceBulletsBin        = enemy_bullets;
+    enemy_bullets_update_context.BulletsBin              = enemy_bullets;
     enemy_bullets_update_context.EnemyInstancesBin       = enemy_instances;
     enemy_bullets_update_context.EnemyInstancesUpdateBin = enemy_instances_update_data;
     enemy_bullets_update_context.GameStateBin            = game_state;
 
-    EnemyBulletsDrawContext enemy_bullets_draw_context;
-    enemy_bullets_draw_context.SourceBulletsBin      = enemy_bullets;
-    enemy_bullets_draw_context.EnemyBulletsUpdateBin = enemy_bullets_update_data;
-    enemy_bullets_draw_context.FrameDataBin          = frame_data;
+    BulletsDrawContext enemy_bullets_draw_context;
+    enemy_bullets_draw_context.BulletsBin       = enemy_bullets;
+    enemy_bullets_draw_context.BulletsUpdateBin = enemy_bullets_update_data;
+    enemy_bullets_draw_context.FrameDataBin     = frame_data;
 
     EnemyInstancesUpdateContext enemy_instances_update_context;
     enemy_instances_update_context.Root              = enemy_instances_update_data;
@@ -869,10 +875,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 			c1 = c2;
 
             enemy_instances_update(&enemy_instances_update_context);
-            enemy_bullets_update(&enemy_bullets_update_context);
+            bullets_update(&enemy_bullets_update_context);
 
             enemy_instances_draw(&enemy_instances_draw_context);
-            enemy_bullets_draw(&enemy_bullets_draw_context);
+            bullets_draw(&enemy_bullets_draw_context);
 
             game_state->Time += game_state->TimeDelta;
             game_state->PlayTime += game_state->TimeDelta;
@@ -884,6 +890,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 
 	CloseMapFile(&enemy_instances_map_data);
 	CloseMapFile(&enemy_bullets_map_data);
+	CloseMapFile(&hero_bullets_map_data);
 	CloseMapFile(&frame_data_map_data);
 	CloseMapFile(&enemy_bullets_update_map_data);
 	CloseMapFile(&enemy_instances_update_map_data);

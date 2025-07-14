@@ -1,11 +1,11 @@
 meta:
- name: enemy_bullets_update
+ name: bullets_update
  size: uint16_t
 
 constants:
- - name: enemy_bullets_max_instance_count
+ - name: source_bullets_max_instance_count
    value: 256
- - name: max_enemy_bullet_types_per_enemy_type
+ - name: max_source_bullet_types_per_source_type
    value: 16
  - name: max_instances_per_wave
    value: 64
@@ -22,7 +22,7 @@ variables:
 
 sheets:
  - name: bullet_positions
-   capacity: enemy_bullets_max_instance_count
+   capacity: source_bullets_max_instance_count
    columns:
     - name: current_position
       sources:
@@ -38,18 +38,18 @@ sheets:
       sources:
        - name: type_index
          type: uint8_t
- - name: enemy_bullets
+ - name: source_bullets
    capacity: max_instances_per_wave
    columns:
     - name: spawn_count
       sources:
        - name: spawn_count
          type: uint8_t
-         count: max_enemy_bullet_types_per_enemy_type
+         count: max_source_bullet_types_per_source_type
 
 ref:
- - name: source_bullets_bin
-   type: source_bullets
+ - name: bullets_bin
+   type: bullets
  - name: enemy_instances_bin
    type: enemy_instances
  - name: enemy_instances_update_bin
