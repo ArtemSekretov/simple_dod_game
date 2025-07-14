@@ -65,10 +65,15 @@ function buildCHeader(schema)
         {
 		    const sheets = schema.sheets;
             fields.push( ...sheets.flatMap((sheet) => 
-				[`${schema.meta.size} ${undersoreToPascal(sheet.name)}Count`,
-				 `${schema.meta.size} ${undersoreToPascal(sheet.name)}Offset`]) );
+				[`${schema.meta.size} ${undersoreToPascal(sheet.name)}CountOffset`,
+				 `${schema.meta.size} ${undersoreToPascal(sheet.name)}Offset`]) 
+            );
 
-             sheets.forEach( sheet => {
+            sheets.forEach( sheet => {
+            	exportTypes.functions.push({
+				    declaration: `${schema.meta.size} *${undersoreToPascal(sheet.name)}CountPrt(${rootStructName} *root)`,
+				    body: `return (${schema.meta.size} *)((uintptr_t)root + root->${undersoreToPascal(sheet.name)}CountOffset);`
+			    });
                 exportSheet(sheet, rootStructName, exportTypes);		
             });
         }

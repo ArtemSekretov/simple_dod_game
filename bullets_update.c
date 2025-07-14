@@ -43,7 +43,11 @@ bullets_spawn(BulletsUpdateContext *context)
 
     f32 bullet_end_length = 5.0f * max(kEnemyInstancesWidth, kEnemyInstancesHeight);
 
-    for (u8 wave_instance_index = 0; wave_instance_index < enemy_instances_update->EnemyPositionsCount; wave_instance_index++)
+    u16 enemy_positions_count = *EnemyPositionsCountPrt(enemy_instances_update);
+
+    u16 *bullet_positions_count_ptr = BulletPositionsCountPrt(bullets_update);
+
+    for (u8 wave_instance_index = 0; wave_instance_index < enemy_positions_count; wave_instance_index++)
     {
         if ((enemy_instances_update->InstancesLive & (1ULL << wave_instance_index)) == 0)
         {
@@ -112,11 +116,13 @@ bullets_spawn(BulletsUpdateContext *context)
                 continue;
             }
 
-            bullets_update_positions[bullets_update->BulletPositionsCount] = spawn_position;
-            bullets_update_end_positions[bullets_update->BulletPositionsCount] = end_position;
-            bullets_update_type_index[bullets_update->BulletPositionsCount] = bullet_type_index;
+            u16 bullet_positions_count = *bullet_positions_count_ptr;
 
-            bullets_update->BulletPositionsCount = (bullets_update->BulletPositionsCount + 1) % kBulletsUpdateSourceBulletsMaxInstanceCount;
+            bullets_update_positions[bullet_positions_count] = spawn_position;
+            bullets_update_end_positions[bullet_positions_count] = end_position;
+            bullets_update_type_index[bullet_positions_count] = bullet_type_index;
+
+            *bullet_positions_count_ptr = (bullet_positions_count + 1) % kBulletsUpdateSourceBulletsMaxInstanceCount;
             bullets_update->WaveSpawnCount++;
             bullets_spawn_count->SpawnCount[i]++;
         }
@@ -185,13 +191,15 @@ bullets_update(BulletsUpdateContext *context)
     BulletsUpdateSourceBullets *bullets_update_sheet                 = BulletsUpdateSourceBulletsPrt(bullets_update);
     BulletsUpdateSourceBulletsSpawnCount *bullets_update_spawn_count = BulletsUpdateSourceBulletsSpawnCountPrt(bullets_update, bullets_update_sheet);
 
+    u16 *bullet_positions_count_ptr = BulletPositionsCountPrt(bullets_update);
+
     u8 flat_wave_index = (game_state->LevelIndex << 2) + enemy_instances_update->WaveIndex;
 
     if (flat_wave_index != bullets_update->LastFlatWaveIndex)
     {
         memset(bullets_update_spawn_count, 0, kBulletsUpdateMaxSourceBulletTypesPerSourceType * kBulletsUpdateMaxInstancesPerWave);
         bullets_update->WaveSpawnCount = 0;
-        bullets_update->BulletPositionsCount = 0;
+        *bullet_positions_count_ptr = 0;
 
         bullets_update->LastFlatWaveIndex = flat_wave_index;
     }

@@ -125,8 +125,11 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 		{
 			const data = [];
 
-			const sheetName = sheet.name;
-			const offset    = dataSegmentOffset(exportDataSegments, sheetName);
+			const sheetName  = sheet.name;
+			const dataOffset = dataSegmentOffset(exportDataSegments, sheetName);
+
+            const countOffsetSegmentName = `${sheetName}Count`;
+            const countOffset = dataSegmentOffset(exportDataSegments, countOffsetSegmentName);
 
 			let rowCount          = 0;
 			let rowCapacity       = 0;
@@ -164,9 +167,24 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 				rowCapacity = Math.max(rowCapacity, resolveExpression(sheet.capacity)|0);
 			}
 			
-			data.push( ...bytesAsSize([rowCount, offset], schema.meta.size) );
+			data.push( ...bytesAsSize([countOffset, dataOffset], schema.meta.size) );
 			
-			if(offset == 0)
+            if(countOffset == 0)
+            {				
+				exportDataSegments.push( {
+					name: countOffsetSegmentName,
+					offset: 0,
+					getBytes: (exportDataSegments) => {
+						const data = [];
+
+						data.push( ...bytesAsSize([rowCount], schema.meta.size));
+						
+						return data;
+					}
+				});                
+            }
+
+			if(dataOffset == 0)
 			{
 				const columns = sheet.columns;
 				
@@ -186,6 +204,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 					}
 				});
 			}
+
 			return data;
 		}
 

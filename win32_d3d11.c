@@ -556,6 +556,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 		
         FrameDataFrameData* frame_data_sheet = FrameDataFrameDataPrt(frame_data);
         FrameDataFrameDataObjectData* object_data = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
+        u16 frame_data_count = *FrameDataCountPrt(frame_data);
 
         memcpy(mapped.pData, object_data, sizeof(FrameDataFrameDataObjectData) * kFrameDataMaxObjectDataCapacity);
 		ID3D11DeviceContext_Unmap(directx_state->context, (ID3D11Resource*)directx_state->objectBuffer, 0);
@@ -585,7 +586,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 		ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->rtView, directx_state->dsView);
 
 		// Draw objects with 6 vertices
-		ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, frame_data->FrameDataCount, 0, 0);
+		ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, frame_data_count, 0, 0);
 			
 	}
 
@@ -680,9 +681,11 @@ CloseMapFile(MapFileData *mapData)
 void
 begin_frame(FrameData *frame_data, f32 game_aspect, s32 screen_width, s32 screen_height)
 {
-    frame_data->Width          = screen_width;
-    frame_data->Height         = screen_height;
-    frame_data->FrameDataCount = 0;
+    u16 *frame_data_count_prt = FrameDataCountPrt(frame_data);
+
+    frame_data->Width     = screen_width;
+    frame_data->Height    = screen_height;
+    *frame_data_count_prt = 0;
 
     f32 window_aspect = (f32)frame_data->Width / frame_data->Height;
 

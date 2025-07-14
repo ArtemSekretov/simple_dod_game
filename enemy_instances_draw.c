@@ -23,10 +23,14 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
+    u16 *frame_data_count_ptr = FrameDataCountPrt(frame_data);
+
     EnemyInstancesUpdateEnemyPositions *enemy_instances_update_positions_sheet = EnemyInstancesUpdateEnemyPositionsPrt(enemy_instances_update);
     v2 *enemy_instances_positions                                              = (v2 *)EnemyInstancesUpdateEnemyPositionsPositionsPrt(enemy_instances_update, enemy_instances_update_positions_sheet);
 
-    for (u8 wave_instance_index = 0; wave_instance_index < enemy_instances_update->EnemyPositionsCount; wave_instance_index++)
+    u16 enemy_positions_count = *EnemyPositionsCountPrt(enemy_instances_update);
+
+    for (u8 wave_instance_index = 0; wave_instance_index < enemy_positions_count; wave_instance_index++)
     {
         if ((enemy_instances_live & (1ULL << wave_instance_index)) == 0)
         {
@@ -41,7 +45,8 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
 
         v2 enemy_instance_position = enemy_instances_positions[wave_instance_index];
 
-        FrameDataFrameDataObjectData *object_data = object_data_column + frame_data->FrameDataCount;
+        u16 frame_data_count = *frame_data_count_ptr;
+        FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
 
         object_data->PositionAndScale[0] = enemy_instance_position.x;
         object_data->PositionAndScale[1] = enemy_instance_position.y;
@@ -51,7 +56,6 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
         object_data->Color[1] = 1.0f;
         object_data->Color[2] = 1.0f;
 
-        frame_data->FrameDataCount = (frame_data->FrameDataCount + 1) % kFrameDataMaxObjectDataCapacity;
-
+        *frame_data_count_ptr = (frame_data_count + 1) % kFrameDataMaxObjectDataCapacity;
     }
 }

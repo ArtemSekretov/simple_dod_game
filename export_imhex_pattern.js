@@ -59,8 +59,10 @@ function buildImHexPattern(schema)
         {
 		    const sheets = schema.sheets;
             fields.push( ...sheets.flatMap((sheet) => 
-				[`${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Count`,
-				 `${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Offset`]) );
+				[`${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}CountOffset`,
+                 `${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Count @ ${undersoreToPascal(sheet.name)}CountOffset`,
+				 `${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Offset`]) 
+            );
 
             sheets.forEach( sheet => {
                 exportSheet(sheet, rootStructName, exportTypes);		

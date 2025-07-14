@@ -19,6 +19,8 @@ bullets_draw(BulletsDrawContext *context)
     v2 *bullets_positions                                       = (v2 *)BulletsUpdateBulletPositionsCurrentPositionPrt(bullets_update, bullet_update_positions_sheet);
     uint8_t *bullets_type_index                                 = BulletsUpdateBulletPositionsTypeIndexPrt(bullets_update, bullet_update_positions_sheet);
 
+    u16 *frame_data_count_ptr = FrameDataCountPrt(frame_data);
+
     for (s32 i = 0; i < draw_count; i++)
     {
         v2 bullet_position   = bullets_positions[i];
@@ -37,7 +39,9 @@ bullets_draw(BulletsDrawContext *context)
             continue;
         }
 
-        FrameDataFrameDataObjectData *object_data = object_data_column + frame_data->FrameDataCount;
+        u16 frame_data_count = *frame_data_count_ptr;
+
+        FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
 
         object_data->PositionAndScale[0] = bullet_position.x;
         object_data->PositionAndScale[1] = bullet_position.y;
@@ -47,7 +51,6 @@ bullets_draw(BulletsDrawContext *context)
         object_data->Color[1] = 0.0f;
         object_data->Color[2] = 0.0f;
 
-        frame_data->FrameDataCount = (frame_data->FrameDataCount + 1) % kFrameDataMaxObjectDataCapacity;
-
+        *frame_data_count_ptr = (frame_data_count + 1) % kFrameDataMaxObjectDataCapacity;
     }
 }
