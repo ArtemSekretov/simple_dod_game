@@ -31,16 +31,17 @@ fs.writeFileSync(outputFile, Buffer.from(data), 'binary')
 
 function buildRuntimeBinary(schema, sourceWorkbook)
 {
-	const exportDataSegments = [];
+	const exportDataSegmentOffsets = [];
 
-	exportSheets(exportDataSegments);
-	let data = exportSheets(exportDataSegments);
+	exportSheets();
+	let data = exportSheets();
 		
 	return data;
 
-	function exportSheets(exportDataSegments)
+	function exportSheets()
 	{
 		const data = [];
+        const exportDataSegments = [];
 
 		const hasSheets = schema.hasOwnProperty('sheets');
         const hasVariables = schema.hasOwnProperty('variables');
@@ -108,17 +109,14 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             });
         }
 
-		const reconstructedExportDataSeqments = [];
 		while(exportDataSegments.length)
 		{
 			const dataSegment = exportDataSegments.shift();
 			const dataSegmentOffset = data.length;
-			dataSegment.offset = dataSegmentOffset;
+			exportDataSegmentOffsets[dataSegment.name] = dataSegmentOffset;
 			data.push( ...dataSegment.getBytes(exportDataSegments));
-			reconstructedExportDataSeqments.push(dataSegment);
 		}
 
-		exportDataSegments.push( ...reconstructedExportDataSeqments);
 		return data;
 
 		function exportSheet(sheet, sourceWorksheet, exportDataSegments)
@@ -126,10 +124,10 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 			const data = [];
 
 			const sheetName  = sheet.name;
-			const dataOffset = dataSegmentOffset(exportDataSegments, sheetName);
+			const dataOffset = exportDataSegmentOffsets[sheetName]|0;
 
             const countOffsetSegmentName = `${sheetName}Count`;
-            const countOffset = dataSegmentOffset(exportDataSegments, countOffsetSegmentName);
+            const countOffset = exportDataSegmentOffsets[countOffsetSegmentName]|0;
 
 			let rowCount          = 0;
 			let rowCapacity       = 0;
@@ -168,146 +166,125 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 			}
 			
 			data.push( ...bytesAsSize([countOffset, dataOffset], schema.meta.size) );
-			
-            if(countOffset == 0)
-            {				
-				exportDataSegments.push( {
-					name: countOffsetSegmentName,
-					offset: 0,
-					getBytes: (exportDataSegments) => {
-						const data = [];
-
-						data.push( ...bytesAsSize([rowCount], schema.meta.size));
 						
-						return data;
-					}
-				});                
-            }
+            exportDataSegments.push( {
+                name: countOffsetSegmentName,
+                getBytes: (exportDataSegments) => {
+                    const data = [];
 
-			if(dataOffset == 0)
-			{
-				const columns = sheet.columns;
+                    data.push( ...bytesAsSize([rowCount], schema.meta.size));
+						
+                    return data;
+                }
+            });                
+            
+            const columns = sheet.columns;
 				
-				exportDataSegments.push( {
-					name: sheetName,
-					offset: 0,
-					getBytes: (exportDataSegments) => {
-						const data = [];
+            exportDataSegments.push( {
+                name: sheetName,
+                getBytes: (exportDataSegments) => {
+                    const data = [];
 
-						columns.forEach( column => {
-							const columnSegmentName = sheetName + ":" + column.name;
+                    columns.forEach( column => {
+                        const columnSegmentName = sheetName + ":" + column.name;
 							
-							data.push( ...exportColumn(columnSegmentName, rowCapacity, column, sourceSheetValues, sourceSheetHeader,  exportDataSegments));
-						});
+                        data.push( ...exportColumn(columnSegmentName, rowCapacity, column, sourceSheetValues, sourceSheetHeader,  exportDataSegments));
+                    });
 						
-						return data;
-					}
-				});
-			}
-
+                    return data;
+                }
+            });
+			
 			return data;
 		}
 
 		function exportColumn(columnSegmentName, rowCapacity, column, sourceSheetValues, sourceSheetHeader, exportDataSegments)
 		{
 			const data       = [];
-			const offset     = dataSegmentOffset(exportDataSegments, columnSegmentName);
+			const offset     = exportDataSegmentOffsets[columnSegmentName]|0;
 
 			data.push(...bytesAsSize([offset], schema.meta.size));
 			
-			if(offset == 0)
-			{
-				const sources = column.sources;
+            const sources = column.sources;
 				
-				const columnValues = [];
+            const columnValues = [];
 				
-				sources.forEach( (source) => {
-					let columnCount = 1;
-					if(source.hasOwnProperty('count'))
-					{
-						columnCount = resolveExpression(source.count)|0;
-					}
+            sources.forEach( (source) => {
+                let columnCount = 1;
+                if(source.hasOwnProperty('count'))
+                {
+                    columnCount = resolveExpression(source.count)|0;
+                }
 									
-					const elementCapacity = rowCapacity * columnCount;
+                const elementCapacity = rowCapacity * columnCount;
 
-					let values = new Array(elementCapacity).fill(0);
+                let values = new Array(elementCapacity).fill(0);
 					
-					if(sourceSheetValues)
-					{				
-						const sourceColumnName  = undersoreToPascal(source.name);
-						const sourceColumnIndex = sourceSheetHeader.indexOf(sourceColumnName);
-						if(sourceColumnIndex == -1)
-						{
-							console.log(`Column ${sourceColumnName} not found`);
-						}
-						else
-						{
-							const filterColumnIndex = sourceSheetHeader.indexOf('ExportFilter');
-							if(filterColumnIndex == -1)
-							{
-								sourceSheetValues.forEach( (row, i) => {
-									values[i] = row[sourceColumnIndex];
-								});
-							}
-							else
-							{
-								let index = 0;
-								sourceSheetValues.forEach( (row) => {
-									if(row[filterColumnIndex])
-									{
-										values[index] = row[sourceColumnIndex];
-										index += 1;	
-									}
-								});						
-							}
-						}
-					}
+                if(sourceSheetValues)
+                {				
+                    const sourceColumnName  = undersoreToPascal(source.name);
+                    const sourceColumnIndex = sourceSheetHeader.indexOf(sourceColumnName);
+                    if(sourceColumnIndex == -1)
+                    {
+                        console.log(`Column ${sourceColumnName} not found`);
+                    }
+                    else
+                    {
+                        const filterColumnIndex = sourceSheetHeader.indexOf('ExportFilter');
+                        if(filterColumnIndex == -1)
+                        {
+                            sourceSheetValues.forEach( (row, i) => {
+                                values[i] = row[sourceColumnIndex];
+                            });
+                        }
+                        else
+                        {
+                            let index = 0;
+                            sourceSheetValues.forEach( (row) => {
+                                if(row[filterColumnIndex])
+                                {
+                                    values[index] = row[sourceColumnIndex];
+                                    index += 1;	
+                                }
+                            });						
+                        }
+                    }
+                }
 					
-					columnValues.push({
-						values: values,
-						type: source.type,
-                        count: columnCount
-					});
-				});
-				exportDataSegments.push( {
-					name: columnSegmentName,
-					offset: 0,
-					getBytes: (exportDataSegments) => {
-						if (columnValues.length == 1)
-						{
-							return bytesAsSize(columnValues[0].values, columnValues[0].type);
-						}
-						else
-						{
-							const data = [];
+                columnValues.push({
+                    values: values,
+                    type: source.type,
+                    count: columnCount
+                });
+            });
+            exportDataSegments.push( {
+                name: columnSegmentName,
+                getBytes: (exportDataSegments) => {
+                    if (columnValues.length == 1)
+                    {
+                        return bytesAsSize(columnValues[0].values, columnValues[0].type);
+                    }
+                    else
+                    {
+                        const data = [];
 							
-							for(let i = 0; i < rowCapacity; i++)
-							{
-								for(let v = 0; v < columnValues.length; v++)
-								{
-									const value = columnValues[v];
-                                    const index = i * value.count;
-                                    const slice = value.values.slice(index, index + value.count);
-                                    data.push( ...bytesAsSize(slice, value.type));
-								}
-							}
+                        for(let i = 0; i < rowCapacity; i++)
+                        {
+                            for(let v = 0; v < columnValues.length; v++)
+                            {
+                                const value = columnValues[v];
+                                const index = i * value.count;
+                                const slice = value.values.slice(index, index + value.count);
+                                data.push( ...bytesAsSize(slice, value.type));
+                            }
+                        }
 							
-							return data;
-						}
-					}
-				});
-			}
+                        return data;
+                    }
+                }
+            });
+			
 			return data;
-		}
-
-		function dataSegmentOffset(exportDataSegments, dataSegmentName)
-		{
-			const dataSegmentIndex = exportDataSegments.findIndex( dataSegment => dataSegment.name ==  dataSegmentName);
-			if(dataSegmentIndex != -1)
-			{
-				return exportDataSegments[dataSegmentIndex].offset;
-			}
-			return 0;
 		}
 
 		function bytesAsSize(values, size)
