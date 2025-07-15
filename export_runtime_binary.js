@@ -32,10 +32,28 @@ fs.writeFileSync(outputFile, Buffer.from(data), 'binary')
 function buildRuntimeBinary(schema, sourceWorkbook)
 {
 	const exportDataSegmentOffsets = [];
+    const relocationTable = [];
 
-	exportSheets();
 	let data = exportSheets();
-		
+	
+    relocationTable.forEach( relocation => {
+        let offset = relocation.offset;
+        const size = relocation.size;
+
+        relocation.names.forEach( name => {
+            const segmentOffset = exportDataSegmentOffsets[name]|0;
+            
+            const bytes = bytesAsSize([segmentOffset], size);
+
+            for(let i = 0; i < bytes.length; i++)
+            {
+                data[offset + i] = bytes[i];
+            }
+
+            offset += bytes.length;
+        });
+    });
+
 	return data;
 
 	function exportSheets()
@@ -73,7 +91,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 					}
 				}
 				
-				data.push( ...exportSheet(sheet, sourceWorksheet, exportDataSegments) );		
+				exportSheet(data, sheet, sourceWorksheet, exportDataSegments);		
 			});
 		}
 
@@ -114,20 +132,18 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 			const dataSegment = exportDataSegments.shift();
 			const dataSegmentOffset = data.length;
 			exportDataSegmentOffsets[dataSegment.name] = dataSegmentOffset;
-			data.push( ...dataSegment.getBytes(exportDataSegments));
+			dataSegment.getBytes(data, exportDataSegments);
 		}
 
 		return data;
 
-		function exportSheet(sheet, sourceWorksheet, exportDataSegments)
+		function exportSheet(data, sheet, sourceWorksheet, exportDataSegments)
 		{
-			const data = [];
-
 			const sheetName  = sheet.name;
-			const dataOffset = exportDataSegmentOffsets[sheetName]|0;
+			const dataOffset = 0;
 
             const countOffsetSegmentName = `${sheetName}Count`;
-            const countOffset = exportDataSegmentOffsets[countOffsetSegmentName]|0;
+            const countOffset = 0;
 
 			let rowCount          = 0;
 			let rowCapacity       = 0;
@@ -165,16 +181,18 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 				rowCapacity = Math.max(rowCapacity, resolveExpression(sheet.capacity)|0);
 			}
 			
+            relocationTable.push({
+                offset: data.length,
+                names: [countOffsetSegmentName, sheetName],
+                size: schema.meta.size
+            });
+
 			data.push( ...bytesAsSize([countOffset, dataOffset], schema.meta.size) );
 						
             exportDataSegments.push( {
                 name: countOffsetSegmentName,
-                getBytes: (exportDataSegments) => {
-                    const data = [];
-
+                getBytes: (data, exportDataSegments) => {
                     data.push( ...bytesAsSize([rowCount], schema.meta.size));
-						
-                    return data;
                 }
             });                
             
@@ -182,26 +200,25 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 				
             exportDataSegments.push( {
                 name: sheetName,
-                getBytes: (exportDataSegments) => {
-                    const data = [];
-
+                getBytes: (data, exportDataSegments) => { 
                     columns.forEach( column => {
                         const columnSegmentName = sheetName + ":" + column.name;
 							
-                        data.push( ...exportColumn(columnSegmentName, rowCapacity, column, sourceSheetValues, sourceSheetHeader,  exportDataSegments));
+                        exportColumn(data, columnSegmentName, rowCapacity, column, sourceSheetValues, sourceSheetHeader, exportDataSegments);
                     });
-						
-                    return data;
                 }
             });
-			
-			return data;
 		}
 
-		function exportColumn(columnSegmentName, rowCapacity, column, sourceSheetValues, sourceSheetHeader, exportDataSegments)
+		function exportColumn(data, columnSegmentName, rowCapacity, column, sourceSheetValues, sourceSheetHeader, exportDataSegments)
 		{
-			const data       = [];
-			const offset     = exportDataSegmentOffsets[columnSegmentName]|0;
+			const offset = 0;
+
+            relocationTable.push({
+                offset: data.length,
+                names: [columnSegmentName],
+                size: schema.meta.size
+            });
 
 			data.push(...bytesAsSize([offset], schema.meta.size));
 			
@@ -259,15 +276,13 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             });
             exportDataSegments.push( {
                 name: columnSegmentName,
-                getBytes: (exportDataSegments) => {
+                getBytes: (data, exportDataSegments) => {
                     if (columnValues.length == 1)
                     {
-                        return bytesAsSize(columnValues[0].values, columnValues[0].type);
+                        data.push( ...bytesAsSize(columnValues[0].values, columnValues[0].type));
                     }
                     else
-                    {
-                        const data = [];
-							
+                    {							
                         for(let i = 0; i < rowCapacity; i++)
                         {
                             for(let v = 0; v < columnValues.length; v++)
@@ -278,125 +293,121 @@ function buildRuntimeBinary(schema, sourceWorkbook)
                                 data.push( ...bytesAsSize(slice, value.type));
                             }
                         }
-							
-                        return data;
                     }
                 }
             });
-			
-			return data;
-		}
-
-		function bytesAsSize(values, size)
-		{
-			switch(size)
-			{
-				case 'uint8_t':
-				case 'int8_t':
-				{
-					return values;
-				}
-				break;
-				case 'uint16_t':
-				{
-					const u16_buffer = new ArrayBuffer(2 * values.length);
-					const u16_array  = new Uint16Array(u16_buffer);
-					const byte_array = new Uint8Array(u16_buffer);					
-					values.forEach((value, index) => {
-						u16_array[index] = value >>> 0;
-					});
-					return [...byte_array];
-				}
-				break;
-				case 'int16_t':
-				{
-					const s16_buffer = new ArrayBuffer(2 * values.length);
-					const s16_array  = new Int16Array(s16_buffer);
-					const byte_array = new Uint8Array(s16_buffer);
-					values.forEach((value, index) => {
-						s16_array[index] = value+0|0;
-					});
-					
-					return [...byte_array];
-				}
-				break;
-				case 'uint32_t':
-				{
-					const u32_buffer = new ArrayBuffer(4 * values.length);
-					const u32_array  = new Uint32Array(u32_buffer);
-					const byte_array = new Uint8Array(u32_buffer);
-					values.forEach((value, index) => {
-						u32_array[index] = value >>> 0;
-					});
-					
-					return [...byte_array];
-				}
-				break;
-				case 'int32_t':
-				{
-					const s32_buffer = new ArrayBuffer(4 * values.length);
-					const s32_array  = new Int32Array(s32_buffer);
-					const byte_array = new Uint8Array(s32_buffer);
-					values.forEach((value, index) => {
-						s32_array[index] = value+0|0;
-					});
-					
-					return [...byte_array];
-				}
-				break;
-				case 'float':
-				{
-					const f32_buffer = new ArrayBuffer(4 * values.length);
-					const f32_array  = new Float32Array(f32_buffer);
-					const byte_array = new Uint8Array(f32_buffer);
-					values.forEach((value, index) => {
-						f32_array[index] = value;
-					});
-					
-					return [...byte_array];
-				}
-				break;
-                case 'uint64_t':
-				{
-					const u64_buffer = new ArrayBuffer(8 * values.length);
-					const u32_array  = new Uint32Array(u64_buffer);
-					const byte_array = new Uint8Array(u64_buffer);
-					values.forEach((value, index) => {
-						u32_array[(index * 2) + 0] = value >>> 0;
-                        u32_array[(index * 2) + 1] = 0;
-					});
-					
-					return [...byte_array];
-				}
-                case 'int64_t':
-				{
-					const s64_buffer = new ArrayBuffer(8 * values.length);
-					const s32_array  = new Int32Array(s64_buffer);
-					const byte_array = new Uint8Array(s64_buffer);
-					values.forEach((value, index) => {
-						s32_array[(index * 2) + 0] = value >>> 0;
-                        s32_array[(index * 2) + 1] = 0;
-					});
-					
-					return [...byte_array];
-				}
-				break;
-                case 'double':
-				{
-					const f64_buffer = new ArrayBuffer(8 * values.length);
-					const f32_array  = new Float32Array(f64_buffer);
-					const byte_array = new Uint8Array(f64_buffer);
-					values.forEach((value, index) => {
-						f32_array[(index * 2) + 0] = value;
-						f32_array[(index * 2) + 1] = 0;
-					});
-					
-					return [...byte_array];
-				}
-				break;
-			}
 		}
 	}
+}
+
+function bytesAsSize(values, size)
+{
+    switch(size)
+    {
+        case 'uint8_t':
+        case 'int8_t':
+        {
+            return values;
+        }
+        break;
+        case 'uint16_t':
+        {
+            const u16_buffer = new ArrayBuffer(2 * values.length);
+            const u16_array  = new Uint16Array(u16_buffer);
+            const byte_array = new Uint8Array(u16_buffer);					
+            values.forEach((value, index) => {
+                u16_array[index] = value >>> 0;
+            });
+            return [...byte_array];
+        }
+        break;
+        case 'int16_t':
+        {
+            const s16_buffer = new ArrayBuffer(2 * values.length);
+            const s16_array  = new Int16Array(s16_buffer);
+            const byte_array = new Uint8Array(s16_buffer);
+            values.forEach((value, index) => {
+                s16_array[index] = value+0|0;
+            });
+					
+            return [...byte_array];
+        }
+        break;
+        case 'uint32_t':
+        {
+            const u32_buffer = new ArrayBuffer(4 * values.length);
+            const u32_array  = new Uint32Array(u32_buffer);
+            const byte_array = new Uint8Array(u32_buffer);
+            values.forEach((value, index) => {
+                u32_array[index] = value >>> 0;
+            });
+					
+            return [...byte_array];
+        }
+        break;
+        case 'int32_t':
+        {
+            const s32_buffer = new ArrayBuffer(4 * values.length);
+            const s32_array  = new Int32Array(s32_buffer);
+            const byte_array = new Uint8Array(s32_buffer);
+            values.forEach((value, index) => {
+                s32_array[index] = value+0|0;
+            });
+					
+            return [...byte_array];
+        }
+        break;
+        case 'float':
+        {
+            const f32_buffer = new ArrayBuffer(4 * values.length);
+            const f32_array  = new Float32Array(f32_buffer);
+            const byte_array = new Uint8Array(f32_buffer);
+            values.forEach((value, index) => {
+                f32_array[index] = value;
+            });
+					
+            return [...byte_array];
+        }
+        break;
+        case 'uint64_t':
+        {
+            const u64_buffer = new ArrayBuffer(8 * values.length);
+            const u32_array  = new Uint32Array(u64_buffer);
+            const byte_array = new Uint8Array(u64_buffer);
+            values.forEach((value, index) => {
+                u32_array[(index * 2) + 0] = value >>> 0;
+                u32_array[(index * 2) + 1] = 0;
+            });
+					
+            return [...byte_array];
+        }
+        case 'int64_t':
+        {
+            const s64_buffer = new ArrayBuffer(8 * values.length);
+            const s32_array  = new Int32Array(s64_buffer);
+            const byte_array = new Uint8Array(s64_buffer);
+            values.forEach((value, index) => {
+                s32_array[(index * 2) + 0] = value+0|0;
+                s32_array[(index * 2) + 1] = 0;
+            });
+					
+            return [...byte_array];
+        }
+        break;
+        case 'double':
+        {
+            const f64_buffer = new ArrayBuffer(8 * values.length);
+            const f32_array  = new Float32Array(f64_buffer);
+            const byte_array = new Uint8Array(f64_buffer);
+            values.forEach((value, index) => {
+                f32_array[(index * 2) + 0] = value;
+                f32_array[(index * 2) + 1] = 0;
+            });
+					
+            return [...byte_array];
+        }
+        break;
+    }
 }
 
 function resolveExpression(text)
