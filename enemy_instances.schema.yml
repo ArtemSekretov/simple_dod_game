@@ -103,3 +103,19 @@ sheets:
          type: int8_t
        - name: y_q4
          type: int8_t
+
+maps:
+ - type: bullet_source_instances
+   sheets:
+    - source: enemy_instances
+      target: source_instances
+      columns:
+       - source: start_time_q4
+         target: start_time_q4
+       - source: enemy_index
+         target: enemy_index
+    - source: level_wave_index
+      target: level_wave_index
+      columns:
+       - source: level_wave
+         target: level_wave

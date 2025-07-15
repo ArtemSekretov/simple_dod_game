@@ -22,7 +22,7 @@ if(schema.hasOwnProperty('constants'))
 let sourceWorkbook = null;
 if(sheetFile)
 {
-	sourceWorkbook = XLSX.read( new Uint8Array(fs.readFileSync(sheetFile)).buffer);
+	sourceWorkbook = XLSX.read(new Uint8Array(fs.readFileSync(sheetFile)).buffer);
 }
 
 const data = buildRuntimeBinary(schema, sourceWorkbook);
@@ -61,10 +61,11 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 		const data = [];
         const exportDataSegments = [];
 
-		const hasSheets = schema.hasOwnProperty('sheets');
+		const hasSheets    = schema.hasOwnProperty('sheets');
         const hasVariables = schema.hasOwnProperty('variables');
+        const hasMaps      = schema.hasOwnProperty('maps');
 
-		const hasRootStruct = hasSheets || hasVariables;
+		const hasRootStruct = hasSheets || hasVariables || hasMaps;
 		
 		if(!hasRootStruct)
 		{
@@ -99,7 +100,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
         {
             const variables = schema.variables;
 
-            variables.forEach( (value) => {
+            variables.forEach( value => {
                 const types = value.types;
 
                 const columnValues = [];
@@ -127,6 +128,15 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             });
         }
 
+        if(hasMaps)
+        {
+            const maps = schema.maps;
+
+            maps.forEach( map => {
+                exportMap(data, map, exportDataSegments);
+            });
+        }
+
 		while(exportDataSegments.length)
 		{
 			const dataSegment = exportDataSegments.shift();
@@ -137,13 +147,75 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 
 		return data;
 
+        function exportMap(data, map, exportDataSegments)
+        {
+            const mapSegmentName = map.name;
+			const dataOffset = 0;
+            
+            const hasSheets = map.hasOwnProperty('sheets');
+
+            relocationTable.push({
+                offset: data.length,
+                names: [mapSegmentName],
+                size: schema.meta.size
+            });
+
+			data.push( ...bytesAsSize([dataOffset], schema.meta.size));
+
+            if(hasSheets)
+            {
+                exportDataSegments.push( {
+                    name: mapSegmentName,
+                    getBytes: (data, exportDataSegments) => {
+                        map.sheets.forEach( mapSheet => {
+                            exportMapSheet(data, mapSheet, exportDataSegments);
+                        });
+                    }
+                }); 
+            }
+        }
+
+        function exportMapSheet(data, mapSheet, exportDataSegments)
+        {
+            const targetSheetNameSegmentName   = `${mapSheet.target}Target`;
+            const targetCountOffsetSegmentName = `${targetSheetNameSegmentName}Count`;
+            const sourceSheetNameSegmentName   = mapSheet.source;
+            const sourceCountOffsetSegmentName = `${sourceSheetNameSegmentName}Count`;
+
+            const mapColumns = mapSheet.columns;
+
+            relocationTable.push({
+                offset: data.length,
+                names: [sourceCountOffsetSegmentName, targetSheetNameSegmentName],
+                size: schema.meta.size
+            });
+
+            // put space in data this will be patch by relocation table
+			data.push( ...bytesAsSize([0, 0], schema.meta.size) );
+
+            exportDataSegments.push( {
+                name: targetSheetNameSegmentName,
+                getBytes: (data, exportDataSegments) => {
+                    mapColumns.forEach( column => {
+                        const sourceColumnSegmentName = sourceSheetNameSegmentName + ":" + column.source;
+                        
+                        relocationTable.push({
+                            offset: data.length,
+                            names: [sourceColumnSegmentName],
+                            size: schema.meta.size
+                        });
+
+                        // put space in data this will be patch by relocation table
+			            data.push( ...bytesAsSize([0], schema.meta.size) );
+                    });
+                }
+            }); 
+        }
+
 		function exportSheet(data, sheet, sourceWorksheet, exportDataSegments)
 		{
-			const sheetName  = sheet.name;
-			const dataOffset = 0;
-
-            const countOffsetSegmentName = `${sheetName}Count`;
-            const countOffset = 0;
+			const sheetSegmentName  = sheet.name;
+            const countOffsetSegmentName = `${sheetSegmentName}Count`;
 
 			let rowCount          = 0;
 			let rowCapacity       = 0;
@@ -183,11 +255,12 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 			
             relocationTable.push({
                 offset: data.length,
-                names: [countOffsetSegmentName, sheetName],
+                names: [countOffsetSegmentName, sheetSegmentName],
                 size: schema.meta.size
             });
 
-			data.push( ...bytesAsSize([countOffset, dataOffset], schema.meta.size) );
+            // put space in data this will be patch by relocation table
+			data.push( ...bytesAsSize([0, 0], schema.meta.size) );
 						
             exportDataSegments.push( {
                 name: countOffsetSegmentName,
@@ -199,10 +272,10 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             const columns = sheet.columns;
 				
             exportDataSegments.push( {
-                name: sheetName,
+                name: sheetSegmentName,
                 getBytes: (data, exportDataSegments) => { 
                     columns.forEach( column => {
-                        const columnSegmentName = sheetName + ":" + column.name;
+                        const columnSegmentName = sheetSegmentName + ":" + column.name;
 							
                         exportColumn(data, columnSegmentName, rowCapacity, column, sourceSheetValues, sourceSheetHeader, exportDataSegments);
                     });
@@ -212,15 +285,14 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 
 		function exportColumn(data, columnSegmentName, rowCapacity, column, sourceSheetValues, sourceSheetHeader, exportDataSegments)
 		{
-			const offset = 0;
-
             relocationTable.push({
                 offset: data.length,
                 names: [columnSegmentName],
                 size: schema.meta.size
             });
 
-			data.push(...bytesAsSize([offset], schema.meta.size));
+            // put space in data this will be patch by relocation table
+			data.push(...bytesAsSize([0], schema.meta.size));
 			
             const sources = column.sources;
 				

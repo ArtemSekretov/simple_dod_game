@@ -36,11 +36,11 @@ function buildImHexPattern(schema)
 			locationMap: []
 		};
 		
-		const hasSheets = schema.hasOwnProperty('sheets');
-
+		const hasSheets    = schema.hasOwnProperty('sheets');
         const hasVariables = schema.hasOwnProperty('variables');
+        const hasMaps      = schema.hasOwnProperty('maps');
 
-		const hasRootStruct = hasSheets || hasVariables;
+		const hasRootStruct = hasSheets || hasVariables || hasMaps;
 		
 		if(!hasRootStruct)
 		{
@@ -55,13 +55,15 @@ function buildImHexPattern(schema)
 
         const fields = [];
 
+        const imHexMetaSize = getImHexType(schema.meta.size);
+
         if(hasSheets)
         {
 		    const sheets = schema.sheets;
             fields.push( ...sheets.flatMap((sheet) => 
-				[`${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}CountOffset`,
-                 `${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Count @ ${undersoreToPascal(sheet.name)}CountOffset`,
-				 `${getImHexType(schema.meta.size)} ${undersoreToPascal(sheet.name)}Offset`]) 
+				[`${imHexMetaSize} ${undersoreToPascal(sheet.name)}CountOffset`,
+                 `${imHexMetaSize} ${undersoreToPascal(sheet.name)}Count @ ${undersoreToPascal(sheet.name)}CountOffset`,
+				 `${imHexMetaSize} ${undersoreToPascal(sheet.name)}Offset`]) 
             );
 
             sheets.forEach( sheet => {
@@ -137,6 +139,19 @@ function buildImHexPattern(schema)
                 }
             });
         }
+        
+        if(hasMaps)
+        {
+            const maps = schema.maps;
+            maps.forEach( map => {
+                fields.push(`${imHexMetaSize} ${undersoreToPascal(map.type)}Offset`);
+            });
+
+            maps.forEach( map => {
+                exportMap(schema, map, rootStructName, exportTypes);
+            });
+        }
+
 		exportTypes.structs.push({
 			name: rootStructName,
 			fields: fields
@@ -144,6 +159,126 @@ function buildImHexPattern(schema)
 			
 		return exportTypes;
 		
+        function exportMap(schema, map, rootStructName, exportTypes)
+        {
+            const hasMapSheets = map.hasOwnProperty('sheets');
+            const hasSheets = schema.hasOwnProperty('sheets');
+
+            if(hasMapSheets && hasSheets)
+            {
+                const mapSheets = map.sheets;
+                const sheets    = schema.sheets;
+
+                const mapStructName = `${rootStructName}${undersoreToPascal(map.type)}Map`;
+
+                const fields = [];
+
+                exportTypes.locationMap.push({
+                    map: `${mapStructName} ${lowerFirstCharacter(mapStructName)} @ ${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(map.type)}Offset`
+                });
+
+                const imHexMetaSize = getImHexType(schema.meta.size);
+                
+                mapSheets.forEach( mapSheet => {
+                    fields.push(...[`${imHexMetaSize} ${undersoreToPascal(mapSheet.target)}CountOffset`,
+                        `${imHexMetaSize} ${undersoreToPascal(mapSheet.target)}Count @ ${undersoreToPascal(mapSheet.target)}CountOffset`,
+                        `${imHexMetaSize} ${undersoreToPascal(mapSheet.target)}Offset`])
+                    
+                    const sheetIndex = sheets.findIndex( s => s.name == mapSheet.source);
+                    if(sheetIndex != -1)
+                    {
+                        exportMapSheet(sheets[sheetIndex], mapSheet, rootStructName, mapStructName, exportTypes);
+                    }
+                    else
+                    {
+                        console.log(`Unable find sheet ${mapSheet.source} mapping`);
+                    }
+
+                });                
+
+                exportTypes.structs.push({
+                    name: mapStructName,
+                    fields: fields
+                });
+            }
+        }
+        
+        function exportMapSheet(sheet, mapSheet, rootStructName, mapStructName, exportTypes)
+        {
+            const mapSheetStructName = `${mapStructName}${undersoreToPascal(mapSheet.target)}`;
+            const sheetStructName = `${rootStructName}${undersoreToPascal(mapSheet.source)}`;
+            
+            const columns = mapSheet.columns;
+
+            let rowCapacity = 0;
+            if(sheet.hasOwnProperty('capacity'))
+			{
+				rowCapacity = resolveExpression(sheet.capacity)|0;
+			}
+
+            const fields = [];
+
+			exportTypes.locationMap.push({
+				map: `${mapSheetStructName} ${lowerFirstCharacter(mapSheetStructName)} @ ${lowerFirstCharacter(mapStructName)}.${undersoreToPascal(mapSheet.target)}Offset`
+			});
+
+            columns.forEach( column => {
+                fields.push(`${getImHexType(schema.meta.size)} ${undersoreToPascal(column.target)}Offset`);
+                
+                const columnIndex = sheet.columns.findIndex( c => c.name == column.source);
+
+                if(columnIndex != -1)
+                {
+                    const sourceColumn = sheet.columns[columnIndex];
+
+                    const columnStructName = `${sheetStructName}${undersoreToPascal(column.source)}`;
+                    
+                    let columnType;
+			
+                    if(sourceColumn.sources.length == 1)
+                    {
+                        const source = sourceColumn.sources[0];
+				
+                        if(source.hasOwnProperty('count'))
+                        {
+                            const count = resolveExpression(source.count)|0;
+
+                            if(count > 1)
+                            {
+                                columnType = columnStructName;
+                            }
+                            else
+                            {
+                                columnType = getImHexType(source.type);
+                            }
+                        }
+                        else
+                        {
+                            columnType = getImHexType(source.type);
+                        }
+                    }
+                    else
+                    {
+                        columnType = columnStructName;
+                    }
+
+                    exportTypes.locationMap.push({
+                        map: `${columnType} ${lowerFirstCharacter(columnStructName)}Map[GetCapacity(${rowCapacity}, ${lowerFirstCharacter(mapStructName)}.${undersoreToPascal(mapSheet.target)}Count)] @ ${lowerFirstCharacter(mapSheetStructName)}.${undersoreToPascal(column.target)}Offset`
+                    });
+                }
+                else
+                {
+                    console.log(`Unable find column ${column.source} for sheet ${mapSheet.source} mapping`);
+                }
+            });
+
+            exportTypes.structs.push({
+				name: mapSheetStructName,
+				fields: fields
+			});
+		
+        }
+
 		function exportSheet(sheet, rootStructName, exportTypes)
 		{
 			const sheetStructName = `${rootStructName}${undersoreToPascal(sheet.name)}`;
@@ -246,33 +381,17 @@ function buildImHexPattern(schema)
 			}
 			exportTypes.locationMap.push({
 				map: `${columnType} ${lowerFirstCharacter(columnStructName)}[GetCapacity(${rowCapacity}, ${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(sheetName)}Count)] @ ${lowerFirstCharacter(sheetStructName)}.${undersoreToPascal(column.name)}Offset`
-			});	
-			
-		}
-		
-		function getImHexType(type)
-		{
-			const typeMap = {
-				'uint8_t' : 'u8',
-				'int8_t'  : 's8',
-				'uint16_t': 'u16',
-				'int16_t' : 's16',
-				'uint32_t': 'u32',
-				'int32_t' : 's32',
-				'float'   : 'float',
-                'uint64_t': 'u64',
-                'int64_t' : 's64',
-                'double'  : 'double',
-			}				
-			return typeMap[type];
+			});
 		}
 	}
 	
 	function exportTypesToText(exportTypes)
 	{
-		let text = 'fn GetCapacity(u16 capacity, u16 count)\n';
+        const imHexMetaSize = getImHexType(schema.meta.size);
+
+		let text = `fn GetCapacity(${imHexMetaSize} capacity, ${imHexMetaSize} count)\n`;
 		text += '{\n';
-		text += '  u16 result = capacity;\n';
+		text += `  ${imHexMetaSize} result = capacity;\n`;
 		text += '  if(result == 0) {\n';
 		text += '    result = count;\n';
 		text += '  }\n';
@@ -304,6 +423,23 @@ function buildImHexPattern(schema)
 		
 		return text;
 	}
+}
+
+function getImHexType(type)
+{
+    const typeMap = {
+        'uint8_t' : 'u8',
+        'int8_t'  : 's8',
+        'uint16_t': 'u16',
+        'int16_t' : 's16',
+        'uint32_t': 'u32',
+        'int32_t' : 's32',
+        'float'   : 'float',
+        'uint64_t': 'u64',
+        'int64_t' : 's64',
+        'double'  : 'double',
+    }				
+    return typeMap[type];
 }
 
 function resolveExpression(text)
