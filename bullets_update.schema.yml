@@ -50,8 +50,8 @@ sheets:
 ref:
  - name: bullets_bin
    type: bullets
- - name: enemy_instances_bin
-   type: enemy_instances
+ - name: bullet_source_instances_bin
+   type: bullet_source_instances
  - name: enemy_instances_update_bin
    type: enemy_instances_update
  - name: game_state_bin

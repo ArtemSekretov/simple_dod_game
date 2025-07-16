@@ -113,7 +113,7 @@ maps:
        - source: start_time_q4
          target: start_time_q4
        - source: enemy_index
-         target: enemy_index
+         target: source_index
     - source: level_wave_index
       target: level_wave_index
       columns:

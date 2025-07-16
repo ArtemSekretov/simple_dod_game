@@ -38,6 +38,7 @@
 #include "bullets.h"
 #include "bullets_update.h"
 #include "bullets_draw.h"
+#include "bullet_source_instances.h"
 
 #include "enemy_instances_update.h"
 #include "enemy_instances_draw.h"
@@ -556,7 +557,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 		
         FrameDataFrameData* frame_data_sheet = FrameDataFrameDataPrt(frame_data);
         FrameDataFrameDataObjectData* object_data = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
-        u16 frame_data_count = *FrameDataCountPrt(frame_data);
+        u16 frame_data_count = *FrameDataFrameDataCountPrt(frame_data);
 
         memcpy(mapped.pData, object_data, sizeof(FrameDataFrameDataObjectData) * kFrameDataMaxObjectDataCapacity);
 		ID3D11DeviceContext_Unmap(directx_state->context, (ID3D11Resource*)directx_state->objectBuffer, 0);
@@ -681,7 +682,7 @@ CloseMapFile(MapFileData *mapData)
 void
 begin_frame(FrameData *frame_data, f32 game_aspect, s32 screen_width, s32 screen_height)
 {
-    u16 *frame_data_count_prt = FrameDataCountPrt(frame_data);
+    u16 *frame_data_count_prt = FrameDataFrameDataCountPrt(frame_data);
 
     frame_data->Width     = screen_width;
     frame_data->Height    = screen_height;
@@ -816,12 +817,14 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     MapFileData enemy_instances_update_map_data       = CreateMapFile("enemy_instances_update.bin", MapFilePermitions_ReadWriteCopy);
     EnemyInstancesUpdate *enemy_instances_update_data = (EnemyInstancesUpdate *)enemy_instances_update_map_data.data;
 
+    BulletSourceInstances *enemy_bullet_source_instances = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
+
     BulletsUpdateContext enemy_bullets_update_context;
-    enemy_bullets_update_context.Root                    = enemy_bullets_update_data;
-    enemy_bullets_update_context.BulletsBin              = enemy_bullets;
-    enemy_bullets_update_context.EnemyInstancesBin       = enemy_instances;
-    enemy_bullets_update_context.EnemyInstancesUpdateBin = enemy_instances_update_data;
-    enemy_bullets_update_context.GameStateBin            = game_state;
+    enemy_bullets_update_context.Root                     = enemy_bullets_update_data;
+    enemy_bullets_update_context.BulletsBin               = enemy_bullets;
+    enemy_bullets_update_context.BulletSourceInstancesBin = enemy_bullet_source_instances;
+    enemy_bullets_update_context.EnemyInstancesUpdateBin  = enemy_instances_update_data;
+    enemy_bullets_update_context.GameStateBin             = game_state;
 
     BulletsDrawContext enemy_bullets_draw_context;
     enemy_bullets_draw_context.BulletsBin       = enemy_bullets;

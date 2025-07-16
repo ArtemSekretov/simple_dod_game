@@ -19,7 +19,7 @@ bullets_draw(BulletsDrawContext *context)
     v2 *bullets_positions                                       = (v2 *)BulletsUpdateBulletPositionsCurrentPositionPrt(bullets_update, bullet_update_positions_sheet);
     uint8_t *bullets_type_index                                 = BulletsUpdateBulletPositionsTypeIndexPrt(bullets_update, bullet_update_positions_sheet);
 
-    u16 *frame_data_count_ptr = FrameDataCountPrt(frame_data);
+    u16 *frame_data_count_ptr = FrameDataFrameDataCountPrt(frame_data);
 
     for (s32 i = 0; i < draw_count; i++)
     {

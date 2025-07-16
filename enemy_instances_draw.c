@@ -23,12 +23,12 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
-    u16 *frame_data_count_ptr = FrameDataCountPrt(frame_data);
+    u16 *frame_data_count_ptr = FrameDataFrameDataCountPrt(frame_data);
 
     EnemyInstancesUpdateEnemyPositions *enemy_instances_update_positions_sheet = EnemyInstancesUpdateEnemyPositionsPrt(enemy_instances_update);
     v2 *enemy_instances_positions                                              = (v2 *)EnemyInstancesUpdateEnemyPositionsPositionsPrt(enemy_instances_update, enemy_instances_update_positions_sheet);
 
-    u16 enemy_positions_count = *EnemyPositionsCountPrt(enemy_instances_update);
+    u16 enemy_positions_count = *EnemyInstancesUpdateEnemyPositionsCountPrt(enemy_instances_update);
 
     for (u8 wave_instance_index = 0; wave_instance_index < enemy_positions_count; wave_instance_index++)
     {

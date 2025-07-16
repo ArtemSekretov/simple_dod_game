@@ -40,8 +40,14 @@ function buildRuntimeBinary(schema, sourceWorkbook)
         let offset = relocation.offset;
         const size = relocation.size;
 
+        let relativeSegmentOffset = 0;
+        if(relocation.hasOwnProperty('relativeSegment'))
+        {
+            relativeSegmentOffset = exportDataSegmentOffsets[relocation.relativeSegment]|0;
+        }
+
         relocation.names.forEach( name => {
-            const segmentOffset = exportDataSegmentOffsets[name]|0;
+            const segmentOffset = (exportDataSegmentOffsets[name]|0) - relativeSegmentOffset;
             
             const bytes = bytesAsSize([segmentOffset], size);
 
@@ -149,7 +155,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 
         function exportMap(data, map, exportDataSegments)
         {
-            const mapSegmentName = map.name;
+            const mapSegmentName = map.type;
 			const dataOffset = 0;
             
             const hasSheets = map.hasOwnProperty('sheets');
@@ -168,16 +174,16 @@ function buildRuntimeBinary(schema, sourceWorkbook)
                     name: mapSegmentName,
                     getBytes: (data, exportDataSegments) => {
                         map.sheets.forEach( mapSheet => {
-                            exportMapSheet(data, mapSheet, exportDataSegments);
+                            exportMapSheet(data, mapSegmentName, mapSheet, exportDataSegments);
                         });
                     }
                 }); 
             }
         }
 
-        function exportMapSheet(data, mapSheet, exportDataSegments)
-        {
-            const targetSheetNameSegmentName   = `${mapSheet.target}Target`;
+        function exportMapSheet(data, mapSegmentName, mapSheet, exportDataSegments)
+        {   
+            const targetSheetNameSegmentName   = `${mapSegmentName}${mapSheet.target}`;
             const targetCountOffsetSegmentName = `${targetSheetNameSegmentName}Count`;
             const sourceSheetNameSegmentName   = mapSheet.source;
             const sourceCountOffsetSegmentName = `${sourceSheetNameSegmentName}Count`;
@@ -187,7 +193,8 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             relocationTable.push({
                 offset: data.length,
                 names: [sourceCountOffsetSegmentName, targetSheetNameSegmentName],
-                size: schema.meta.size
+                size: schema.meta.size,
+                relativeSegment: mapSegmentName
             });
 
             // put space in data this will be patch by relocation table
@@ -202,7 +209,8 @@ function buildRuntimeBinary(schema, sourceWorkbook)
                         relocationTable.push({
                             offset: data.length,
                             names: [sourceColumnSegmentName],
-                            size: schema.meta.size
+                            size: schema.meta.size,
+                            relativeSegment: mapSegmentName
                         });
 
                         // put space in data this will be patch by relocation table

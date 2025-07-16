@@ -38,6 +38,8 @@ where /q node && (
     node export_runtime_binary.js game_state.schema.yml build/game_state.bin
     node export_imhex_pattern.js game_state.schema.yml generated/game_state.hexpat
 
+    node export_c_header.js bullet_source_instances.schema.yml generated/bullet_source_instances.h
+
 	pushd build
 
 	where /q cl && (
