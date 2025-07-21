@@ -56,3 +56,5 @@ ref:
    type: enemy_instances_update
  - name: game_state_bin
    type: game_state
+ - name: wave_update_bin
+   type: wave_update

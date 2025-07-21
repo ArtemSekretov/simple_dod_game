@@ -5,24 +5,22 @@ meta:
 constants:
  - name: max_instance_count
    value: 64
+ - name: wave_spawned_all
+   value: 1
 
 variables:
  - name: instances_live
    types:
     - name: instances_live
       type: uint64_t
- - name: wave_spawn_last_time
+ - name: last_flat_wave_index
    types:
-    - name: wave_spawn_last_time
-      type: float
- - name: wave_time
-   types:
-    - name: wave_time
-      type: float
- - name: wave_index
-   types:
-    - name: wave_index
+    - name: last_flat_wave_index
       type: uint8_t
+ - name: wave_state
+   types:
+    - name: wave_state
+      type: uint32_t
 
 sheets:
  - name: enemy_positions
@@ -43,3 +41,5 @@ ref:
    type: enemy_instances
  - name: game_state_bin
    type: game_state
+ - name: wave_update_bin
+   type: wave_update

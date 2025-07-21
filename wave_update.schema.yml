@@ -1,0 +1,21 @@
+meta:
+ name: wave_update
+ size: uint16_t
+
+variables:
+ - name: wave_time
+   types:
+    - name: wave_time
+      type: float
+ - name: wave_index
+   types:
+    - name: wave_index
+      type: uint8_t
+
+ref:
+ - name: enemy_bullets_update_bin
+   type: bullets_update
+ - name: enemy_instances_update_bin
+   type: enemy_instances_update
+ - name: game_state_bin
+   type: game_state

@@ -11,3 +11,5 @@ ref:
    type: frame_data
  - name: game_state_bin
    type: game_state
+ - name: wave_update_bin
+   type: wave_update

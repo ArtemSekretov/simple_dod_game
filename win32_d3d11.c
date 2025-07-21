@@ -31,6 +31,7 @@
 #include "math.h"
 
 #include "game_state.h"
+#include "wave_update.h"
 
 #include "enemy_instances.h"
 #include "frame_data.h"
@@ -48,6 +49,7 @@
 
 #include "bullets_update.c"
 #include "bullets_draw.c"
+#include "wave_update.c"
 
 #define AssertHR(hr) Assert(SUCCEEDED(hr))
 
@@ -799,6 +801,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     MapFileData game_state_map_data = CreateMapFile("game_state.bin", MapFilePermitions_ReadWriteCopy);
     GameState *game_state           = (GameState *)game_state_map_data.data;
 
+    MapFileData wave_update_map_data = CreateMapFile("wave_update.bin", MapFilePermitions_ReadWriteCopy);
+    WaveUpdate *wave_update_data     = (WaveUpdate *)wave_update_map_data.data;
+
 	MapFileData enemy_instances_map_data = CreateMapFile("enemy_instances.bin", MapFilePermitions_Read);
 	EnemyInstances *enemy_instances      = (EnemyInstances *)enemy_instances_map_data.data;
 	
@@ -825,6 +830,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     enemy_bullets_update_context.BulletSourceInstancesBin = enemy_bullet_source_instances;
     enemy_bullets_update_context.EnemyInstancesUpdateBin  = enemy_instances_update_data;
     enemy_bullets_update_context.GameStateBin             = game_state;
+    enemy_bullets_update_context.WaveUpdateBin            = wave_update_data;
 
     BulletsDrawContext enemy_bullets_draw_context;
     enemy_bullets_draw_context.BulletsBin       = enemy_bullets;
@@ -835,12 +841,20 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     enemy_instances_update_context.Root              = enemy_instances_update_data;
     enemy_instances_update_context.EnemyInstancesBin = enemy_instances;
     enemy_instances_update_context.GameStateBin      = game_state;
+    enemy_instances_update_context.WaveUpdateBin     = wave_update_data;
 
     EnemyInstancesDrawContext enemy_instances_draw_context;
     enemy_instances_draw_context.EnemyInstancesBin       = enemy_instances;
     enemy_instances_draw_context.EnemyInstancesUpdateBin = enemy_instances_update_data;
     enemy_instances_draw_context.FrameDataBin            = frame_data;
     enemy_instances_draw_context.GameStateBin            = game_state;
+    enemy_instances_draw_context.WaveUpdateBin           = wave_update_data;
+
+    WaveUpdateContext wave_update_context;
+    wave_update_context.Root                    = wave_update_data;
+    wave_update_context.GameStateBin            = game_state;
+    wave_update_context.EnemyInstancesUpdateBin = enemy_instances_update_data;
+    wave_update_context.EnemyBulletsUpdateBin   = enemy_bullets_update_data;
 
     game_state->Time = 0.0;
 
@@ -882,6 +896,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 
             enemy_instances_update(&enemy_instances_update_context);
             bullets_update(&enemy_bullets_update_context);
+            wave_update(&wave_update_context);
 
             enemy_instances_draw(&enemy_instances_draw_context);
             bullets_draw(&enemy_bullets_draw_context);
@@ -901,4 +916,5 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 	CloseMapFile(&enemy_bullets_update_map_data);
 	CloseMapFile(&enemy_instances_update_map_data);
 	CloseMapFile(&game_state_map_data);
+	CloseMapFile(&wave_update_map_data);
 }

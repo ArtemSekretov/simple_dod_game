@@ -40,6 +40,10 @@ where /q node && (
 
     node export_c_header.js bullet_source_instances.schema.yml generated/bullet_source_instances.h
 
+    node export_c_header.js wave_update.schema.yml generated/wave_update.h
+    node export_runtime_binary.js wave_update.schema.yml build/wave_update.bin
+    node export_imhex_pattern.js wave_update.schema.yml generated/wave_update.hexpat
+
 	pushd build
 
 	where /q cl && (
