@@ -8,8 +8,11 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
     GameState *game_state                        = context->GameStateBin;
     WaveUpdate *wave_update                      = context->WaveUpdateBin;
 
-    u64 enemy_instances_live = enemy_instances_update->InstancesLive;
-    u8 flat_wave_index = (game_state->LevelIndex << 2) + wave_update->WaveIndex;
+    u8 level_index = *GameStateLevelIndexPrt(game_state);
+
+    u8 wave_index = *WaveUpdateWaveIndexPrt(wave_update);
+
+    u8 flat_wave_index = (level_index << 2) + wave_index;
 
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesEnemyInstances *enemy_instances_sheet  = EnemyInstancesEnemyInstancesPrt(enemy_instances);
@@ -30,6 +33,7 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
     v2 *enemy_instances_positions                                              = (v2 *)EnemyInstancesUpdateEnemyPositionsPositionsPrt(enemy_instances_update, enemy_instances_update_positions_sheet);
 
     u16 enemy_positions_count = *EnemyInstancesUpdateEnemyPositionsCountPrt(enemy_instances_update);
+    u64 enemy_instances_live  = *EnemyInstancesUpdateInstancesLivePrt(enemy_instances_update);
 
     for (u8 wave_instance_index = 0; wave_instance_index < enemy_positions_count; wave_instance_index++)
     {

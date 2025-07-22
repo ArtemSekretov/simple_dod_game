@@ -14,7 +14,7 @@ variables:
  - name: wave_spawn_count
    types:
     - name: wave_spawn_count
-      type: int32_t
+      type: uint32_t
  - name: last_flat_wave_index
    types:
     - name: last_flat_wave_index

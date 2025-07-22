@@ -6,7 +6,7 @@ variables:
  - name: frame_counter
    types:
     - name: frame_counter
-      type: int64_t
+      type: uint64_t
  - name: time_delta
    types:
     - name: time_delta

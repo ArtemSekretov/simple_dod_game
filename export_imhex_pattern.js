@@ -129,13 +129,16 @@ function buildImHexPattern(schema)
                     });                    
                 }
 
+                const variableName = undersoreToPascal(variable.name);
+
+                fields.push(`${imHexMetaSize} ${variableName}Offset`);
                 if(variableCount > 1)
                 {
-                    fields.push(`${variableType} ${undersoreToPascal(variable.name)}[${variableCount}]`);
+                    fields.push(`${variableType} ${variableName}[${variableCount}] @ ${variableName}Offset`);
                 }
                 else
                 {
-                    fields.push(`${variableType} ${undersoreToPascal(variable.name)}`);
+                    fields.push(`${variableType} ${variableName} @ ${variableName}Offset`);
                 }
             });
         }

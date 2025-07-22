@@ -107,30 +107,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             const variables = schema.variables;
 
             variables.forEach( value => {
-                const types = value.types;
-
-                const columnValues = [];
-
-                types.forEach((t, index) => {
-                    let columnCount = 1;
-                    if(t.hasOwnProperty('count'))
-                    {
-                        columnCount = resolveExpression(t.count)|0;
-                    }
-									
-                    let values = new Array(columnCount).fill(0);
-						
-                    columnValues.push({
-                        values: values,
-                        type: t.type
-                    });                    
-                });
-
-                for(let v = 0; v < columnValues.length; v++)
-                {
-                    const value = columnValues[v];
-                    data.push( ...bytesAsSize(value.values, value.type));
-                }
+                exportVariable(data, value, exportDataSegments);
             });
         }
 
@@ -152,6 +129,49 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 		}
 
 		return data;
+
+        function exportVariable(data, value, exportDataSegments)
+        {
+            const valueSegmentName = `${schema.meta.name}${value.name}`;
+            relocationTable.push({
+                offset: data.length,
+                names: [valueSegmentName],
+                size: schema.meta.size
+            });
+
+            // put space in data this will be patch by relocation table
+			data.push(...bytesAsSize([0], schema.meta.size));
+
+            const types = value.types;
+
+            const columnValues = [];
+
+            types.forEach((t, index) => {
+                let columnCount = 1;
+                if(t.hasOwnProperty('count'))
+                {
+                    columnCount = resolveExpression(t.count)|0;
+                }
+									
+                let values = new Array(columnCount).fill(0);
+						
+                columnValues.push({
+                    values: values,
+                    type: t.type
+                });                    
+            });
+
+            exportDataSegments.push( {
+                    name: valueSegmentName,
+                    getBytes: (data, exportDataSegments) => {
+                        for(let v = 0; v < columnValues.length; v++)
+                        {
+                            const value = columnValues[v];
+                            data.push( ...bytesAsSize(value.values, value.type));
+                        }
+                    }
+                }); 
+        }
 
         function exportMap(data, map, exportDataSegments)
         {

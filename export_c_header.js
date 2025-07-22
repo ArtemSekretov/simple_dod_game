@@ -83,68 +83,9 @@ function buildCHeader(schema)
         {
             const variables = schema.variables;
         
-            variables.forEach((variable) => {
-                const types = variable.types;
-            
-                let variableType = '';
-                let exportStruct = false;
-                let variableCount = 1;
-
-                if(types.length == 1)
-                {
-                    type = types[0];
-                    if(type.hasOwnProperty('count'))
-                    {
-                        variableCount = resolveExpression(type.count)|0;
-                    }
-                    variableType = type.type;
-                }
-                else
-                {
-                    exportStruct = true;
-                }
-
-                if(exportStruct)
-                {
-                    variableType = undersoreToPascal(variable.name);
-
-                    const valuableFields = [];
-
-                    types.forEach((t) => {
-                        let field = '';
-                        if(t.hasOwnProperty('count'))
-                        {
-                            const count = resolveExpression(t.count)|0;
-                            if(count > 1)
-                            {
-                                field = `${t.type} ${undersoreToPascal(t.name)}[${count}]`;
-                            }
-                            else
-                            {
-                                field = `${t.type} ${undersoreToPascal(t.name)}`;
-                            }
-                        }
-                        else
-                        {
-                            field = `${t.type} ${undersoreToPascal(t.name)}`;
-                        }
-                        valuableFields.push(field);
-                    });
-
-                    exportTypes.packStructs.push({
-                        name: variableType,
-                        fields: valuableFields
-                    });                    
-                }
-
-                if(variableCount > 1)
-                {
-                    fields.push(`${variableType} ${undersoreToPascal(variable.name)}[${variableCount}]`);
-                }
-                else
-                {
-                    fields.push(`${variableType} ${undersoreToPascal(variable.name)}`);
-                }
+            variables.forEach( variable => {
+                fields.push(`${schema.meta.size} ${undersoreToPascal(variable.name)}Offset`);
+                exportVariable(variable, exportTypes);
             });
         }
 
@@ -205,6 +146,74 @@ function buildCHeader(schema)
 
 		return exportTypes;
 		
+        function exportVariable(variable, exportTypes)
+        {
+            const types = variable.types;
+            
+            let variableType = '';
+            let exportStruct = false;
+            let variableCount = 1;
+
+            if(types.length == 1)
+            {
+                type = types[0];
+                if(type.hasOwnProperty('count'))
+                {
+                    variableCount = resolveExpression(type.count)|0;
+
+                    if(variableCount > 1)
+                    {
+                        exportStruct = true;    
+                    }
+                }
+                variableType = type.type;
+            }
+            else
+            {
+                exportStruct = true;
+            }
+
+            if(exportStruct)
+            {
+                variableType = `${rootStructName}${undersoreToPascal(variable.name)}`;
+
+                const valuableFields = [];
+
+                types.forEach((t) => {
+                    let field = '';
+                    if(t.hasOwnProperty('count'))
+                    {
+                        const count = resolveExpression(t.count)|0;
+                        if(count > 1)
+                        {
+                            field = `${t.type} ${undersoreToPascal(t.name)}[${count}]`;
+                        }
+                        else
+                        {
+                            field = `${t.type} ${undersoreToPascal(t.name)}`;
+                        }
+                    }
+                    else
+                    {
+                        field = `${t.type} ${undersoreToPascal(t.name)}`;
+                    }
+                    valuableFields.push(field);
+                });
+
+                exportTypes.packStructs.push({
+                    name: variableType,
+                    fields: valuableFields
+                });                    
+            }
+
+            const variableName = undersoreToPascal(variable.name);
+
+            exportTypes.functions.push({
+				declaration: `${variableType} *${rootStructName}${variableName}Prt(${rootStructName} *root)`,
+				body: `return (${variableType} *)((uintptr_t)root + root->${variableName}Offset);`
+			});
+        }
+
 		function exportSheet(sheet, rootStructName, exportTypes)
 		{
 			const sheetStructName = `${rootStructName}${undersoreToPascal(sheet.name)}`;

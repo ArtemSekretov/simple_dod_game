@@ -484,8 +484,11 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 {
 	HRESULT hr;
 
+    s32 width  = *FrameDataWidthPrt(frame_data);
+    s32 height = *FrameDataHeightPrt(frame_data);
+
 	// resize swap chain if needed
-	if (directx_state->rtView == NULL || frame_data->Width != directx_state->currentWidth || frame_data->Height != directx_state->currentHeight)
+	if (directx_state->rtView == NULL || width != directx_state->currentWidth || height != directx_state->currentHeight)
 	{
 		if (directx_state->rtView)
 		{
@@ -497,9 +500,9 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 		}
 
 		// resize to new size for non-zero size
-		if (frame_data->Width != 0 && frame_data->Height != 0)
+		if (width != 0 && height != 0)
 		{
-			hr = IDXGISwapChain1_ResizeBuffers(directx_state->swapChain, 0, frame_data->Width, frame_data->Height, DXGI_FORMAT_UNKNOWN, 0);
+			hr = IDXGISwapChain1_ResizeBuffers(directx_state->swapChain, 0, width, height, DXGI_FORMAT_UNKNOWN, 0);
 			if (FAILED(hr))
 			{
 				FatalError("Failed to resize swap chain!");
@@ -513,8 +516,8 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 
 			D3D11_TEXTURE2D_DESC depthDesc =
 			{
-				.Width = frame_data->Width,
-				.Height = frame_data->Height,
+				.Width = width,
+				.Height = height,
 				.MipLevels = 1,
 				.ArraySize = 1,
 				.Format = DXGI_FORMAT_D32_FLOAT, // or use DXGI_FORMAT_D32_FLOAT_S8X24_UINT if you need stencil
@@ -530,20 +533,26 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 			ID3D11Texture2D_Release(depth);
 		}
 
-		directx_state->currentWidth = frame_data->Width;
-		directx_state->currentHeight = frame_data->Height;
+		directx_state->currentWidth  = width;
+		directx_state->currentHeight = height;
 	}
 
 	// can render only if window size is non-zero - we must have backbuffer & RenderTarget view created
 	if (directx_state->rtView)
 	{
+        f32 viewport_x  = *FrameDataViewportXPrt(frame_data);
+        f32 viewport_y = *FrameDataViewportYPrt(frame_data);
+        f32 viewport_width = *FrameDataViewportWidthPrt(frame_data);
+        f32 viewport_height = *FrameDataViewportHeightPrt(frame_data);
+        u16 frame_data_count = *FrameDataFrameDataCountPrt(frame_data);
+
 		// output viewport covering all client area of window
 		D3D11_VIEWPORT viewport =
 		{
-			.TopLeftX = frame_data->ViewportX,
-			.TopLeftY = frame_data->ViewportY,
-			.Width = frame_data->ViewportWidth,
-			.Height = frame_data->ViewportHeight,
+			.TopLeftX = viewport_x,
+			.TopLeftY = viewport_y,
+			.Width = viewport_width,
+			.Height = viewport_height,
 			.MinDepth = 0,
 			.MaxDepth = 1,
 		};
@@ -559,7 +568,6 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 		
         FrameDataFrameData* frame_data_sheet = FrameDataFrameDataPrt(frame_data);
         FrameDataFrameDataObjectData* object_data = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
-        u16 frame_data_count = *FrameDataFrameDataCountPrt(frame_data);
 
         memcpy(mapped.pData, object_data, sizeof(FrameDataFrameDataObjectData) * kFrameDataMaxObjectDataCapacity);
 		ID3D11DeviceContext_Unmap(directx_state->context, (ID3D11Resource*)directx_state->objectBuffer, 0);
@@ -685,26 +693,32 @@ void
 begin_frame(FrameData *frame_data, f32 game_aspect, s32 screen_width, s32 screen_height)
 {
     u16 *frame_data_count_prt = FrameDataFrameDataCountPrt(frame_data);
+    f32 *viewport_x_prt       = FrameDataViewportXPrt(frame_data);
+    f32 *viewport_y_prt       = FrameDataViewportYPrt(frame_data);
+    f32 *viewport_width_prt   = FrameDataViewportWidthPrt(frame_data);
+    f32 *viewport_height_prt  = FrameDataViewportHeightPrt(frame_data);
+    s32 *width_prt            = FrameDataWidthPrt(frame_data);
+    s32 *height_prt           = FrameDataHeightPrt(frame_data);
 
-    frame_data->Width     = screen_width;
-    frame_data->Height    = screen_height;
+    *width_prt     = screen_width;
+    *height_prt    = screen_height;
     *frame_data_count_prt = 0;
 
-    f32 window_aspect = (f32)frame_data->Width / frame_data->Height;
+    f32 window_aspect = (f32)(*width_prt) / (*height_prt);
 
     if (window_aspect > game_aspect)
     {
-        frame_data->ViewportWidth = frame_data->Height * game_aspect;
-        frame_data->ViewportHeight = (f32)frame_data->Height;
-        frame_data->ViewportX = (frame_data->Width - frame_data->ViewportWidth) * 0.5f;
-        frame_data->ViewportY = 0.0f;
+        *viewport_width_prt  = (*height_prt) * game_aspect;
+        *viewport_height_prt = (f32)(*height_prt);
+        *viewport_x_prt      = ((*width_prt) - (*viewport_width_prt)) * 0.5f;
+        *viewport_y_prt      = 0.0f;
     }
     else
     {
-        frame_data->ViewportWidth = (f32)frame_data->Width;
-        frame_data->ViewportHeight = frame_data->Width / game_aspect;
-        frame_data->ViewportX = 0.0f;
-        frame_data->ViewportY = (frame_data->Height - frame_data->ViewportHeight) * 0.5f;
+        *viewport_width_prt  = (f32)(*width_prt);
+        *viewport_height_prt = (*width_prt) / game_aspect;
+        *viewport_x_prt      = 0.0f;
+        *viewport_y_prt      = ((*height_prt) - (*viewport_height_prt)) * 0.5f;
     }
 }
 
@@ -856,7 +870,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     wave_update_context.EnemyInstancesUpdateBin = enemy_instances_update_data;
     wave_update_context.EnemyBulletsUpdateBin   = enemy_bullets_update_data;
 
-    game_state->Time = 0.0;
+    f32 *time_delta_ptr  = GameStateTimeDeltaPrt(game_state);
+    f64 *time_ptr        = GameStateTimePrt(game_state);
+    f32 *play_time_ptr   = GameStatePlayTimePrt(game_state);
+    u64 *frame_count_ptr = GameStateFrameCounterPrt(game_state);
 
     f32 game_aspect = game_area.x / game_area.y;
 
@@ -891,7 +908,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 		{
 			LARGE_INTEGER c2;
 			QueryPerformanceCounter(&c2);
-			game_state->TimeDelta = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
+            *time_delta_ptr = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
 			c1 = c2;
 
             enemy_instances_update(&enemy_instances_update_context);
@@ -901,9 +918,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
             enemy_instances_draw(&enemy_instances_draw_context);
             bullets_draw(&enemy_bullets_draw_context);
 
-            game_state->Time += game_state->TimeDelta;
-            game_state->PlayTime += game_state->TimeDelta;
-            game_state->FrameCounter++;
+            *time_ptr += *time_delta_ptr;
+            *play_time_ptr += *time_delta_ptr;
+            (*frame_count_ptr)++;
 		}
 
 		EndFrameDirectX11(&directx_state, frame_data);
