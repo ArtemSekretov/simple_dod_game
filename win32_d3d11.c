@@ -33,6 +33,8 @@
 #include "game_state.h"
 #include "wave_update.h"
 
+#include "play_area.h"
+
 #include "enemy_instances.h"
 #include "frame_data.h"
 
@@ -803,7 +805,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
         NULL, NULL, wc.hInstance, NULL);
     Assert(window && "Failed to create window");
 
-    v2 game_area = V2(kEnemyInstancesWidth, kEnemyInstancesHeight);
+    v2 game_area = V2(kPlayAreaWidth, kPlayAreaHeight);
 
     f32 projection_matrix[16] = { 0 };
     setup_projection_matrix(projection_matrix, game_area);

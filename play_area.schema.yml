@@ -1,0 +1,13 @@
+meta:
+ name: play_area
+ size: uint16_t
+
+constants:
+ - name: width
+   value: 5
+ - name: height
+   value: 10
+ - name: half_width
+   value: 2.5
+ - name: half_height
+   value: 5

@@ -323,18 +323,21 @@ function buildCHeader(schema)
 		text += '#include <stdint.h>\n';
 		text += '\n';
 		
-		text += '#ifndef __cplusplus\n';
-		exportTypes.packStructs.forEach((struct) => {
-			text += `typedef struct ${struct.name.padEnd(40, ' ')} ${struct.name};\n`;
-		});
-        exportTypes.structs.forEach((struct) => {
-			text += `typedef struct ${struct.name.padEnd(40, ' ')} ${struct.name};\n`;
-		});
-        exportTypes.refStructs.forEach((struct) => {
-			text += `typedef struct ${struct.padEnd(40, ' ')} ${struct};\n`;
-		});		
-		text += '#endif\n';
-		text += '\n';
+        if(exportTypes.packStructs.length > 0 || exportTypes.structs.length > 0 || exportTypes.refStructs.length > 0)
+        {
+            text += '#ifndef __cplusplus\n';
+            exportTypes.packStructs.forEach((struct) => {
+                text += `typedef struct ${struct.name.padEnd(40, ' ')} ${struct.name};\n`;
+            });
+            exportTypes.structs.forEach((struct) => {
+                text += `typedef struct ${struct.name.padEnd(40, ' ')} ${struct.name};\n`;
+            });
+            exportTypes.refStructs.forEach((struct) => {
+                text += `typedef struct ${struct.padEnd(40, ' ')} ${struct};\n`;
+            });		
+            text += '#endif\n';
+		    text += '\n';
+        }
 		
         if(exportTypes.constants.length > 0)
         {

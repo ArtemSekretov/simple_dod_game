@@ -30,12 +30,12 @@ bullets_draw(BulletsDrawContext *context)
         u8 bullet_radius_q8 = bullet_types_radius_q8[bullet_type_index];
         f32 bullet_radius   = ((f32)bullet_radius_q8) * kQ8ToFloat;
 
-        if ((fabsf(bullet_position.x) - bullet_radius) > kEnemyInstancesHalfWidth)
+        if ((fabsf(bullet_position.x) - bullet_radius) > kPlayAreaHalfWidth)
         {
             continue;
         }
 
-        if ((fabsf(bullet_position.y) - bullet_radius) > kEnemyInstancesHalfHeight)
+        if ((fabsf(bullet_position.y) - bullet_radius) > kPlayAreaHalfHeight)
         {
             continue;
         }

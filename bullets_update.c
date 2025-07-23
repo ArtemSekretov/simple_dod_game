@@ -47,7 +47,7 @@ bullets_spawn(BulletsUpdateContext *context)
     BulletSourceInstancesUpdatePositions *bullet_instances_update_positions_sheet = BulletSourceInstancesUpdatePositionsPrt(bullet_source_instances_update);
     v2 *bullet_instances_positions                                                = (v2 *)BulletSourceInstancesUpdatePositionsPositionsPrt(bullet_source_instances_update, bullet_instances_update_positions_sheet);
 
-    f32 bullet_end_length = 5.0f * max(kEnemyInstancesWidth, kEnemyInstancesHeight);
+    f32 bullet_end_length = 5.0f * max(kPlayAreaWidth, kPlayAreaHeight);
 
     u64 bullet_source_instances_live  = *BulletSourceInstancesUpdateInstancesLivePrt(bullet_source_instances_update);
     u16 bullet_source_positions_count = *BulletSourceInstancesUpdatePositionsCountPrt(bullet_source_instances_update);
@@ -171,12 +171,12 @@ bullets_move(BulletsUpdateContext *context)
         u8 bullet_movement_speed_q4 = bullet_types_movement_speed_q4[bullet_type_index];
         f32 bullet_movement_speed   = ((f32)bullet_movement_speed_q4) * kQ4ToFloat;
 
-        if ((fabsf(bullet_position.x) - bullet_radius) > kEnemyInstancesHalfWidth)
+        if ((fabsf(bullet_position.x) - bullet_radius) > kPlayAreaHalfWidth)
         {
             continue;
         }
 
-        if ((fabsf(bullet_position.y) - bullet_radius) > kEnemyInstancesHalfHeight)
+        if ((fabsf(bullet_position.y) - bullet_radius) > kPlayAreaHalfHeight)
         {
             continue;
         }
