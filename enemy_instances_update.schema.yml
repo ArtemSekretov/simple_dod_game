@@ -43,3 +43,15 @@ ref:
    type: game_state
  - name: wave_update_bin
    type: wave_update
+
+maps:
+ - type: bullet_source_instances_update
+   variables:
+    - source: instances_live
+      target: instances_live
+   sheets:
+    - source: enemy_positions
+      target: source_positions
+      columns:
+       - source: positions
+         target: positions

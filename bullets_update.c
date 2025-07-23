@@ -1,12 +1,12 @@
 static void
 bullets_spawn(BulletsUpdateContext *context)
 {
-    BulletSourceInstances *bullet_source_instances = context->BulletSourceInstancesBin;
-    EnemyInstancesUpdate *enemy_instances_update   = context->EnemyInstancesUpdateBin;
-    Bullets *bullets                               = context->BulletsBin;
-    BulletsUpdate *bullets_update                  = context->Root;
-    GameState *game_state                          = context->GameStateBin;
-    WaveUpdate *wave_update                        = context->WaveUpdateBin;
+    BulletSourceInstances *bullet_source_instances              = context->BulletSourceInstancesBin;
+    BulletSourceInstancesUpdate *bullet_source_instances_update = context->BulletSourceInstancesUpdateBin;
+    Bullets *bullets                                            = context->BulletsBin;
+    BulletsUpdate *bullets_update                               = context->Root;
+    GameState *game_state                                       = context->GameStateBin;
+    WaveUpdate *wave_update                                     = context->WaveUpdateBin;
 
     u8 level_index = *GameStateLevelIndexPrt(game_state);
 
@@ -44,20 +44,20 @@ bullets_spawn(BulletsUpdateContext *context)
     BulletsUpdateSourceBullets *bullets_update_sheet                 = BulletsUpdateSourceBulletsPrt(bullets_update);
     BulletsUpdateSourceBulletsSpawnCount *bullets_update_spawn_count = BulletsUpdateSourceBulletsSpawnCountPrt(bullets_update, bullets_update_sheet);
 
-    EnemyInstancesUpdateEnemyPositions *enemy_instances_update_positions_sheet = EnemyInstancesUpdateEnemyPositionsPrt(enemy_instances_update);
-    v2 *enemy_instances_positions                                              = (v2 *)EnemyInstancesUpdateEnemyPositionsPositionsPrt(enemy_instances_update, enemy_instances_update_positions_sheet);
+    BulletSourceInstancesUpdatePositions *bullet_instances_update_positions_sheet = BulletSourceInstancesUpdatePositionsPrt(bullet_source_instances_update);
+    v2 *bullet_instances_positions                                                = (v2 *)BulletSourceInstancesUpdatePositionsPositionsPrt(bullet_source_instances_update, bullet_instances_update_positions_sheet);
 
     f32 bullet_end_length = 5.0f * max(kEnemyInstancesWidth, kEnemyInstancesHeight);
 
-    u16 enemy_positions_count = *EnemyInstancesUpdateEnemyPositionsCountPrt(enemy_instances_update);
-    u64 enemy_instances_live  = *EnemyInstancesUpdateInstancesLivePrt(enemy_instances_update);
-
+    u64 bullet_source_instances_live  = *BulletSourceInstancesUpdateInstancesLivePrt(bullet_source_instances_update);
+    u16 bullet_source_positions_count = *BulletSourceInstancesUpdatePositionsCountPrt(bullet_source_instances_update);
+    
     u16 *bullet_positions_count_ptr = BulletsUpdateBulletPositionsCountPrt(bullets_update);
     u32 *wave_spawn_count_ptr       = BulletsUpdateWaveSpawnCountPrt(bullets_update);
 
-    for (u8 wave_instance_index = 0; wave_instance_index < enemy_positions_count; wave_instance_index++)
+    for (u8 wave_instance_index = 0; wave_instance_index < bullet_source_positions_count; wave_instance_index++)
     {
-        if ((enemy_instances_live & (1ULL << wave_instance_index)) == 0)
+        if ((bullet_source_instances_live & (1ULL << wave_instance_index)) == 0)
         {
             continue;
         }
@@ -70,7 +70,7 @@ bullets_spawn(BulletsUpdateContext *context)
 
         f32 enemy_instance_time = wave_time - start_time;
 
-        v2 enemy_instance_position = enemy_instances_positions[wave_instance_index];
+        v2 bullet_instance_position = bullet_instances_positions[wave_instance_index];
 
         BulletsSourceTypesSourceBulletTypes bullets_type = types_enemy_bullet_types[enemy_index];
 
@@ -85,8 +85,8 @@ bullets_spawn(BulletsUpdateContext *context)
             f32 local_position_length = v2_length(local_position);
             v2 end_vector = v2_scale(local_position, bullet_end_length / local_position_length);
 
-            v2 spawn_position = v2_add(enemy_instance_position, local_position);
-            v2 end_position = v2_add(enemy_instance_position, end_vector);
+            v2 spawn_position = v2_add(bullet_instance_position, local_position);
+            v2 end_position = v2_add(bullet_instance_position, end_vector);
 
             u8 bullet_time_cast_q4 = bullets_time_cast_q4[bullet_index];
             f32 bullet_time_cast = ((f32)bullet_time_cast_q4) * kQ4ToFloat;

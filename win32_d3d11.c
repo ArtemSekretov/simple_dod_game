@@ -40,6 +40,7 @@
 #include "bullets_update.h"
 #include "bullets_draw.h"
 #include "bullet_source_instances.h"
+#include "bullet_source_instances_update.h"
 
 #include "enemy_instances_update.h"
 #include "enemy_instances_draw.h"
@@ -836,15 +837,16 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     MapFileData enemy_instances_update_map_data       = CreateMapFile("enemy_instances_update.bin", MapFilePermitions_ReadWriteCopy);
     EnemyInstancesUpdate *enemy_instances_update_data = (EnemyInstancesUpdate *)enemy_instances_update_map_data.data;
 
-    BulletSourceInstances *enemy_bullet_source_instances = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
+    BulletSourceInstances *enemy_bullet_source_instances              = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
+    BulletSourceInstancesUpdate *enemy_bullet_source_instances_update = EnemyInstancesUpdateBulletSourceInstancesUpdateMapPrt(enemy_instances_update_data);
 
     BulletsUpdateContext enemy_bullets_update_context;
-    enemy_bullets_update_context.Root                     = enemy_bullets_update_data;
-    enemy_bullets_update_context.BulletsBin               = enemy_bullets;
-    enemy_bullets_update_context.BulletSourceInstancesBin = enemy_bullet_source_instances;
-    enemy_bullets_update_context.EnemyInstancesUpdateBin  = enemy_instances_update_data;
-    enemy_bullets_update_context.GameStateBin             = game_state;
-    enemy_bullets_update_context.WaveUpdateBin            = wave_update_data;
+    enemy_bullets_update_context.Root                           = enemy_bullets_update_data;
+    enemy_bullets_update_context.BulletsBin                     = enemy_bullets;
+    enemy_bullets_update_context.BulletSourceInstancesBin       = enemy_bullet_source_instances;
+    enemy_bullets_update_context.BulletSourceInstancesUpdateBin = enemy_bullet_source_instances_update;
+    enemy_bullets_update_context.GameStateBin                   = game_state;
+    enemy_bullets_update_context.WaveUpdateBin                  = wave_update_data;
 
     BulletsDrawContext enemy_bullets_draw_context;
     enemy_bullets_draw_context.BulletsBin       = enemy_bullets;

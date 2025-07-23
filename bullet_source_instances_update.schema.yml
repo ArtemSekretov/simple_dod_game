@@ -1,0 +1,23 @@
+meta:
+ name: bullet_source_instances_update
+ size: uint16_t
+
+constants:
+ - name: max_instance_count
+   value: 64
+
+variables:
+ - name: instances_live
+   types:
+    - name: instances_live
+      type: uint64_t
+
+sheets:
+ - name: positions
+   capacity: max_instance_count
+   columns:
+    - name: positions
+      sources:
+       - name: positions
+         type: float
+         count: 2

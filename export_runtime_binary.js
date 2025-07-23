@@ -78,6 +78,15 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 			return data;
 		}
 
+        if(hasMaps)
+        {
+            const maps = schema.maps;
+
+            maps.forEach( map => {
+                exportMap(data, map, exportDataSegments);
+            });
+        }
+
 		if(hasSheets)
 		{
 			const sheets = schema.sheets;
@@ -111,15 +120,6 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             });
         }
 
-        if(hasMaps)
-        {
-            const maps = schema.maps;
-
-            maps.forEach( map => {
-                exportMap(data, map, exportDataSegments);
-            });
-        }
-
 		while(exportDataSegments.length)
 		{
 			const dataSegment = exportDataSegments.shift();
@@ -132,7 +132,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 
         function exportVariable(data, value, exportDataSegments)
         {
-            const valueSegmentName = `${schema.meta.name}${value.name}`;
+            const valueSegmentName = `${schema.meta.name}:${value.name}`;
             relocationTable.push({
                 offset: data.length,
                 names: [valueSegmentName],
@@ -176,9 +176,9 @@ function buildRuntimeBinary(schema, sourceWorkbook)
         function exportMap(data, map, exportDataSegments)
         {
             const mapSegmentName = map.type;
-			const dataOffset = 0;
             
             const hasSheets = map.hasOwnProperty('sheets');
+            const hasValues = map.hasOwnProperty('variables');
 
             relocationTable.push({
                 offset: data.length,
@@ -186,24 +186,48 @@ function buildRuntimeBinary(schema, sourceWorkbook)
                 size: schema.meta.size
             });
 
-			data.push( ...bytesAsSize([dataOffset], schema.meta.size));
+			data.push( ...bytesAsSize([0], schema.meta.size));
 
-            if(hasSheets)
+            if(hasSheets || hasValues)
             {
                 exportDataSegments.push( {
                     name: mapSegmentName,
                     getBytes: (data, exportDataSegments) => {
-                        map.sheets.forEach( mapSheet => {
-                            exportMapSheet(data, mapSegmentName, mapSheet, exportDataSegments);
-                        });
+                        if(hasSheets)
+                        {
+                            map.sheets.forEach( mapSheet => {
+                                exportMapSheet(data, mapSegmentName, mapSheet, exportDataSegments);
+                            });
+                        }
+                        if(hasValues)
+                        {
+                            map.variables.forEach( value => {
+                                exportMapValue(data, mapSegmentName, value, exportDataSegments);
+                            });
+                        }
                     }
                 }); 
             }
         }
+        
+        function exportMapValue(data, mapSegmentName, value, exportDataSegments)
+        {   
+            const sourceValueSegmentName = `${schema.meta.name}:${value.source}`;
+
+            relocationTable.push({
+                offset: data.length,
+                names: [sourceValueSegmentName],
+                size: schema.meta.size,
+                relativeSegment: mapSegmentName
+            });
+
+            // put space in data this will be patch by relocation table
+			data.push( ...bytesAsSize([0], schema.meta.size) );
+        }
 
         function exportMapSheet(data, mapSegmentName, mapSheet, exportDataSegments)
         {   
-            const targetSheetNameSegmentName   = `${mapSegmentName}${mapSheet.target}`;
+            const targetSheetNameSegmentName   = `${mapSegmentName}:${mapSheet.target}`;
             const targetCountOffsetSegmentName = `${targetSheetNameSegmentName}Count`;
             const sourceSheetNameSegmentName   = mapSheet.source;
             const sourceCountOffsetSegmentName = `${sourceSheetNameSegmentName}Count`;

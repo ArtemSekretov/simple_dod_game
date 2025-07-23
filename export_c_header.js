@@ -62,6 +62,23 @@ function buildCHeader(schema)
 		
         const fields = [];
 
+        if(hasMaps)
+        {
+            const maps = schema.maps;
+
+            maps.forEach( map => {
+                const mapType = undersoreToPascal(map.type);
+                fields.push(`${schema.meta.size} ${mapType}MapOffset`);
+
+            	exportTypes.functions.push({
+				    declaration: `${mapType} *${rootStructName}${mapType}MapPrt(${rootStructName} *root)`,
+				    body: `return (${mapType} *)((uintptr_t)root + root->${mapType}MapOffset);`
+			    });
+                
+                exportTypes.refStructs.push(mapType);
+            });
+        }
+
         if(hasSheets)
         {
 		    const sheets = schema.sheets;
@@ -86,23 +103,6 @@ function buildCHeader(schema)
             variables.forEach( variable => {
                 fields.push(`${schema.meta.size} ${undersoreToPascal(variable.name)}Offset`);
                 exportVariable(variable, exportTypes);
-            });
-        }
-
-        if(hasMaps)
-        {
-            const maps = schema.maps;
-
-            maps.forEach( map => {
-                const mapType = undersoreToPascal(map.type);
-                fields.push(`${schema.meta.size} ${mapType}MapOffset`);
-
-            	exportTypes.functions.push({
-				    declaration: `${mapType} *${rootStructName}${mapType}MapPrt(${rootStructName} *root)`,
-				    body: `return (${mapType} *)((uintptr_t)root + root->${mapType}MapOffset);`
-			    });
-                
-                exportTypes.refStructs.push(mapType);
             });
         }
 

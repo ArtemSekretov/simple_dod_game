@@ -57,6 +57,18 @@ function buildImHexPattern(schema)
 
         const imHexMetaSize = getImHexType(schema.meta.size);
 
+        if(hasMaps)
+        {
+            const maps = schema.maps;
+            maps.forEach( map => {
+                fields.push(`${imHexMetaSize} ${undersoreToPascal(map.type)}Offset`);
+            });
+
+            maps.forEach( map => {
+                exportMap(schema, map, rootStructName, exportTypes);
+            });
+        }
+
         if(hasSheets)
         {
 		    const sheets = schema.sheets;
@@ -143,18 +155,6 @@ function buildImHexPattern(schema)
             });
         }
         
-        if(hasMaps)
-        {
-            const maps = schema.maps;
-            maps.forEach( map => {
-                fields.push(`${imHexMetaSize} ${undersoreToPascal(map.type)}Offset`);
-            });
-
-            maps.forEach( map => {
-                exportMap(schema, map, rootStructName, exportTypes);
-            });
-        }
-
 		exportTypes.structs.push({
 			name: rootStructName,
 			fields: fields
@@ -165,24 +165,28 @@ function buildImHexPattern(schema)
         function exportMap(schema, map, rootStructName, exportTypes)
         {   
             const mapOffset = `${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(map.type)}Offset`;
+            
             const hasMapSheets = map.hasOwnProperty('sheets');
-            const hasSheets = schema.hasOwnProperty('sheets');
+            const hasMapValues = map.hasOwnProperty('variables');
 
+            const hasSheets = schema.hasOwnProperty('sheets');
+            const hasValues = schema.hasOwnProperty('variables');
+
+            const mapStructName = `${rootStructName}${undersoreToPascal(map.type)}Map`;
+            
+            const fields = [];
+
+            exportTypes.locationMap.push({
+                map: `${mapStructName} ${lowerFirstCharacter(mapStructName)} @ ${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(map.type)}Offset`
+            });
+
+            const imHexMetaSize = getImHexType(schema.meta.size);
+            
             if(hasMapSheets && hasSheets)
             {
                 const mapSheets = map.sheets;
                 const sheets    = schema.sheets;
-
-                const mapStructName = `${rootStructName}${undersoreToPascal(map.type)}Map`;
-
-                const fields = [];
-
-                exportTypes.locationMap.push({
-                    map: `${mapStructName} ${lowerFirstCharacter(mapStructName)} @ ${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(map.type)}Offset`
-                });
-
-                const imHexMetaSize = getImHexType(schema.meta.size);
-                
+      
                 mapSheets.forEach( mapSheet => {
                     fields.push(...[`${imHexMetaSize} ${undersoreToPascal(mapSheet.target)}CountOffset`,
                         `${imHexMetaSize} ${undersoreToPascal(mapSheet.target)}Count @ ${imHexMetaSize}(${undersoreToPascal(mapSheet.target)}CountOffset + addressof(this))`,
@@ -199,12 +203,86 @@ function buildImHexPattern(schema)
                     }
 
                 });                
+            }
 
-                exportTypes.structs.push({
-                    name: mapStructName,
-                    fields: fields
+            if(hasMapValues && hasValues)
+            {
+                const mapValues = map.variables;
+                const values    = schema.variables;
+
+                mapValues.forEach( mapValue => {
+                    
+                    const valueIndex = values.findIndex( v => v.name == mapValue.source);
+                    if(valueIndex != -1)
+                    {
+                        const variable = values[valueIndex];
+                        const types = variable.types;
+            
+                        let variableType = '';
+                        let exportStruct = false;
+                        let variableCount = 1;
+
+                        if(types.length == 1)
+                        {
+                            type = types[0];
+                            if(type.hasOwnProperty('count'))
+                            {
+                                variableCount = resolveExpression(type.count)|0;
+                            }
+                            variableType = getImHexType(type.type);
+                        }
+                        else
+                        {
+                            exportStruct = true;
+                        }
+
+                        if(exportStruct)
+                        {
+                            variableType = undersoreToPascal(variable.name);
+
+                            const valuableFields = [];
+
+                            types.forEach((t) => {
+                                let field = '';
+                                if(t.hasOwnProperty('count'))
+                                {
+                                    const count = resolveExpression(t.count)|0;
+                                    if(count > 1)
+                                    {
+                                        field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}[${count}]`;
+                                    }
+                                    else
+                                    {
+                                        field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}`;
+                                    }
+                                }
+                                else
+                                {
+                                    field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}`;
+                                }
+                                valuableFields.push(field);
+                            });
+
+                            exportTypes.structs.push({
+                                name: variableType,
+                                fields: valuableFields
+                            });                    
+                        }
+
+                        fields.push(...[`${imHexMetaSize} ${undersoreToPascal(mapValue.target)}Offset`,
+                            `${variableType} ${undersoreToPascal(mapValue.target)} @ ${imHexMetaSize}(${undersoreToPascal(mapValue.target)}Offset + addressof(this))`]);
+                    }
+                    else
+                    {
+                        console.log(`Unable find variable ${mapValue.source} mapping`);
+                    }
                 });
             }
+
+            exportTypes.structs.push({
+                name: mapStructName,
+                fields: fields
+            });
         }
         
         function exportMapSheet(sheet, mapSheet, rootStructName, mapStructName, mapOffset, exportTypes)
