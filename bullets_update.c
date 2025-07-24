@@ -5,21 +5,11 @@ bullets_spawn(BulletsUpdateContext *context)
     BulletSourceInstancesUpdate *bullet_source_instances_update = context->BulletSourceInstancesUpdateBin;
     Bullets *bullets                                            = context->BulletsBin;
     BulletsUpdate *bullets_update                               = context->Root;
-    GameState *game_state                                       = context->GameStateBin;
     WaveUpdate *wave_update                                     = context->WaveUpdateBin;
 
-    u8 level_index = *GameStateLevelIndexPrt(game_state);
-
-    u8 wave_index = *WaveUpdateWaveIndexPrt(wave_update);
     f32 wave_time = *WaveUpdateWaveTimePrt(wave_update);
 
-    u8 flat_wave_index = (level_index << 2) + wave_index;
-
-    BulletSourceInstancesLevelWaveIndex *bullet_source_level_wave_index_sheet = BulletSourceInstancesLevelWaveIndexPrt(bullet_source_instances);
     BulletSourceInstancesSourceInstances *bullet_source_instances_sheet       = BulletSourceInstancesSourceInstancesPrt(bullet_source_instances);
-
-    BulletSourceInstancesLevelWaveIndexLevelWave *bullet_source_level_wave_index_instance = BulletSourceInstancesLevelWaveIndexLevelWavePrt(bullet_source_instances, bullet_source_level_wave_index_sheet);
-    BulletSourceInstancesLevelWaveIndexLevelWave wave_instance = bullet_source_level_wave_index_instance[flat_wave_index];
 
     u8 *bullet_source_instances_source_index = BulletSourceInstancesSourceInstancesSourceIndexPrt(bullet_source_instances, bullet_source_instances_sheet);
     u16 *bullet_source_start_time_q4         = BulletSourceInstancesSourceInstancesStartTimeQ4Prt(bullet_source_instances, bullet_source_instances_sheet);
@@ -62,10 +52,9 @@ bullets_spawn(BulletsUpdateContext *context)
             continue;
         }
 
-        u16 source_instances_index = wave_instance.SourceInstancesStartIndex + wave_instance_index;
-        u8 enemy_index = bullet_source_instances_source_index[source_instances_index];
+        u8 enemy_index = bullet_source_instances_source_index[wave_instance_index];
 
-        u16 start_time_q4 = bullet_source_start_time_q4[source_instances_index];
+        u16 start_time_q4 = bullet_source_start_time_q4[wave_instance_index];
         f32 start_time = ((f32)start_time_q4) * kQ4ToFloat;
 
         f32 enemy_instance_time = wave_time - start_time;

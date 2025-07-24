@@ -97,11 +97,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 				if(sourceWorkbook)
 				{
 					const sourceWorksheetName = undersoreToPascal(sheet.name);
-					if(sourceWorkbook.SheetNames.indexOf(sourceWorksheetName) == -1)
-					{
-						console.log(`Sheet ${sourceWorksheetName} not found`);
-					}
-					else
+					if(sourceWorkbook.SheetNames.indexOf(sourceWorksheetName) != -1)
 					{
 						sourceWorksheet = sourceWorkbook.Sheets[sourceWorksheetName];
 					}

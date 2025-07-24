@@ -86,7 +86,7 @@ sheets:
        - name: enemy_instances_start_index
          type: uint16_t
        - name: enemy_instances_count
-         type: uint8_t
+         type: uint16_t
  - name: spawn_points
    columns:
     - name: x_y_q4
@@ -106,8 +106,16 @@ maps:
          target: start_time_q4
        - source: enemy_index
          target: source_index
-    - source: level_wave_index
-      target: level_wave_index
+ - type: enemy_instances_wave
+   sheets:
+    - source: enemy_instances
+      target: enemy_instances
       columns:
-       - source: level_wave
-         target: level_wave
+       - source: start_time_q4
+         target: start_time_q4
+       - source: enemy_index
+         target: enemy_index
+       - source: flat_spawn_point_index
+         target: flat_spawn_point_index
+       - source: way_point_path_index
+         target: way_point_path_index

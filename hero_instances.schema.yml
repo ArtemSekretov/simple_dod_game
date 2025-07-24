@@ -1,0 +1,59 @@
+meta:
+ name: hero_instances
+ size: uint16_t
+
+constants:
+ - name: max_instances
+   value: 16
+
+variables:
+ - name: instances_live
+   types:
+    - name: instances_live
+      type: uint64_t
+
+sheets:
+ - name: hero_instances
+   capacity: max_instances
+   columns:
+    - name: start_time_q4
+      sources: 
+       - name: start_time_q4
+         type: uint16_t
+    - name: hero_type_index
+      sources: 
+       - name: hero_type_index
+         type: uint8_t
+    - name: positions
+      sources: 
+       - name: x
+         type: float
+       - name: y
+         type: float
+ - name: hero_types
+   columns:
+    - name: radius_q4
+      sources: 
+       - name: radius_q4
+         type: uint8_t
+
+maps:
+ - type: bullet_source_instances
+   sheets:
+    - source: hero_instances
+      target: source_instances
+      columns:
+       - source: start_time_q4
+         target: start_time_q4
+       - source: hero_type_index
+         target: source_index
+ - type: bullet_source_instances_update
+   variables:
+    - source: instances_live
+      target: instances_live
+   sheets:
+    - source: hero_instances
+      target: source_positions
+      columns:
+       - source: positions
+         target: positions

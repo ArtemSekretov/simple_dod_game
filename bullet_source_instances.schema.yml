@@ -13,11 +13,3 @@ sheets:
       sources: 
        - name: source_index
          type: uint8_t
- - name: level_wave_index
-   columns:
-    - name: level_wave
-      sources: 
-       - name: source_instances_start_index
-         type: uint16_t
-       - name: source_instances_count
-         type: uint8_t

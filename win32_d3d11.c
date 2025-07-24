@@ -36,6 +36,7 @@
 #include "play_area.h"
 
 #include "enemy_instances.h"
+#include "enemy_instances_wave.h"
 #include "frame_data.h"
 
 #include "bullets.h"
@@ -821,7 +822,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     MapFileData wave_update_map_data = CreateMapFile("wave_update.bin", MapFilePermitions_ReadWriteCopy);
     WaveUpdate *wave_update_data     = (WaveUpdate *)wave_update_map_data.data;
 
-	MapFileData enemy_instances_map_data = CreateMapFile("enemy_instances.bin", MapFilePermitions_Read);
+	MapFileData enemy_instances_map_data = CreateMapFile("enemy_instances.bin", MapFilePermitions_ReadWriteCopy);
 	EnemyInstances *enemy_instances      = (EnemyInstances *)enemy_instances_map_data.data;
 	
     MapFileData enemy_bullets_map_data = CreateMapFile("enemy_bullets.bin", MapFilePermitions_Read);

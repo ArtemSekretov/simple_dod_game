@@ -60,26 +60,18 @@ function buildImHexPattern(schema)
         if(hasMaps)
         {
             const maps = schema.maps;
-            maps.forEach( map => {
-                fields.push(`${imHexMetaSize} ${undersoreToPascal(map.type)}Offset`);
-            });
 
             maps.forEach( map => {
-                exportMap(schema, map, rootStructName, exportTypes);
+                exportMap(fields, schema, map, rootStructName, exportTypes);
             });
         }
 
         if(hasSheets)
         {
 		    const sheets = schema.sheets;
-            fields.push( ...sheets.flatMap((sheet) => 
-				[`${imHexMetaSize} ${undersoreToPascal(sheet.name)}CountOffset`,
-                 `${imHexMetaSize} ${undersoreToPascal(sheet.name)}Count @ ${undersoreToPascal(sheet.name)}CountOffset`,
-				 `${imHexMetaSize} ${undersoreToPascal(sheet.name)}Offset`]) 
-            );
 
             sheets.forEach( sheet => {
-                exportSheet(sheet, rootStructName, exportTypes);		
+                exportSheet(fields, sheet, rootStructName, exportTypes);		
             });
 		}
         
@@ -162,8 +154,10 @@ function buildImHexPattern(schema)
 			
 		return exportTypes;
 		
-        function exportMap(schema, map, rootStructName, exportTypes)
+        function exportMap(fields, schema, map, rootStructName, exportTypes)
         {   
+            const imHexMetaSize = getImHexType(schema.meta.size);
+
             const mapOffset = `${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(map.type)}Offset`;
             
             const hasMapSheets = map.hasOwnProperty('sheets');
@@ -174,13 +168,10 @@ function buildImHexPattern(schema)
 
             const mapStructName = `${rootStructName}${undersoreToPascal(map.type)}Map`;
             
-            const fields = [];
+            fields.push( ...[`${imHexMetaSize} ${undersoreToPascal(map.type)}Offset`,
+                             `${mapStructName} ${lowerFirstCharacter(mapStructName)} @ ${undersoreToPascal(map.type)}Offset`]);
 
-            exportTypes.locationMap.push({
-                map: `${mapStructName} ${lowerFirstCharacter(mapStructName)} @ ${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(map.type)}Offset`
-            });
-
-            const imHexMetaSize = getImHexType(schema.meta.size);
+            const mapFields = [];
             
             if(hasMapSheets && hasSheets)
             {
@@ -188,14 +179,14 @@ function buildImHexPattern(schema)
                 const sheets    = schema.sheets;
       
                 mapSheets.forEach( mapSheet => {
-                    fields.push(...[`${imHexMetaSize} ${undersoreToPascal(mapSheet.target)}CountOffset`,
+                    mapFields.push(...[`${imHexMetaSize} ${undersoreToPascal(mapSheet.target)}CountOffset`,
                         `${imHexMetaSize} ${undersoreToPascal(mapSheet.target)}Count @ ${imHexMetaSize}(${undersoreToPascal(mapSheet.target)}CountOffset + addressof(this))`,
                         `${imHexMetaSize} ${undersoreToPascal(mapSheet.target)}Offset`])
                     
                     const sheetIndex = sheets.findIndex( s => s.name == mapSheet.source);
                     if(sheetIndex != -1)
                     {
-                        exportMapSheet(sheets[sheetIndex], mapSheet, rootStructName, mapStructName, mapOffset, exportTypes);
+                        exportMapSheet(mapFields, sheets[sheetIndex], mapSheet, rootStructName, mapStructName, mapOffset, exportTypes);
                     }
                     else
                     {
@@ -269,7 +260,7 @@ function buildImHexPattern(schema)
                             });                    
                         }
 
-                        fields.push(...[`${imHexMetaSize} ${undersoreToPascal(mapValue.target)}Offset`,
+                        mapFields.push(...[`${imHexMetaSize} ${undersoreToPascal(mapValue.target)}Offset`,
                             `${variableType} ${undersoreToPascal(mapValue.target)} @ ${imHexMetaSize}(${undersoreToPascal(mapValue.target)}Offset + addressof(this))`]);
                     }
                     else
@@ -281,11 +272,11 @@ function buildImHexPattern(schema)
 
             exportTypes.structs.push({
                 name: mapStructName,
-                fields: fields
+                fields: mapFields
             });
         }
         
-        function exportMapSheet(sheet, mapSheet, rootStructName, mapStructName, mapOffset, exportTypes)
+        function exportMapSheet(mapFields, sheet, mapSheet, rootStructName, mapStructName, mapOffset, exportTypes)
         {
             const mapSheetStructName = `${mapStructName}${undersoreToPascal(mapSheet.target)}`;
             const sheetStructName = `${rootStructName}${undersoreToPascal(mapSheet.source)}`;
@@ -300,9 +291,7 @@ function buildImHexPattern(schema)
 
             const fields = [];
 
-			exportTypes.locationMap.push({
-				map: `${mapSheetStructName} ${lowerFirstCharacter(mapSheetStructName)} @ ${lowerFirstCharacter(mapStructName)}.${undersoreToPascal(mapSheet.target)}Offset + ${mapOffset}`
-			});
+            mapFields.push(`${mapSheetStructName} ${lowerFirstCharacter(mapSheetStructName)} @ ${imHexMetaSize}(${undersoreToPascal(mapSheet.target)}Offset + addressof(this))`);
 
             columns.forEach( column => {
                 fields.push(`${getImHexType(schema.meta.size)} ${undersoreToPascal(column.target)}Offset`);
@@ -345,7 +334,7 @@ function buildImHexPattern(schema)
                     }
 
                     exportTypes.locationMap.push({
-                        map: `${columnType} ${lowerFirstCharacter(columnStructName)}Map[GetCapacity(${rowCapacity}, ${lowerFirstCharacter(mapStructName)}.${undersoreToPascal(mapSheet.target)}Count)] @ ${lowerFirstCharacter(mapSheetStructName)}.${undersoreToPascal(column.target)}Offset + ${mapOffset}`
+                        map: `${columnType} ${mapStructName}${lowerFirstCharacter(columnStructName)}Map[GetCapacity(${rowCapacity}, ${lowerFirstCharacter(rootStructName)}.${lowerFirstCharacter(mapStructName)}.${undersoreToPascal(mapSheet.target)}Count)] @ ${lowerFirstCharacter(rootStructName)}.${lowerFirstCharacter(mapStructName)}.${lowerFirstCharacter(mapSheetStructName)}.${undersoreToPascal(column.target)}Offset + ${mapOffset}`
                     });
                 }
                 else
@@ -357,14 +346,15 @@ function buildImHexPattern(schema)
             exportTypes.structs.push({
 				name: mapSheetStructName,
 				fields: fields
-			});
-		
+			});	
         }
 
-		function exportSheet(sheet, rootStructName, exportTypes)
+		function exportSheet(fields, sheet, rootStructName, exportTypes)
 		{
+            const imHexMetaSize = getImHexType(schema.meta.size);
+
 			const sheetStructName = `${rootStructName}${undersoreToPascal(sheet.name)}`;
-			
+
 			const columns = sheet.columns;
 			
 			const sheetName = sheet.name;
@@ -379,12 +369,13 @@ function buildImHexPattern(schema)
 			exportTypes.structs.push({
 				name: sheetStructName,
 				fields: columns.flatMap((column) => [ 
-					`${getImHexType(schema.meta.size)} ${undersoreToPascal(column.name)}Offset` ])
+					`${imHexMetaSize} ${undersoreToPascal(column.name)}Offset` ])
 			});
 			
-			exportTypes.locationMap.push({
-				map: `${sheetStructName} ${lowerFirstCharacter(sheetStructName)} @ ${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(sheetName)}Offset`
-			});
+            fields.push( ...[`${imHexMetaSize} ${undersoreToPascal(sheet.name)}CountOffset`,
+                 `${imHexMetaSize} ${undersoreToPascal(sheet.name)}Count @ ${undersoreToPascal(sheet.name)}CountOffset`,
+				 `${imHexMetaSize} ${undersoreToPascal(sheet.name)}Offset`,
+                 `${sheetStructName} ${lowerFirstCharacter(sheetStructName)} @ ${undersoreToPascal(sheet.name)}Offset`]);
 			
 			columns.forEach( column => {
 				exportColumn(column, rootStructName, rowCapacity, sheetName, exportTypes);
@@ -462,7 +453,7 @@ function buildImHexPattern(schema)
 				columnType = columnStructName;
 			}
 			exportTypes.locationMap.push({
-				map: `${columnType} ${lowerFirstCharacter(columnStructName)}[GetCapacity(${rowCapacity}, ${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(sheetName)}Count)] @ ${lowerFirstCharacter(sheetStructName)}.${undersoreToPascal(column.name)}Offset`
+				map: `${columnType} ${lowerFirstCharacter(columnStructName)}[GetCapacity(${rowCapacity}, ${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(sheetName)}Count)] @ ${lowerFirstCharacter(rootStructName)}.${lowerFirstCharacter(sheetStructName)}.${undersoreToPascal(column.name)}Offset`
 			});
 		}
 	}

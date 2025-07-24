@@ -13,6 +13,12 @@ where /q node && (
 	node export_imhex_pattern.js enemy_instances.schema.yml generated/enemy_instances.hexpat
 	node export_c_header.js enemy_instances.schema.yml generated/enemy_instances.h
 	
+    node export_c_header.js enemy_instances_wave.schema.yml generated/enemy_instances_wave.h
+
+	node export_runtime_binary.js hero_instances.schema.yml build/hero_instances.bin hero_instances.xlsx
+	node export_imhex_pattern.js hero_instances.schema.yml generated/hero_instances.hexpat
+	node export_c_header.js hero_instances.schema.yml generated/hero_instances.h
+
     node export_runtime_binary.js frame_data.schema.yml build/frame_data.bin
     node export_imhex_pattern.js frame_data.schema.yml generated/frame_data.hexpat
     node export_c_header.js frame_data.schema.yml generated/frame_data.h
