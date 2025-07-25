@@ -150,67 +150,13 @@ function buildCHeader(schema)
         {
             const types = variable.types;
             
-            let variableType = '';
-            let exportStruct = false;
-            let variableCount = 1;
-
-            if(types.length == 1)
-            {
-                type = types[0];
-                if(type.hasOwnProperty('count'))
-                {
-                    variableCount = resolveExpression(type.count)|0;
-
-                    if(variableCount > 1)
-                    {
-                        exportStruct = true;    
-                    }
-                }
-                variableType = type.type;
-            }
-            else
-            {
-                exportStruct = true;
-            }
-
-            if(exportStruct)
-            {
-                variableType = `${rootStructName}${undersoreToPascal(variable.name)}`;
-
-                const valuableFields = [];
-
-                types.forEach((t) => {
-                    let field = '';
-                    if(t.hasOwnProperty('count'))
-                    {
-                        const count = resolveExpression(t.count)|0;
-                        if(count > 1)
-                        {
-                            field = `${t.type} ${undersoreToPascal(t.name)}[${count}]`;
-                        }
-                        else
-                        {
-                            field = `${t.type} ${undersoreToPascal(t.name)}`;
-                        }
-                    }
-                    else
-                    {
-                        field = `${t.type} ${undersoreToPascal(t.name)}`;
-                    }
-                    valuableFields.push(field);
-                });
-
-                exportTypes.packStructs.push({
-                    name: variableType,
-                    fields: valuableFields
-                });                    
-            }
-
             const variableName = undersoreToPascal(variable.name);
 
+            const variableType = exportComplexTypes(`${rootStructName}${undersoreToPascal(variable.name)}`, types, exportTypes);
+
             exportTypes.functions.push({
-				declaration: `${variableType} *${rootStructName}${variableName}Prt(${rootStructName} *root)`,
-				body: `return (${variableType} *)((uintptr_t)root + root->${variableName}Offset);`
+				declaration: `${variableType.type} *${rootStructName}${variableName}Prt(${rootStructName} *root)`,
+				body: `return (${variableType.type} *)((uintptr_t)root + root->${variableName}Offset);`
 			});
         }
 
@@ -244,77 +190,82 @@ function buildCHeader(schema)
 			
 			const sheetStructName  = `${rootStructName}${undersoreToPascal(sheetName)}`;
 			const columnStructName = `${sheetStructName}${undersoreToPascal(column.name)}`;
-			
-			let columnType;
-			let exportStruct = false;
+						
+            const columnType = exportComplexTypes(columnStructName, sources, exportTypes);
 
-			if(sources.length == 1)
-			{
-				const source = sources[0];
-				if(source.hasOwnProperty('count'))
-				{
-					const count = resolveExpression(source.count)|0;
-
-					if(count > 1)
-					{
-						exportStruct = true;
-					}
-					else
-					{
-						columnType = source.type;
-					}
-				}
-				else
-				{
-					columnType = source.type;
-				}
-			}
-			else
-			{				
-                exportStruct = true;
-			}
-			
-            if(exportStruct)
-            {
-                const fields = [];
-
-                sources.forEach((source) => {
-                    let field = '';
-                    if(source.hasOwnProperty('count'))
-                    {
-                        const count = resolveExpression(source.count)|0;
-                        if(count > 1)
-                        {
-                            field = `${source.type} ${undersoreToPascal(source.name)}[${count}]`;
-                        }
-                        else
-                        {
-                            field = `${source.type} ${undersoreToPascal(source.name)}`;
-                        }
-                    }
-                    else
-                    {
-                        field = `${source.type} ${undersoreToPascal(source.name)}`;
-                    }
-                    fields.push(field);
-                });
-
-                exportTypes.packStructs.push({
-                    name: columnStructName,
-                    fields: fields
-                });
-        
-                columnType = columnStructName;
-            }
-			
 			exportTypes.functions.push({
-				declaration: `${columnType} *${columnStructName}Prt(${rootStructName} *root, ${sheetStructName} *sheet)`,
-				body: `return (${columnType} *)((uintptr_t)root + sheet->${undersoreToPascal(column.name)}Offset);`
+				declaration: `${columnType.type} *${columnStructName}Prt(${rootStructName} *root, ${sheetStructName} *sheet)`,
+				body: `return (${columnType.type} *)((uintptr_t)root + sheet->${undersoreToPascal(column.name)}Offset);`
 			});
 			
 		}		
 	}
 	
+    function exportComplexTypes(name, types, exportTypes)
+    {
+        let exportedType = '';
+        let exportStruct = false;
+        let exportedCount = 1;
+
+        if(types.length == 1)
+        {
+            type = types[0];
+            if(type.hasOwnProperty('count'))
+            {
+                exportedCount = resolveExpression(type.count)|0;
+
+                if(exportedCount > 1)
+                {
+                    exportStruct = true;    
+                }
+            }
+            exportedType = type.type;
+        }
+        else
+        {
+            exportStruct = true;
+        }
+
+        if(exportStruct)
+        {
+            exportedType = name;
+            exportedCount = 1;
+
+            const fields = [];
+
+            types.forEach((t) => {
+                let field = '';
+                if(t.hasOwnProperty('count'))
+                {
+                    const count = resolveExpression(t.count)|0;
+                    if(count > 1)
+                    {
+                        field = `${t.type} ${undersoreToPascal(t.name)}[${count}]`;
+                    }
+                    else
+                    {
+                        field = `${t.type} ${undersoreToPascal(t.name)}`;
+                    }
+                }
+                else
+                {
+                    field = `${t.type} ${undersoreToPascal(t.name)}`;
+                }
+                fields.push(field);
+            });
+
+            exportTypes.packStructs.push({
+                name: exportedType,
+                fields: fields
+            });                    
+        }
+
+        return {
+            type: exportedType,
+            count: exportedCount
+        }
+    }
+
 	function exportTypesToText(exportTypes)
 	{
 		let text = '#pragma once\n';
