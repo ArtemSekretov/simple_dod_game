@@ -82,67 +82,18 @@ function buildImHexPattern(schema)
             variables.forEach((variable) => {
                 const types = variable.types;
             
-                let variableType = '';
-                let exportStruct = false;
-                let variableCount = 1;
-
-                if(types.length == 1)
-                {
-                    type = types[0];
-                    if(type.hasOwnProperty('count'))
-                    {
-                        variableCount = resolveExpression(type.count)|0;
-                    }
-                    variableType = getImHexType(type.type);
-                }
-                else
-                {
-                    exportStruct = true;
-                }
-
-                if(exportStruct)
-                {
-                    variableType = undersoreToPascal(variable.name);
-
-                    const valuableFields = [];
-
-                    types.forEach((t) => {
-                        let field = '';
-                        if(t.hasOwnProperty('count'))
-                        {
-                            const count = resolveExpression(t.count)|0;
-                            if(count > 1)
-                            {
-                                field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}[${count}]`;
-                            }
-                            else
-                            {
-                                field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}`;
-                            }
-                        }
-                        else
-                        {
-                            field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}`;
-                        }
-                        valuableFields.push(field);
-                    });
-
-                    exportTypes.structs.push({
-                        name: variableType,
-                        fields: valuableFields
-                    });                    
-                }
-
                 const variableName = undersoreToPascal(variable.name);
 
+                const variableType = exportComplexTypes(variableName, types, false, exportTypes);
+
                 fields.push(`${imHexMetaSize} ${variableName}Offset`);
-                if(variableCount > 1)
+                if(variableType.count > 1)
                 {
-                    fields.push(`${variableType} ${variableName}[${variableCount}] @ ${variableName}Offset`);
+                    fields.push(`${variableType.type} ${variableName}[${variableType.count}] @ ${variableName}Offset`);
                 }
                 else
                 {
-                    fields.push(`${variableType} ${variableName} @ ${variableName}Offset`);
+                    fields.push(`${variableType.type} ${variableName} @ ${variableName}Offset`);
                 }
             });
         }
@@ -209,59 +160,18 @@ function buildImHexPattern(schema)
                         const variable = values[valueIndex];
                         const types = variable.types;
             
-                        let variableType = '';
-                        let exportStruct = false;
-                        let variableCount = 1;
+                        const variableType = exportComplexTypes(undersoreToPascal(variable.name), types, false, exportTypes);
 
-                        if(types.length == 1)
+                        mapFields.push(`${imHexMetaSize} ${undersoreToPascal(mapValue.target)}Offset`);
+
+                        if(variableType.count > 1)
                         {
-                            type = types[0];
-                            if(type.hasOwnProperty('count'))
-                            {
-                                variableCount = resolveExpression(type.count)|0;
-                            }
-                            variableType = getImHexType(type.type);
+                            mapFields.push(`${variableType.type} ${undersoreToPascal(mapValue.target)}[${variableType.count}] @ ${imHexMetaSize}(${undersoreToPascal(mapValue.target)}Offset + addressof(this))`);
                         }
                         else
                         {
-                            exportStruct = true;
+                            mapFields.push(`${variableType.type} ${undersoreToPascal(mapValue.target)} @ ${imHexMetaSize}(${undersoreToPascal(mapValue.target)}Offset + addressof(this))`);
                         }
-
-                        if(exportStruct)
-                        {
-                            variableType = undersoreToPascal(variable.name);
-
-                            const valuableFields = [];
-
-                            types.forEach((t) => {
-                                let field = '';
-                                if(t.hasOwnProperty('count'))
-                                {
-                                    const count = resolveExpression(t.count)|0;
-                                    if(count > 1)
-                                    {
-                                        field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}[${count}]`;
-                                    }
-                                    else
-                                    {
-                                        field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}`;
-                                    }
-                                }
-                                else
-                                {
-                                    field = `${getImHexType(t.type)} ${undersoreToPascal(t.name)}`;
-                                }
-                                valuableFields.push(field);
-                            });
-
-                            exportTypes.structs.push({
-                                name: variableType,
-                                fields: valuableFields
-                            });                    
-                        }
-
-                        mapFields.push(...[`${imHexMetaSize} ${undersoreToPascal(mapValue.target)}Offset`,
-                            `${variableType} ${undersoreToPascal(mapValue.target)} @ ${imHexMetaSize}(${undersoreToPascal(mapValue.target)}Offset + addressof(this))`]);
                     }
                     else
                     {
@@ -389,76 +299,81 @@ function buildImHexPattern(schema)
 			const sheetStructName  = `${rootStructName}${undersoreToPascal(sheetName)}`;
 			const columnStructName = `${sheetStructName}${undersoreToPascal(column.name)}`;
 			
-			let columnType;
-			
-			let exportStruct = false;
+            const columnType = exportComplexTypes(columnStructName, sources, true, exportTypes);
 
-			if(sources.length == 1)
-			{
-				const source = sources[0];
-				
-				if(source.hasOwnProperty('count'))
-				{
-					const count = resolveExpression(source.count)|0;
-
-					if(count > 1)
-					{
-						exportStruct = true;
-					}
-					else
-					{
-						columnType = getImHexType(source.type);
-					}
-				}
-				else
-				{
-					columnType = getImHexType(source.type);
-				}
-			}
-			else
-			{
-				exportStruct = true;
-			}
-			
-			if(exportStruct)
-			{
-				const fields = [];
-
-				sources.forEach((source) => {
-					let field = '';
-					if(source.hasOwnProperty('count'))
-					{
-                        const count = resolveExpression(source.count)|0;
-						if(count > 1)
-						{
-							field = `${getImHexType(source.type)} ${undersoreToPascal(source.name)}[${count}]`;
-						}
-						else
-						{
-							field = `${getImHexType(source.type)} ${undersoreToPascal(source.name)}`;
-						}
-					}
-					else
-					{
-						field = `${getImHexType(source.type)} ${undersoreToPascal(source.name)}`;
-					}
-					fields.push(field);
-				});
-
-				exportTypes.structs.push({
-					name: columnStructName,
-					fields: fields
-				});
-				
-				columnType = columnStructName;
-			}
-
-            fields.push(...[`${imHexMetaSize} ${undersoreToPascal(column.name)}Offset`,
-                            `${columnType} ${undersoreToPascal(column.name)}[GetCapacity(${rowCapacity}, parent.${undersoreToPascal(sheetName)}Count)] @ ${undersoreToPascal(column.name)}Offset`]);
-			
+            fields.push(`${imHexMetaSize} ${undersoreToPascal(column.name)}Offset`);
+            fields.push(`${columnType.type} ${undersoreToPascal(column.name)}[GetCapacity(${rowCapacity}, parent.${undersoreToPascal(sheetName)}Count)] @ ${undersoreToPascal(column.name)}Offset`);
 		}
 	}
 	
+    function exportComplexTypes(name, types, alwaysWrapInStruct, exportTypes)
+    {
+        let exportedType;
+		let exportedCount = 1;	
+        let exportStruct = false;
+
+        if(types.length == 1)
+        {
+            const type = types[0];
+				
+            if(type.hasOwnProperty('count'))
+            {
+                exportedCount = resolveExpression(type.count)|0;
+
+                if(exportedCount > 1)
+                {
+                    exportStruct = alwaysWrapInStruct;
+                }
+            }
+            exportedType = getImHexType(type.type);
+        }
+        else
+        {
+            exportStruct = true;
+        }
+			
+        if(exportStruct)
+        {
+            const fields = [];
+
+            types.forEach( type => {
+                let field = '';
+                const typeName = undersoreToPascal(type.name);
+                const typeType = getImHexType(type.type);
+                if(type.hasOwnProperty('count'))
+                {
+                    const count = resolveExpression(type.count)|0;
+                    if(count > 1)
+                    {
+                        field = `${typeType} ${typeName}[${count}]`;
+                    }
+                    else
+                    {
+                        field = `${typeType} ${typeName}`;
+                    }
+                }
+                else
+                {
+                    field = `${typeType} ${typeName}`;
+                }
+                fields.push(field);
+            });
+
+            exportTypes.structs.push({
+                name: name,
+                fields: fields
+            });
+				
+            exportedType = name;
+            exportedCount = 1;
+        }
+
+        return {
+            type: exportedType,
+            count: exportedCount
+        };
+    }
+
 	function exportTypesToText(exportTypes)
 	{
         const imHexMetaSize = getImHexType(schema.meta.size);
@@ -473,6 +388,12 @@ function buildImHexPattern(schema)
 		text += '};\n';
 		
         text += '\n';
+
+		exportTypes.structs.forEach((struct) => {
+			text += `using ${struct.name};\n`
+		});
+		
+		text += '\n';        
 
 		exportTypes.structs.forEach((struct) => {
 			text += `struct ${struct.name} {`
