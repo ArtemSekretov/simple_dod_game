@@ -169,7 +169,7 @@ function buildImHexPattern(schema)
             const mapStructName = `${rootStructName}${undersoreToPascal(map.type)}Map`;
             
             fields.push( ...[`${imHexMetaSize} ${undersoreToPascal(map.type)}Offset`,
-                             `${mapStructName} ${lowerFirstCharacter(mapStructName)} @ ${undersoreToPascal(map.type)}Offset`]);
+                             `${mapStructName} ${undersoreToPascal(map.type)} @ ${undersoreToPascal(map.type)}Offset`]);
 
             const mapFields = [];
             
@@ -291,7 +291,7 @@ function buildImHexPattern(schema)
 
             const fields = [];
 
-            mapFields.push(`${mapSheetStructName} ${lowerFirstCharacter(mapSheetStructName)} @ ${imHexMetaSize}(${undersoreToPascal(mapSheet.target)}Offset + addressof(this))`);
+            mapFields.push(`${mapSheetStructName} ${undersoreToPascal(mapSheet.target)} @ ${imHexMetaSize}(${undersoreToPascal(mapSheet.target)}Offset + addressof(this))`);
 
             columns.forEach( column => {
                 fields.push(`${getImHexType(schema.meta.size)} ${undersoreToPascal(column.target)}Offset`);
@@ -333,9 +333,8 @@ function buildImHexPattern(schema)
                         columnType = columnStructName;
                     }
 
-                    exportTypes.locationMap.push({
-                        map: `${columnType} ${mapStructName}${lowerFirstCharacter(columnStructName)}Map[GetCapacity(${rowCapacity}, ${lowerFirstCharacter(rootStructName)}.${lowerFirstCharacter(mapStructName)}.${undersoreToPascal(mapSheet.target)}Count)] @ ${lowerFirstCharacter(rootStructName)}.${lowerFirstCharacter(mapStructName)}.${lowerFirstCharacter(mapSheetStructName)}.${undersoreToPascal(column.target)}Offset + ${mapOffset}`
-                    });
+
+                    fields.push(`${columnType} ${undersoreToPascal(column.target)}[GetCapacity(${rowCapacity}, parent.${undersoreToPascal(mapSheet.target)}Count)] @ ${imHexMetaSize}(${undersoreToPascal(column.target)}Offset + addressof(parent))`);
                 }
                 else
                 {
@@ -365,24 +364,25 @@ function buildImHexPattern(schema)
 			{
 				rowCapacity = resolveExpression(sheet.capacity)|0;
 			}
-
-			exportTypes.structs.push({
-				name: sheetStructName,
-				fields: columns.flatMap((column) => [ 
-					`${imHexMetaSize} ${undersoreToPascal(column.name)}Offset` ])
-			});
 			
             fields.push( ...[`${imHexMetaSize} ${undersoreToPascal(sheet.name)}CountOffset`,
                  `${imHexMetaSize} ${undersoreToPascal(sheet.name)}Count @ ${undersoreToPascal(sheet.name)}CountOffset`,
 				 `${imHexMetaSize} ${undersoreToPascal(sheet.name)}Offset`,
-                 `${sheetStructName} ${lowerFirstCharacter(sheetStructName)} @ ${undersoreToPascal(sheet.name)}Offset`]);
+                 `${sheetStructName} ${undersoreToPascal(sheet.name)} @ ${undersoreToPascal(sheet.name)}Offset`]);
 			
+            const sheetFields = [];
+
 			columns.forEach( column => {
-				exportColumn(column, rootStructName, rowCapacity, sheetName, exportTypes);
+				exportColumn(sheetFields, column, rootStructName, rowCapacity, sheetName, exportTypes);
+			});
+
+			exportTypes.structs.push({
+				name: sheetStructName,
+				fields: sheetFields
 			});
 		}
 		
-		function exportColumn(column, rootStructName, rowCapacity, sheetName, exportTypes)
+		function exportColumn(fields, column, rootStructName, rowCapacity, sheetName, exportTypes)
 		{
 			const sources = column.sources;
 			
@@ -452,9 +452,10 @@ function buildImHexPattern(schema)
 				
 				columnType = columnStructName;
 			}
-			exportTypes.locationMap.push({
-				map: `${columnType} ${lowerFirstCharacter(columnStructName)}[GetCapacity(${rowCapacity}, ${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(sheetName)}Count)] @ ${lowerFirstCharacter(rootStructName)}.${lowerFirstCharacter(sheetStructName)}.${undersoreToPascal(column.name)}Offset`
-			});
+
+            fields.push(...[`${imHexMetaSize} ${undersoreToPascal(column.name)}Offset`,
+                            `${columnType} ${undersoreToPascal(column.name)}[GetCapacity(${rowCapacity}, parent.${undersoreToPascal(sheetName)}Count)] @ ${undersoreToPascal(column.name)}Offset`]);
+			
 		}
 	}
 	

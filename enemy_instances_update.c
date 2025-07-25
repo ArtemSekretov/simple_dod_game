@@ -206,7 +206,7 @@ enemy_instances_update(EnemyInstancesUpdateContext *context)
 
     // @Todo: reset for the first wave
     enemy_instances_wave->EnemyInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_instances_wave));
-    enemy_bullets_source_instances->SourceInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_instances_wave));
+    enemy_bullets_source_instances->SourceInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_bullets_source_instances));
 
     if ((*last_flat_wave_index_ptr) != flat_wave_index)
     {
@@ -219,9 +219,9 @@ enemy_instances_update(EnemyInstancesUpdateContext *context)
 
         EnemyInstancesWaveEnemyInstances *enemy_instances_wave_enemy_instances = EnemyInstancesWaveEnemyInstancesPrt(enemy_instances_wave);
 
-        enemy_instances_wave->EnemyInstancesCountOffset = (u16)(((uintptr_t)&level_wave_index_instance[flat_wave_index].EnemyInstancesCount) - ((uintptr_t)enemy_instances_wave));
-        enemy_bullets_source_instances->SourceInstancesCountOffset = (u16)(((uintptr_t)&level_wave_index_instance[flat_wave_index].EnemyInstancesCount) - ((uintptr_t)enemy_instances_wave));
-        
+        enemy_instances_wave->EnemyInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_instances_wave));
+        enemy_bullets_source_instances->SourceInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_bullets_source_instances));
+
         enemy_instances_wave_enemy_instances->StartTimeQ4Offset         = (u16)(((uintptr_t)&enemy_instances_start_time_q4[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)enemy_instances_wave));
         enemy_instances_wave_enemy_instances->EnemyIndexOffset          = (u16)(((uintptr_t)&enemy_instances_enemy_index[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)enemy_instances_wave));
         enemy_instances_wave_enemy_instances->FlatSpawnPointIndexOffset = (u16)(((uintptr_t)&enemy_instances_flat_spawn_point_index[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)enemy_instances_wave));
