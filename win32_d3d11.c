@@ -43,7 +43,6 @@
 #include "bullets_update.h"
 #include "bullets_draw.h"
 #include "bullet_source_instances.h"
-#include "bullet_source_instances_update.h"
 
 #include "enemy_instances_draw.h"
 
@@ -837,13 +836,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     BulletsUpdate *enemy_bullets_update_data  = (BulletsUpdate *)enemy_bullets_update_map_data.data;
 
     BulletSourceInstances *enemy_bullet_source_instances              = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
-    BulletSourceInstancesUpdate *enemy_bullet_source_instances_update = EnemyInstancesBulletSourceInstancesUpdateMapPrt(enemy_instances);
 
     BulletsUpdateContext enemy_bullets_update_context;
     enemy_bullets_update_context.Root                           = enemy_bullets_update_data;
     enemy_bullets_update_context.BulletsBin                     = enemy_bullets;
     enemy_bullets_update_context.BulletSourceInstancesBin       = enemy_bullet_source_instances;
-    enemy_bullets_update_context.BulletSourceInstancesUpdateBin = enemy_bullet_source_instances_update;
     enemy_bullets_update_context.GameStateBin                   = game_state;
     enemy_bullets_update_context.WaveUpdateBin                  = wave_update_data;
 

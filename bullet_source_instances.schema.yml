@@ -2,6 +2,16 @@ meta:
  name: bullet_source_instances
  size: uint16_t
 
+constants:
+ - name: max_instance_count
+   value: 64
+
+variables:
+ - name: instances_live
+   types:
+    - name: instances_live
+      type: uint64_t
+
 sheets:
  - name: source_instances
    columns:
@@ -13,3 +23,11 @@ sheets:
       sources: 
        - name: source_index
          type: uint8_t
+ - name: positions
+   capacity: max_instance_count
+   columns:
+    - name: positions
+      sources:
+       - name: positions
+         type: float
+         count: 2

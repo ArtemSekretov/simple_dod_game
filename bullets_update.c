@@ -1,15 +1,14 @@
 static void
 bullets_spawn(BulletsUpdateContext *context)
 {
-    BulletSourceInstances *bullet_source_instances              = context->BulletSourceInstancesBin;
-    BulletSourceInstancesUpdate *bullet_source_instances_update = context->BulletSourceInstancesUpdateBin;
-    Bullets *bullets                                            = context->BulletsBin;
-    BulletsUpdate *bullets_update                               = context->Root;
-    WaveUpdate *wave_update                                     = context->WaveUpdateBin;
+    BulletSourceInstances *bullet_source_instances = context->BulletSourceInstancesBin;
+    Bullets *bullets                               = context->BulletsBin;
+    BulletsUpdate *bullets_update                  = context->Root;
+    WaveUpdate *wave_update                        = context->WaveUpdateBin;
 
     f32 wave_time = *WaveUpdateWaveTimePrt(wave_update);
 
-    BulletSourceInstancesSourceInstances *bullet_source_instances_sheet       = BulletSourceInstancesSourceInstancesPrt(bullet_source_instances);
+    BulletSourceInstancesSourceInstances *bullet_source_instances_sheet = BulletSourceInstancesSourceInstancesPrt(bullet_source_instances);
 
     u8 *bullet_source_instances_source_index = BulletSourceInstancesSourceInstancesSourceIndexPrt(bullet_source_instances, bullet_source_instances_sheet);
     u16 *bullet_source_start_time_q4         = BulletSourceInstancesSourceInstancesStartTimeQ4Prt(bullet_source_instances, bullet_source_instances_sheet);
@@ -27,20 +26,20 @@ bullets_spawn(BulletsUpdateContext *context)
     u8 *bullets_type_index    = BulletsSourceBulletTypesBulletTypeIndexPrt(bullets, bullet_types_sheet);
 
     BulletsUpdateBulletPositions *bullet_update_positions_sheet = BulletsUpdateBulletPositionsPrt(bullets_update);
-    v2 *bullets_update_positions                          = (v2 *)BulletsUpdateBulletPositionsCurrentPositionPrt(bullets_update, bullet_update_positions_sheet);
-    v2 *bullets_update_end_positions                      = (v2 *)BulletsUpdateBulletPositionsEndPositionPrt(bullets_update, bullet_update_positions_sheet);
-    uint8_t *bullets_update_type_index                    = BulletsUpdateBulletPositionsTypeIndexPrt(bullets_update, bullet_update_positions_sheet);
+    v2 *bullets_update_positions       = (v2 *)BulletsUpdateBulletPositionsCurrentPositionPrt(bullets_update, bullet_update_positions_sheet);
+    v2 *bullets_update_end_positions   = (v2 *)BulletsUpdateBulletPositionsEndPositionPrt(bullets_update, bullet_update_positions_sheet);
+    uint8_t *bullets_update_type_index = BulletsUpdateBulletPositionsTypeIndexPrt(bullets_update, bullet_update_positions_sheet);
 
     BulletsUpdateSourceBullets *bullets_update_sheet                 = BulletsUpdateSourceBulletsPrt(bullets_update);
     BulletsUpdateSourceBulletsSpawnCount *bullets_update_spawn_count = BulletsUpdateSourceBulletsSpawnCountPrt(bullets_update, bullets_update_sheet);
 
-    BulletSourceInstancesUpdatePositions *bullet_instances_update_positions_sheet = BulletSourceInstancesUpdatePositionsPrt(bullet_source_instances_update);
-    v2 *bullet_instances_positions                                                = (v2 *)BulletSourceInstancesUpdatePositionsPositionsPrt(bullet_source_instances_update, bullet_instances_update_positions_sheet);
+    BulletSourceInstancesPositions *bullet_instances_positions_sheet = BulletSourceInstancesPositionsPrt(bullet_source_instances);
+    v2 *bullet_instances_positions                                   = (v2 *)BulletSourceInstancesPositionsPositionsPrt(bullet_source_instances, bullet_instances_positions_sheet);
 
     f32 bullet_end_length = 5.0f * max(kPlayAreaWidth, kPlayAreaHeight);
 
-    u64 bullet_source_instances_live  = *BulletSourceInstancesUpdateInstancesLivePrt(bullet_source_instances_update);
-    u16 bullet_source_positions_count = *BulletSourceInstancesUpdatePositionsCountPrt(bullet_source_instances_update);
+    u64 bullet_source_instances_live  = *BulletSourceInstancesInstancesLivePrt(bullet_source_instances);
+    u16 bullet_source_positions_count = *BulletSourceInstancesPositionsCountPrt(bullet_source_instances);
     
     u16 *bullet_positions_count_ptr = BulletsUpdateBulletPositionsCountPrt(bullets_update);
     u32 *wave_spawn_count_ptr       = BulletsUpdateWaveSpawnCountPrt(bullets_update);

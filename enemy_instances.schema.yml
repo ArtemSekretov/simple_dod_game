@@ -132,6 +132,9 @@ ref:
 
 maps:
  - type: bullet_source_instances
+   variables:
+    - source: instances_live
+      target: instances_live
    sheets:
     - source: enemy_instances
       target: source_instances
@@ -140,6 +143,11 @@ maps:
          target: start_time_q4
        - source: enemy_index
          target: source_index
+    - source: enemy_positions
+      target: source_positions
+      columns:
+       - source: positions
+         target: positions
  - type: enemy_instances_wave
    sheets:
     - source: enemy_instances
@@ -153,13 +161,3 @@ maps:
          target: flat_spawn_point_index
        - source: way_point_path_index
          target: way_point_path_index
- - type: bullet_source_instances_update
-   variables:
-    - source: instances_live
-      target: instances_live
-   sheets:
-    - source: enemy_positions
-      target: source_positions
-      columns:
-       - source: positions
-         target: positions

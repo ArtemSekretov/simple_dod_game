@@ -39,6 +39,9 @@ sheets:
 
 maps:
  - type: bullet_source_instances
+   variables:
+    - source: instances_live
+      target: instances_live
    sheets:
     - source: hero_instances
       target: source_instances
@@ -47,11 +50,6 @@ maps:
          target: start_time_q4
        - source: hero_type_index
          target: source_index
- - type: bullet_source_instances_update
-   variables:
-    - source: instances_live
-      target: instances_live
-   sheets:
     - source: hero_instances
       target: source_positions
       columns:
