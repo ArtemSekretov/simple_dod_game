@@ -29,6 +29,22 @@ constants:
    value: 64
  - name: max_way_points_per_path
    value: 256
+ - name: wave_spawned_all
+   value: 1
+
+variables:
+ - name: instances_live
+   types:
+    - name: instances_live
+      type: uint64_t
+ - name: last_flat_wave_index
+   types:
+    - name: last_flat_wave_index
+      type: uint8_t
+ - name: wave_state
+   types:
+    - name: wave_state
+      type: uint32_t
 
 sheets:
  - name: enemy_instances
@@ -95,6 +111,24 @@ sheets:
          type: int8_t
        - name: y_q4
          type: int8_t
+ - name: enemy_positions
+   capacity: max_instances_per_wave
+   columns:
+    - name: positions
+      sources:
+       - name: positions
+         type: float
+         count: 2
+    - name: way_point_index
+      sources:
+       - name: way_point_index
+         type: uint8_t
+
+ref:
+ - name: game_state_bin
+   type: game_state
+ - name: wave_update_bin
+   type: wave_update
 
 maps:
  - type: bullet_source_instances
@@ -119,3 +153,13 @@ maps:
          target: flat_spawn_point_index
        - source: way_point_path_index
          target: way_point_path_index
+ - type: bullet_source_instances_update
+   variables:
+    - source: instances_live
+      target: instances_live
+   sheets:
+    - source: enemy_positions
+      target: source_positions
+      columns:
+       - source: positions
+         target: positions

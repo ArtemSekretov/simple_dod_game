@@ -5,8 +5,6 @@ meta:
 ref:
  - name: enemy_instances_bin
    type: enemy_instances
- - name: enemy_instances_update_bin
-   type: enemy_instances_update
  - name: frame_data_bin
    type: frame_data
  - name: game_state_bin

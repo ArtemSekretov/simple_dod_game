@@ -15,7 +15,7 @@ variables:
 ref:
  - name: enemy_bullets_update_bin
    type: bullets_update
- - name: enemy_instances_update_bin
-   type: enemy_instances_update
+ - name: enemy_instances_bin
+   type: enemy_instances
  - name: game_state_bin
    type: game_state
