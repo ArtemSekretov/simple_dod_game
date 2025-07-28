@@ -95,17 +95,17 @@ bullets_spawn(BulletsUpdateContext *context)
                 continue;
             }
 
-            u8 expected_spawn_count = (u8)(time_start / bullet_time_loop);
+            u16 expected_spawn_count = (u16)(time_start / bullet_time_loop);
 
             if (bullet_quantity > 1)
             {
                 expected_spawn_count *= bullet_quantity;
-                expected_spawn_count += min(bullet_quantity - 1, (u8)(fmodf(time_start, bullet_time_loop) / bullet_time_delay));
+                expected_spawn_count += min(bullet_quantity - 1, (u16)(fmodf(time_start, bullet_time_loop) / bullet_time_delay));
             }
 
             BulletsUpdateSourceBulletsSpawnCount *bullets_spawn_count = &bullets_update_spawn_count[wave_instance_index];
 
-            u8 actual_spawn_count = bullets_spawn_count->SpawnCount[i];
+            u16 actual_spawn_count = bullets_spawn_count->SpawnCount[i];
             
             if (expected_spawn_count <= actual_spawn_count)
             {
@@ -196,7 +196,7 @@ bullets_update(BulletsUpdateContext *context)
     
     if (wave_state & kWaveUpdateStateReset)
     {
-        memset(bullets_update_spawn_count, 0, kBulletsUpdateMaxSourceBulletTypesPerSourceType * kBulletsUpdateMaxInstancesPerWave);
+        memset(bullets_update_spawn_count, 0, sizeof(BulletsUpdateSourceBulletsSpawnCount) * kBulletsUpdateMaxInstancesPerWave);
         *wave_spawn_count_ptr = 0;
         *bullet_positions_count_ptr = 0;
     }

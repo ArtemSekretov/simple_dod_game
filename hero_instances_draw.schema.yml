@@ -1,0 +1,9 @@
+meta:
+ name: hero_instances_draw
+ size: uint16_t
+
+ref:
+ - name: hero_instances_bin
+   type: hero_instances
+ - name: frame_data_bin
+   type: frame_data

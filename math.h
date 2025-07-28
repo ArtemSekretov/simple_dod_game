@@ -70,3 +70,39 @@ v2_scale(v2 a, f32 b)
 
     return result;
 }
+
+void
+setup_projection_matrix(f32 projection_martix[16], v2 game_area)
+{
+    v2 half_game_area = v2_scale(game_area, 0.5f);
+
+    f32 left = -half_game_area.x;
+    f32 right = half_game_area.x;
+    f32 bottom = -half_game_area.y;
+    f32 top = half_game_area.y;
+    f32 near_clip_plane = 0.0f;
+    f32 far_clip_plane = 1.0f;
+
+    f32 a = 2.0f / (right - left);
+    f32 b = 2.0f / (top - bottom);
+
+    f32 a1 = (left + right) / (right - left);
+    f32 b1 = (top + bottom) / (top - bottom);
+
+    f32 n = near_clip_plane;
+    f32 f = far_clip_plane;
+    f32 d = 2.0f / (n - f);
+    f32 e = (n + f) / (n - f);
+
+    // a, 0, 0, -a1,
+    // 0, b, 0, -b1,
+    // 0, 0, d,  e,
+    // 0, 0, 0,  1,
+    projection_martix[0]  =  a;
+    projection_martix[3]  = -a1;
+    projection_martix[5]  =  b;
+    projection_martix[7]  = -b1;
+    projection_martix[10] =  d;
+    projection_martix[11] =  e;
+    projection_martix[15] =  1;
+}

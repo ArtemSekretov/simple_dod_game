@@ -6,6 +6,11 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
     EnemyInstances *enemy_instances              = context->EnemyInstancesBin;
     EnemyInstancesWave *enemy_instances_wave = EnemyInstancesEnemyInstancesWaveMapPrt(enemy_instances);
 
+    FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
+    FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
+
+    u16 *frame_data_count_ptr = FrameDataFrameDataCountPrt(frame_data);
+
     EnemyInstancesEnemyTypes *enemy_sheet = EnemyInstancesEnemyTypesPrt(enemy_instances);
 
     EnemyInstancesWaveEnemyInstances *enemy_instances_wave_sheet  = EnemyInstancesWaveEnemyInstancesPrt(enemy_instances_wave);
@@ -13,11 +18,6 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
     u8 *enemy_instances_enemy_index = EnemyInstancesWaveEnemyInstancesEnemyIndexPrt(enemy_instances_wave, enemy_instances_wave_sheet);
 
     u8 *enemy_radius_q4 = EnemyInstancesEnemyTypesRadiusQ4Prt(enemy_instances, enemy_sheet);
-
-    FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
-    FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
-
-    u16 *frame_data_count_ptr = FrameDataFrameDataCountPrt(frame_data);
 
     EnemyInstancesEnemyPositions *enemy_instances_positions_sheet = EnemyInstancesEnemyPositionsPrt(enemy_instances);
     v2 *enemy_instances_positions                                 = (v2 *)EnemyInstancesEnemyPositionsPositionsPrt(enemy_instances, enemy_instances_positions_sheet);

@@ -55,3 +55,7 @@ maps:
       columns:
        - source: positions
          target: positions
+
+ref:
+ - name: game_state_bin
+   type: game_state

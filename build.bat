@@ -15,6 +15,8 @@ where /q node && (
 	
     node export_c_header.js enemy_instances_wave.schema.yml generated/enemy_instances_wave.h
 
+    node export_c_header.js hero_instances_draw.schema.yml generated/hero_instances_draw.h
+
 	node export_runtime_binary.js hero_instances.schema.yml build/hero_instances.bin hero_instances.xlsx
 	node export_imhex_pattern.js hero_instances.schema.yml generated/hero_instances.hexpat
 	node export_c_header.js hero_instances.schema.yml generated/hero_instances.h
@@ -30,6 +32,7 @@ where /q node && (
 
     node export_c_header.js bullets_update.schema.yml generated/bullets_update.h
     node export_runtime_binary.js bullets_update.schema.yml build/enemy_bullets_update.bin
+    node export_runtime_binary.js bullets_update.schema.yml build/hero_bullets_update.bin
     node export_imhex_pattern.js bullets_update.schema.yml generated/bullets_update.hexpat
 
     node export_c_header.js bullets_draw.schema.yml generated/bullets_draw.h

@@ -40,7 +40,7 @@ sheets:
     - name: spawn_count
       sources:
        - name: spawn_count
-         type: uint8_t
+         type: uint16_t
          count: max_source_bullet_types_per_source_type
 
 ref:
