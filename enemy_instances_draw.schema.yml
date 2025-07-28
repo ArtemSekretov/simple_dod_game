@@ -7,7 +7,3 @@ ref:
    type: enemy_instances
  - name: frame_data_bin
    type: frame_data
- - name: game_state_bin
-   type: game_state
- - name: wave_update_bin
-   type: wave_update

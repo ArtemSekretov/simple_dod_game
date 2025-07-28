@@ -835,14 +835,14 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     MapFileData enemy_bullets_update_map_data = CreateMapFile("enemy_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
     BulletsUpdate *enemy_bullets_update_data  = (BulletsUpdate *)enemy_bullets_update_map_data.data;
 
-    BulletSourceInstances *enemy_bullet_source_instances              = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
+    BulletSourceInstances *enemy_bullet_source_instances = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
 
     BulletsUpdateContext enemy_bullets_update_context;
-    enemy_bullets_update_context.Root                           = enemy_bullets_update_data;
-    enemy_bullets_update_context.BulletsBin                     = enemy_bullets;
-    enemy_bullets_update_context.BulletSourceInstancesBin       = enemy_bullet_source_instances;
-    enemy_bullets_update_context.GameStateBin                   = game_state;
-    enemy_bullets_update_context.WaveUpdateBin                  = wave_update_data;
+    enemy_bullets_update_context.Root                     = enemy_bullets_update_data;
+    enemy_bullets_update_context.BulletsBin               = enemy_bullets;
+    enemy_bullets_update_context.BulletSourceInstancesBin = enemy_bullet_source_instances;
+    enemy_bullets_update_context.GameStateBin             = game_state;
+    enemy_bullets_update_context.WaveUpdateBin            = wave_update_data;
 
     BulletsDrawContext enemy_bullets_draw_context;
     enemy_bullets_draw_context.BulletsBin       = enemy_bullets;
@@ -857,8 +857,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     EnemyInstancesDrawContext enemy_instances_draw_context;
     enemy_instances_draw_context.EnemyInstancesBin = enemy_instances;
     enemy_instances_draw_context.FrameDataBin      = frame_data;
-    enemy_instances_draw_context.GameStateBin      = game_state;
-    enemy_instances_draw_context.WaveUpdateBin     = wave_update_data;
 
     WaveUpdateContext wave_update_context;
     wave_update_context.Root                  = wave_update_data;
@@ -870,12 +868,15 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     f64 *time_ptr        = GameStateTimePrt(game_state);
     f32 *play_time_ptr   = GameStatePlayTimePrt(game_state);
     u64 *frame_count_ptr = GameStateFrameCounterPrt(game_state);
+    u32 *state_ptr       = GameStateStatePrt(game_state);
 
     f32 game_aspect = game_area.x / game_area.y;
 
     LARGE_INTEGER freq, c1;
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&c1);
+
+    *state_ptr |= kGameStateStateReset;
 
     for (;;)
     {
@@ -917,6 +918,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
             *time_ptr += *time_delta_ptr;
             *play_time_ptr += *time_delta_ptr;
             (*frame_count_ptr)++;
+            *state_ptr &= ~kGameStateStateReset;
 		}
 
 		EndFrameDirectX11(&directx_state, frame_data);

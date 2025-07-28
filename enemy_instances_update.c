@@ -22,7 +22,7 @@ enemy_instances_spawn(EnemyInstancesContext *context)
     WaveUpdate *wave_update                  = context->WaveUpdateBin;
     EnemyInstancesWave *enemy_instances_wave = EnemyInstancesEnemyInstancesWaveMapPrt(enemy_instances);
 
-    f32 wave_time = *WaveUpdateWaveTimePrt(wave_update);
+    f32 wave_time = *WaveUpdateTimePrt(wave_update);
 
     EnemyInstancesSpawnPoints *spawn_points_sheet       = EnemyInstancesSpawnPointsPrt(enemy_instances);
 
@@ -78,7 +78,7 @@ enemy_instances_move(EnemyInstancesContext *context)
     f32 time_delta   = *GameStateTimeDeltaPrt(game_state);
     u8 player_grid_x = *GameStatePlayerGridXPrt(game_state);
 
-    f32 wave_time = *WaveUpdateWaveTimePrt(wave_update);
+    f32 wave_time = *WaveUpdateTimePrt(wave_update);
 
     EnemyInstancesEnemyTypes *enemy_sheet                         = EnemyInstancesEnemyTypesPrt(enemy_instances);
     EnemyInstancesWayPointPathsIndex *way_point_paths_index_sheet = EnemyInstancesWayPointPathsIndexPrt(enemy_instances);
@@ -159,8 +159,8 @@ enemy_instances_move(EnemyInstancesContext *context)
 
             frame_move_dist -= way_point_dist;
 
-            s32 is_end_of_path = way_point_index == (way_point_path_index_way_point.WayPointCount - 1);
-            s32 is_time_out    = enemy_instance_time > way_point_time_out;
+            b32 is_end_of_path = way_point_index == (way_point_path_index_way_point.WayPointCount - 1);
+            b32 is_time_out    = enemy_instance_time > way_point_time_out;
 
             if (is_end_of_path && is_time_out)
             {
@@ -186,11 +186,11 @@ enemy_instances_update(EnemyInstancesContext *context)
 
     u8 level_index = *GameStateLevelIndexPrt(game_state);
 
-    u8 wave_index = *WaveUpdateWaveIndexPrt(wave_update);
+    u8 wave_index  = *WaveUpdateIndexPrt(wave_update);
+    u32 wave_state = *WaveUpdateStatePrt(wave_update);
 
     u8 flat_wave_index = (level_index << 2) + wave_index;
 
-    u8 *last_flat_wave_index_ptr   = EnemyInstancesLastFlatWaveIndexPrt(enemy_instances);
     u32 *wave_state_ptr            = EnemyInstancesWaveStatePrt(enemy_instances);
     u16 *enemy_positions_count_prt = EnemyInstancesEnemyPositionsCountPrt(enemy_instances);
 
@@ -201,11 +201,7 @@ enemy_instances_update(EnemyInstancesContext *context)
     EnemyInstancesLevelWaveIndexLevelWave *level_wave_index_instance = EnemyInstancesLevelWaveIndexLevelWavePrt(enemy_instances, level_wave_index_sheet);
     EnemyInstancesLevelWaveIndexLevelWave *wave_instance = &level_wave_index_instance[flat_wave_index];
 
-    // @Todo: reset for the first wave
-    enemy_instances_wave->EnemyInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_instances_wave));
-    enemy_bullets_source_instances->SourceInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_bullets_source_instances));
-
-    if ((*last_flat_wave_index_ptr) != flat_wave_index)
+    if (wave_state & kWaveUpdateStateReset)
     {
         EnemyInstancesEnemyInstances *enemy_instances_sheet = EnemyInstancesEnemyInstancesPrt(enemy_instances);
 
@@ -230,7 +226,6 @@ enemy_instances_update(EnemyInstancesContext *context)
         enemy_bullet_source_instances_source->SourceIndexOffset = (u16)(((uintptr_t)&enemy_instances_enemy_index[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)enemy_bullets_source_instances));
 
         *enemy_positions_count_prt = 0;
-        *last_flat_wave_index_ptr = flat_wave_index;
         *wave_state_ptr &= ~(kEnemyInstancesWaveSpawnedAll);
     }
 

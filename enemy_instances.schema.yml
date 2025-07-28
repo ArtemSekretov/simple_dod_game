@@ -37,10 +37,6 @@ variables:
    types:
     - name: instances_live
       type: uint64_t
- - name: last_flat_wave_index
-   types:
-    - name: last_flat_wave_index
-      type: uint8_t
  - name: wave_state
    types:
     - name: wave_state

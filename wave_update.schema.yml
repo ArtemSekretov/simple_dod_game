@@ -2,15 +2,23 @@ meta:
  name: wave_update
  size: uint16_t
 
+constants:
+ - name: state_reset
+   value: 1
+
 variables:
- - name: wave_time
+ - name: time
    types:
-    - name: wave_time
+    - name: time
       type: float
- - name: wave_index
+ - name: index
    types:
-    - name: wave_index
+    - name: index
       type: uint8_t
+ - name: state
+   types:
+    - name: state
+      type: uint32_t
 
 ref:
  - name: enemy_bullets_update_bin

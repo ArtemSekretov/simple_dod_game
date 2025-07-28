@@ -2,6 +2,10 @@ meta:
  name: game_state
  size: uint16_t
 
+constants:
+ - name: state_reset
+   value: 1
+
 variables:
  - name: frame_counter
    types:

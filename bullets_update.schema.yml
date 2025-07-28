@@ -15,10 +15,6 @@ variables:
    types:
     - name: wave_spawn_count
       type: uint32_t
- - name: last_flat_wave_index
-   types:
-    - name: last_flat_wave_index
-      type: uint8_t
 
 sheets:
  - name: bullet_positions

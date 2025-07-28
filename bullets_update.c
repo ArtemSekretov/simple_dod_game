@@ -6,7 +6,7 @@ bullets_spawn(BulletsUpdateContext *context)
     BulletsUpdate *bullets_update                  = context->Root;
     WaveUpdate *wave_update                        = context->WaveUpdateBin;
 
-    f32 wave_time = *WaveUpdateWaveTimePrt(wave_update);
+    f32 wave_time = *WaveUpdateTimePrt(wave_update);
 
     BulletSourceInstancesSourceInstances *bullet_source_instances_sheet = BulletSourceInstancesSourceInstancesPrt(bullet_source_instances);
 
@@ -184,29 +184,21 @@ static void
 bullets_update(BulletsUpdateContext *context)
 {
     BulletsUpdate *bullets_update = context->Root;
-    GameState *game_state         = context->GameStateBin;
     WaveUpdate *wave_update       = context->WaveUpdateBin;
 
-    u8 level_index = *GameStateLevelIndexPrt(game_state);
-
-    u8 wave_index = *WaveUpdateWaveIndexPrt(wave_update);
+    u32 wave_state = *WaveUpdateStatePrt(wave_update);
 
     BulletsUpdateSourceBullets *bullets_update_sheet                 = BulletsUpdateSourceBulletsPrt(bullets_update);
     BulletsUpdateSourceBulletsSpawnCount *bullets_update_spawn_count = BulletsUpdateSourceBulletsSpawnCountPrt(bullets_update, bullets_update_sheet);
 
     u16 *bullet_positions_count_ptr = BulletsUpdateBulletPositionsCountPrt(bullets_update);
     u32 *wave_spawn_count_ptr       = BulletsUpdateWaveSpawnCountPrt(bullets_update);
-    u8 *last_flat_wave_index_ptr    = BulletsUpdateLastFlatWaveIndexPrt(bullets_update);
     
-    u8 flat_wave_index = (level_index << 2) + wave_index;
-
-    if (flat_wave_index != (*last_flat_wave_index_ptr))
+    if (wave_state & kWaveUpdateStateReset)
     {
         memset(bullets_update_spawn_count, 0, kBulletsUpdateMaxSourceBulletTypesPerSourceType * kBulletsUpdateMaxInstancesPerWave);
         *wave_spawn_count_ptr = 0;
         *bullet_positions_count_ptr = 0;
-
-        *last_flat_wave_index_ptr = flat_wave_index;
     }
 
     bullets_spawn(context);
