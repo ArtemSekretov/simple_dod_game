@@ -148,8 +148,15 @@ function buildRuntimeBinary(schema, sourceWorkbook)
                 {
                     columnCount = resolveExpression(t.count)|0;
                 }
-									
-                let values = new Array(columnCount).fill(0);
+                
+                let defaultValue = 0;
+
+                if(t.hasOwnProperty('default'))
+                {
+                    defaultValue = t.default;
+                }
+
+                let values = new Array(columnCount).fill(defaultValue);
 						
                 columnValues.push({
                     values: values,
@@ -355,7 +362,14 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 									
                 const elementCapacity = rowCapacity * columnCount;
 
-                let values = new Array(elementCapacity).fill(0);
+                let defaultValue = 0;
+
+                if(source.hasOwnProperty('default'))
+                {
+                    defaultValue = t.default;
+                }
+
+                let values = new Array(elementCapacity).fill(defaultValue);
 					
                 if(sourceSheetValues)
                 {				
