@@ -19,6 +19,8 @@ typedef double f64;
 
 #ifndef __cplusplus
 typedef union v2 v2;
+typedef struct m4x4 m4x4;
+typedef struct m4x4_inv m4x4_inv;
 #endif
 
 union v2
@@ -36,6 +38,18 @@ union v2
         f32 Width, Height;
     };
     f32 E[2];
+};
+
+struct m4x4
+{
+    // @Note: These are stored ROW MAJOR - E[ROW][COLUMN]!!!
+    f32 E[4][4];
+};
+
+struct m4x4_inv
+{
+    m4x4 forward;
+    m4x4 inverse;
 };
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))

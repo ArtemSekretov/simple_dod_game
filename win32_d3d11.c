@@ -130,7 +130,7 @@ WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
 }
 
 static DirectX11State 
-InitDirectX11(HWND window, f32 projection_martix[16])
+InitDirectX11(HWND window, m4x4 projection_martix)
 {
 	HRESULT hr;
 
@@ -397,11 +397,11 @@ InitDirectX11(HWND window, f32 projection_martix[16])
         D3D11_BUFFER_DESC desc =
         {
             // space for 4x4 float matrix (cbuffer0 from pixel shader)
-            .ByteWidth = 4 * 4 * sizeof(f32),
+            .ByteWidth = sizeof(m4x4),
             .Usage = D3D11_USAGE_IMMUTABLE,
             .BindFlags = D3D11_BIND_CONSTANT_BUFFER,
         };
-        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = projection_martix };
+        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = &projection_martix };
         ID3D11Device_CreateBuffer(device, &desc, &initial, &ubuffer);
     }
 
@@ -775,10 +775,19 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 
     v2 game_area = V2(kPlayAreaWidth, kPlayAreaHeight);
 
-    f32 projection_matrix[16] = { 0 };
-    setup_projection_matrix(projection_matrix, game_area);
+    v2 half_game_area = v2_scale(game_area, 0.5f);
 
-	DirectX11State directx_state = InitDirectX11(window, projection_matrix);
+    f32 left = -half_game_area.x;
+    f32 right = half_game_area.x;
+    f32 bottom = -half_game_area.y;
+    f32 top = half_game_area.y;
+
+    f32 near_clip_plane = 0.0f;
+    f32 far_clip_plane = 1.0f;
+
+    m4x4_inv matrix = orthographic_projection(left, right, bottom, top, near_clip_plane, far_clip_plane);
+
+	DirectX11State directx_state = InitDirectX11(window, matrix.forward);
 
     // show the window
     ShowWindow(window, SW_SHOWDEFAULT);
@@ -860,11 +869,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     hero_instances_draw_context.HeroInstancesBin = hero_instances;
     hero_instances_draw_context.FrameDataBin     = frame_data;
 
-    f32 *time_delta_ptr  = GameStateTimeDeltaPrt(game_state);
-    f64 *time_ptr        = GameStateTimePrt(game_state);
-    f32 *play_time_ptr   = GameStatePlayTimePrt(game_state);
-    u64 *frame_count_ptr = GameStateFrameCounterPrt(game_state);
-    u32 *state_ptr       = GameStateStatePrt(game_state);
+    f32 *time_delta_ptr          = GameStateTimeDeltaPrt(game_state);
+    f64 *time_ptr                = GameStateTimePrt(game_state);
+    f32 *play_time_ptr           = GameStatePlayTimePrt(game_state);
+    u64 *frame_count_ptr         = GameStateFrameCounterPrt(game_state);
+    u32 *state_ptr               = GameStateStatePrt(game_state);
+    v2 *world_mouse_position_ptr = (v2 *)GameStateWorldMousePositionPrt(game_state);
 
     f32 game_aspect = game_area.x / game_area.y;
 
@@ -910,7 +920,15 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
             f32 mouseX = (f32)mouseP.x;
             f32 mouseY = (f32)((height - 1) - mouseP.y);
 
-            printf("%f, %f\n", mouseX, mouseY);
+            f32 viewport_x      = *FrameDataViewportXPrt(frame_data);
+            f32 viewport_y      = *FrameDataViewportYPrt(frame_data);
+            f32 viewport_width  = *FrameDataViewportWidthPrt(frame_data);
+            f32 viewport_height = *FrameDataViewportHeightPrt(frame_data);
+
+            f32 clip_space_mouseX = clamp_binormal_map_to_range(viewport_x, mouseX, viewport_x + viewport_width);
+            f32 clip_space_mouseY = clamp_binormal_map_to_range(viewport_y, mouseY, viewport_y + viewport_height);
+
+            *world_mouse_position_ptr = transform(matrix.inverse, V2(clip_space_mouseX, clip_space_mouseY));
 
             enemy_instances_update(&enemy_instances_context);
             hero_instances_update(&hero_instances_context);

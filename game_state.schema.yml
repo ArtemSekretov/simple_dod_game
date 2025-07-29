@@ -35,8 +35,8 @@ variables:
    types:
     - name: player_grid_x
       type: uint8_t
- - name: mouse_position
+ - name: world_mouse_position
    types:
-    - name: mouse_position
+    - name: world_mouse_position
       type: float
       count: 2

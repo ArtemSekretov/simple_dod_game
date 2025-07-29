@@ -71,18 +71,9 @@ v2_scale(v2 a, f32 b)
     return result;
 }
 
-void
-setup_projection_matrix(f32 projection_martix[16], v2 game_area)
+m4x4_inv
+orthographic_projection(f32 left, f32 right, f32 bottom, f32 top, f32 near_clip_plane, f32 far_clip_plane)
 {
-    v2 half_game_area = v2_scale(game_area, 0.5f);
-
-    f32 left = -half_game_area.x;
-    f32 right = half_game_area.x;
-    f32 bottom = -half_game_area.y;
-    f32 top = half_game_area.y;
-    f32 near_clip_plane = 0.0f;
-    f32 far_clip_plane = 1.0f;
-
     f32 a = 2.0f / (right - left);
     f32 b = 2.0f / (top - bottom);
 
@@ -98,11 +89,78 @@ setup_projection_matrix(f32 projection_martix[16], v2 game_area)
     // 0, b, 0, -b1,
     // 0, 0, d,  e,
     // 0, 0, 0,  1,
-    projection_martix[0]  =  a;
-    projection_martix[3]  = -a1;
-    projection_martix[5]  =  b;
-    projection_martix[7]  = -b1;
-    projection_martix[10] =  d;
-    projection_martix[11] =  e;
-    projection_martix[15] =  1;
+    m4x4_inv result = { 0 };
+    result.forward.E[0][0] = a;
+    result.forward.E[0][3] = -a1;
+    result.forward.E[1][1] = b;
+    result.forward.E[1][3] = -b1;
+    result.forward.E[2][2] = d;
+    result.forward.E[2][3] = e;
+    result.forward.E[3][3] = 1.0f;
+
+    result.inverse.E[0][0] = 1.0f / a;
+    result.inverse.E[0][3] = a1 / a;
+    result.inverse.E[1][1] = 1.0f / b;
+    result.inverse.E[1][3] = b1 / b;
+    result.inverse.E[2][2] = 1.0f / d;
+    result.inverse.E[2][3] = -e / d;
+    result.inverse.E[3][3] = 1.0f;
+    return result;
+}
+
+inline v2
+transform(m4x4 m, v2 p)
+{
+    v2 r;
+
+    r.x = p.x * m.E[0][0] + p.y * m.E[0][1] + m.E[0][3];
+    r.y = p.x * m.E[1][0] + p.y * m.E[1][1] + m.E[1][3];
+
+    return r;
+}
+
+inline f32
+clamp(f32 min, f32 value, f32 Max)
+{
+    f32 result = value;
+
+    if(result < min)
+    {
+        result = min;
+    }
+    else if(result > Max)
+    {
+        result = Max;
+    }
+
+    return result;
+}
+
+inline f32
+clamp01(f32 value)
+{
+    f32 result = clamp(0.0f, value, 1.0f);
+
+    return result;
+}
+
+inline f32
+clamp01_map_to_range(f32 min, f32 t, f32 max)
+{
+    f32 result = 0.0f;
+
+    f32 range = max - min;
+    if(range != 0.0f)
+    {
+        result = clamp01((t - min) / range);
+    }
+
+    return result;
+}
+
+inline f32
+clamp_binormal_map_to_range(f32 min, f32 t, f32 max)
+{
+    f32 result = -1.0f + 2.0f * clamp01_map_to_range(min, t, max);
+    return result;
 }
