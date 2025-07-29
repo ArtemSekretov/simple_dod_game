@@ -49,7 +49,13 @@ where /q node && (
     node export_runtime_binary.js wave_update.schema.yml build/wave_update.bin
     node export_imhex_pattern.js wave_update.schema.yml generated/wave_update.hexpat
 
+    node export_c_header.js level_update.schema.yml generated/level_update.h
+    node export_runtime_binary.js level_update.schema.yml build/level_update.bin
+    node export_imhex_pattern.js level_update.schema.yml generated/level_update.hexpat
+
     node export_c_header.js play_area.schema.yml generated/play_area.h
+
+    node export_c_header.js play_clock.schema.yml generated/play_clock.h
 
 	pushd build
 

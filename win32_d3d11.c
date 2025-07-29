@@ -31,7 +31,10 @@
 #include "math.h"
 
 #include "game_state.h"
+#include "level_update.h"
 #include "wave_update.h"
+
+#include "play_clock.h"
 
 #include "play_area.h"
 #include "frame_data.h"
@@ -56,6 +59,7 @@
 
 #include "bullets_update.c"
 #include "bullets_draw.c"
+#include "level_update.c"
 #include "wave_update.c"
 
 #define AssertHR(hr) Assert(SUCCEEDED(hr))
@@ -795,6 +799,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     MapFileData game_state_map_data = CreateMapFile("game_state.bin", MapFilePermitions_ReadWriteCopy);
     GameState *game_state           = (GameState *)game_state_map_data.data;
 
+    MapFileData level_update_map_data = CreateMapFile("level_update.bin", MapFilePermitions_ReadWriteCopy);
+    LevelUpdate *level_update_data     = (LevelUpdate *)level_update_map_data.data;
+
     MapFileData wave_update_map_data = CreateMapFile("wave_update.bin", MapFilePermitions_ReadWriteCopy);
     WaveUpdate *wave_update_data     = (WaveUpdate *)wave_update_map_data.data;
 
@@ -822,12 +829,15 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     BulletSourceInstances *enemy_bullet_source_instances = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
     BulletSourceInstances *hero_bullet_source_instances  = HeroInstancesBulletSourceInstancesMapPrt(hero_instances);
 
+    PlayClock *enemy_play_clock = WaveUpdatePlayClockMapPrt(wave_update_data);
+    PlayClock *hero_play_clock  = LevelUpdatePlayClockMapPrt(level_update_data);
+
     BulletsUpdateContext enemy_bullets_update_context;
     enemy_bullets_update_context.Root                     = enemy_bullets_update_data;
     enemy_bullets_update_context.BulletsBin               = enemy_bullets;
     enemy_bullets_update_context.BulletSourceInstancesBin = enemy_bullet_source_instances;
     enemy_bullets_update_context.GameStateBin             = game_state;
-    enemy_bullets_update_context.WaveUpdateBin            = wave_update_data;
+    enemy_bullets_update_context.PlayClockBin             = enemy_play_clock;
 
     BulletsDrawContext enemy_bullets_draw_context;
     enemy_bullets_draw_context.BulletsBin       = enemy_bullets;
@@ -839,7 +849,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     hero_bullets_update_context.BulletsBin               = hero_bullets;
     hero_bullets_update_context.BulletSourceInstancesBin = hero_bullet_source_instances;
     hero_bullets_update_context.GameStateBin             = game_state;
-    hero_bullets_update_context.WaveUpdateBin            = wave_update_data;
+    hero_bullets_update_context.PlayClockBin             = hero_play_clock;
 
     BulletsDrawContext hero_bullets_draw_context;
     hero_bullets_draw_context.BulletsBin       = hero_bullets;
@@ -847,19 +857,27 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     hero_bullets_draw_context.FrameDataBin     = frame_data;
 
     EnemyInstancesContext enemy_instances_context;
-    enemy_instances_context.Root          = enemy_instances;
-    enemy_instances_context.GameStateBin  = game_state;
-    enemy_instances_context.WaveUpdateBin = wave_update_data;
+    enemy_instances_context.Root           = enemy_instances;
+    enemy_instances_context.GameStateBin   = game_state;
+    enemy_instances_context.WaveUpdateBin  = wave_update_data;
+    enemy_instances_context.LevelUpdateBin = level_update_data;
 
     EnemyInstancesDrawContext enemy_instances_draw_context;
     enemy_instances_draw_context.EnemyInstancesBin = enemy_instances;
     enemy_instances_draw_context.FrameDataBin      = frame_data;
+
+    LevelUpdateContext level_update_context;
+    level_update_context.Root                  = level_update_data;
+    level_update_context.GameStateBin          = game_state;
+    level_update_context.EnemyInstancesBin     = enemy_instances;
+    level_update_context.EnemyBulletsUpdateBin = enemy_bullets_update_data;
 
     WaveUpdateContext wave_update_context;
     wave_update_context.Root                  = wave_update_data;
     wave_update_context.GameStateBin          = game_state;
     wave_update_context.EnemyInstancesBin     = enemy_instances;
     wave_update_context.EnemyBulletsUpdateBin = enemy_bullets_update_data;
+    wave_update_context.LevelUpdateBin        = level_update_data;
 
     HeroInstancesContext hero_instances_context;
     hero_instances_context.Root         = hero_instances;
@@ -930,11 +948,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 
             *world_mouse_position_ptr = transform(matrix.inverse, V2(clip_space_mouseX, clip_space_mouseY));
 
+            level_update(&level_update_context);
+            wave_update(&wave_update_context);
             enemy_instances_update(&enemy_instances_context);
             hero_instances_update(&hero_instances_context);
             bullets_update(&enemy_bullets_update_context);
             bullets_update(&hero_bullets_update_context);
-            wave_update(&wave_update_context);
 
             enemy_instances_draw(&enemy_instances_draw_context);
             hero_instances_draw(&hero_instances_draw_context);
@@ -959,4 +978,5 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 	CloseMapFile(&hero_bullets_update_map_data);
 	CloseMapFile(&game_state_map_data);
 	CloseMapFile(&wave_update_map_data);
+	CloseMapFile(&level_update_map_data);
 }

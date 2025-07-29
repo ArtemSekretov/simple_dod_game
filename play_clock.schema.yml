@@ -1,0 +1,17 @@
+meta:
+ name: play_clock
+ size: uint16_t
+
+constants:
+ - name: state_reset
+   value: 1
+
+variables:
+ - name: time
+   types:
+    - name: time
+      type: float
+ - name: state
+   types:
+    - name: state
+      type: uint32_t

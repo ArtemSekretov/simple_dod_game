@@ -181,10 +181,10 @@ static void
 enemy_instances_update(EnemyInstancesContext *context)
 {  
     EnemyInstances *enemy_instances = context->Root;
-    GameState *game_state           = context->GameStateBin;
+    LevelUpdate *level_update       = context->LevelUpdateBin;
     WaveUpdate *wave_update         = context->WaveUpdateBin;
 
-    u8 level_index = *GameStateLevelIndexPrt(game_state);
+    u8 level_index = *LevelUpdateIndexPrt(level_update);
 
     u8 wave_index  = *WaveUpdateIndexPrt(wave_update);
     u32 wave_state = *WaveUpdateStatePrt(wave_update);
@@ -226,7 +226,7 @@ enemy_instances_update(EnemyInstancesContext *context)
         enemy_bullet_source_instances_source->SourceIndexOffset = (u16)(((uintptr_t)&enemy_instances_enemy_index[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)enemy_bullets_source_instances));
 
         *enemy_positions_count_prt = 0;
-        *wave_state_ptr &= ~(kEnemyInstancesWaveSpawnedAll);
+        *wave_state_ptr &= ~(kEnemyInstancesWaveSpawnedAll | kEnemyInstancesAllWavesComplete);
     }
 
     b32 is_empty_wave = wave_instance->EnemyInstancesCount == 0;
@@ -234,6 +234,7 @@ enemy_instances_update(EnemyInstancesContext *context)
 
     if (is_empty_wave || is_all_waves_complete)
     {
+        *wave_state_ptr |= kEnemyInstancesAllWavesComplete;
         return;
     }
 

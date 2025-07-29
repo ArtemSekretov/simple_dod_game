@@ -27,10 +27,6 @@ variables:
    types:
     - name: state
       type: uint32_t
- - name: level_index
-   types:
-    - name: level_index
-      type: uint8_t
  - name: player_grid_x
    types:
     - name: player_grid_x

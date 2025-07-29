@@ -4,9 +4,9 @@ bullets_spawn(BulletsUpdateContext *context)
     BulletSourceInstances *bullet_source_instances = context->BulletSourceInstancesBin;
     Bullets *bullets                               = context->BulletsBin;
     BulletsUpdate *bullets_update                  = context->Root;
-    WaveUpdate *wave_update                        = context->WaveUpdateBin;
+    PlayClock *play_clock                          = context->PlayClockBin;
 
-    f32 wave_time = *WaveUpdateTimePrt(wave_update);
+    f32 play_clock_time = *PlayClockTimePrt(play_clock);
 
     BulletSourceInstancesSourceInstances *bullet_source_instances_sheet = BulletSourceInstancesSourceInstancesPrt(bullet_source_instances);
 
@@ -56,7 +56,7 @@ bullets_spawn(BulletsUpdateContext *context)
         u16 start_time_q4 = bullet_source_start_time_q4[wave_instance_index];
         f32 start_time = ((f32)start_time_q4) * kQ4ToFloat;
 
-        f32 enemy_instance_time = wave_time - start_time;
+        f32 enemy_instance_time = play_clock_time - start_time;
 
         v2 bullet_instance_position = bullet_instances_positions[wave_instance_index];
 
@@ -189,9 +189,9 @@ static void
 bullets_update(BulletsUpdateContext *context)
 {
     BulletsUpdate *bullets_update = context->Root;
-    WaveUpdate *wave_update       = context->WaveUpdateBin;
+    PlayClock *play_clock         = context->PlayClockBin;
 
-    u32 wave_state = *WaveUpdateStatePrt(wave_update);
+    u32 play_clock_state = *PlayClockStatePrt(play_clock);
 
     BulletsUpdateSourceBullets *bullets_update_sheet                 = BulletsUpdateSourceBulletsPrt(bullets_update);
     BulletsUpdateSourceBulletsSpawnCount *bullets_update_spawn_count = BulletsUpdateSourceBulletsSpawnCountPrt(bullets_update, bullets_update_sheet);
@@ -199,7 +199,7 @@ bullets_update(BulletsUpdateContext *context)
     u16 *bullet_positions_count_ptr = BulletsUpdateBulletPositionsCountPrt(bullets_update);
     u32 *wave_spawn_count_ptr       = BulletsUpdateWaveSpawnCountPrt(bullets_update);
     
-    if (wave_state & kWaveUpdateStateReset)
+    if (play_clock_state & kPlayClockStateReset)
     {
         memset(bullets_update_spawn_count, 0, sizeof(BulletsUpdateSourceBulletsSpawnCount) * kBulletsUpdateMaxInstancesPerWave);
         *wave_spawn_count_ptr = 0;

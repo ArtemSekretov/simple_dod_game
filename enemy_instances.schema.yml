@@ -31,6 +31,8 @@ constants:
    value: 256
  - name: wave_spawned_all
    value: 1
+ - name: all_waves_complete
+   value: 2
 
 variables:
  - name: instances_live
@@ -125,6 +127,8 @@ ref:
    type: game_state
  - name: wave_update_bin
    type: wave_update
+ - name: level_update_bin
+   type: level_update
 
 maps:
  - type: bullet_source_instances

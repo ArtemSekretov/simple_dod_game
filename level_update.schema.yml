@@ -1,5 +1,5 @@
 meta:
- name: wave_update
+ name: level_update
  size: uint16_t
 
 constants:
@@ -25,8 +25,6 @@ ref:
    type: bullets_update
  - name: enemy_instances_bin
    type: enemy_instances
- - name: level_update_bin
-   type: level_update
  - name: game_state_bin
    type: game_state
 

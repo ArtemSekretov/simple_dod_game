@@ -50,5 +50,5 @@ ref:
    type: bullet_source_instances
  - name: game_state_bin
    type: game_state
- - name: wave_update_bin
-   type: wave_update
+ - name: play_clock_bin
+   type: play_clock
