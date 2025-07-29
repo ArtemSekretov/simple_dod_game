@@ -5,11 +5,15 @@ meta:
 sheets:
  - name: source_bullet_types
    columns:
-    - name: local_x_y_q7
+    - name: spawn_x_y_q7
       sources: 
-       - name: local_x_q7
+       - name: base_x_q7
          type: int8_t
-       - name: local_y_q7
+       - name: base_y_q7
+         type: int8_t
+       - name: spawn_x_q7
+         type: int8_t
+       - name: spawn_y_q7
          type: int8_t
     - name: time_cast_q4
       sources: 

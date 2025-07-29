@@ -361,11 +361,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
                 {				
                     const sourceColumnName  = undersoreToPascal(source.name);
                     const sourceColumnIndex = sourceSheetHeader.indexOf(sourceColumnName);
-                    if(sourceColumnIndex == -1)
-                    {
-                        console.log(`Column ${sourceColumnName} not found`);
-                    }
-                    else
+                    if(sourceColumnIndex != -1)
                     {
                         const filterColumnIndex = sourceSheetHeader.indexOf('ExportFilter');
                         if(filterColumnIndex == -1)

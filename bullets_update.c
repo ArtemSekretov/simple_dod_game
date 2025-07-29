@@ -18,7 +18,7 @@ bullets_spawn(BulletsUpdateContext *context)
 
     BulletsSourceTypesSourceBulletTypes *types_enemy_bullet_types = BulletsSourceTypesSourceBulletTypesPrt(bullets, bullets_types_sheet);
 
-    BulletsSourceBulletTypesLocalXYQ7 *bullets_local_positions_q7 = BulletsSourceBulletTypesLocalXYQ7Prt(bullets, bullet_types_sheet);
+    BulletsSourceBulletTypesSpawnXYQ7 *bullets_spawn_positions_q7 = BulletsSourceBulletTypesSpawnXYQ7Prt(bullets, bullet_types_sheet);
     u8 *bullets_time_cast_q4  = BulletsSourceBulletTypesTimeCastQ4Prt(bullets, bullet_types_sheet);
     u8 *bullets_time_loop_q4  = BulletsSourceBulletTypesTimeLoopQ4Prt(bullets, bullet_types_sheet);
     u8 *bullets_time_delay_q4 = BulletsSourceBulletTypesTimeDelayQ4Prt(bullets, bullet_types_sheet);
@@ -66,14 +66,19 @@ bullets_spawn(BulletsUpdateContext *context)
         {
             u8 bullet_index = bullets_type.SourceBulletTypeStartIndex + i;
 
-            BulletsSourceBulletTypesLocalXYQ7 bullet_local_position_q7 = bullets_local_positions_q7[bullet_index];
-            v2 local_position = V2(((f32)bullet_local_position_q7.LocalXQ7) * kQ7ToFloat,
-                                   ((f32)bullet_local_position_q7.LocalYQ7) * kQ7ToFloat);
+            BulletsSourceBulletTypesSpawnXYQ7 bullet_spawn_position_q7 = bullets_spawn_positions_q7[bullet_index];
+            v2 spawn_vector = V2(((f32)bullet_spawn_position_q7.SpawnXQ7) * kQ7ToFloat,
+                                   ((f32)bullet_spawn_position_q7.SpawnYQ7) * kQ7ToFloat);
+
+            v2 base_vector = V2(((f32)bullet_spawn_position_q7.BaseXQ7) * kQ7ToFloat,
+                                   ((f32)bullet_spawn_position_q7.BaseYQ7) * kQ7ToFloat);
+
+            v2 local_position = v2_sub(spawn_vector, base_vector);
 
             f32 local_position_length = v2_length(local_position);
             v2 end_vector = v2_scale(local_position, bullet_end_length / local_position_length);
 
-            v2 spawn_position = v2_add(bullet_instance_position, local_position);
+            v2 spawn_position = v2_add(bullet_instance_position, spawn_vector);
             v2 end_position = v2_add(bullet_instance_position, end_vector);
 
             u8 bullet_time_cast_q4 = bullets_time_cast_q4[bullet_index];
