@@ -60,8 +60,8 @@ where /q node && (
 	pushd build
 
 	where /q cl && (
-		call cl -Zi -W4 -wd4201 -wd4100 -wd4505 -wd4127 -nologo /I..\generated ..\win32_d3d11.c -Fewin32_d3d11_dm.exe
-		call cl -O2 -Zi -W4 -wd4201 -wd4100 -wd4505 -wd4127 -nologo /I..\generated ..\win32_d3d11.c -Fewin32_d3d11_rm.exe -Fmwin32_d3d11_rm.map /DNDEBUG
+		call cl -Zi -W4 -wd4201 -wd4100 -wd4505 -wd4127 -nologo /I..\generated ..\win32_main.c -Fewin32_d3d11_dm.exe
+		call cl -O2 -Zi -W4 -wd4201 -wd4100 -wd4505 -wd4127 -nologo /I..\generated ..\win32_main.c -Fewin32_d3d11_rm.exe -Fmwin32_d3d11_rm.map /DNDEBUG
 	)
 
 	popd

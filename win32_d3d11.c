@@ -1,117 +1,60 @@
-// example how to set up D3D11 rendering on Windows in C
-
-#define COBJMACROS
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <d3d11.h>
 #include <dxgi1_3.h>
 #include <d3dcompiler.h>
 #include <dxgidebug.h>
 
-#define _USE_MATH_DEFINES
-#include <math.h>
-#include <string.h>
-#include <stddef.h>
-
-#pragma comment (lib, "gdi32")
-#pragma comment (lib, "user32")
 #pragma comment (lib, "dxguid")
 #pragma comment (lib, "dxgi")
 #pragma comment (lib, "d3d11")
 #pragma comment (lib, "d3dcompiler")
 
-#define STR2(x) #x
-#define STR(x) STR2(x)
-
-#ifndef NDEBUG
-#include "enable_console_output.h"
-#endif
-
-#include "types.h"
-#include "math.h"
-
-#include "game_state.h"
-#include "level_update.h"
-#include "wave_update.h"
-
-#include "play_clock.h"
-
-#include "play_area.h"
-#include "frame_data.h"
-
-#include "enemy_instances.h"
-#include "enemy_instances_wave.h"
-#include "hero_instances.h"
-
-#include "bullets.h"
-#include "bullets_update.h"
-#include "bullets_draw.h"
-#include "bullet_source_instances.h"
-
-#include "enemy_instances_draw.h"
-#include "hero_instances_draw.h"
-
-#include "enemy_instances_update.c"
-#include "enemy_instances_draw.c"
-
-#include "hero_instances_update.c"
-#include "hero_instances_draw.c"
-
-#include "bullets_update.c"
-#include "bullets_draw.c"
-#include "level_update.c"
-#include "wave_update.c"
-
-#define AssertHR(hr) Assert(SUCCEEDED(hr))
-
 #ifndef __cplusplus
-typedef struct MapFileData      MapFileData;
-typedef enum MapFilePermissions MapFilePermissions;
-typedef struct DirectX11State   DirectX11State;
-typedef struct Vertex           Vertex;
+typedef struct DirectX11State            DirectX11State;
+typedef struct VertexBuffer              VertexBuffer;
+typedef struct RenderPipelineDescription RenderPipelineDescription;
 #endif
 
-struct MapFileData
+struct VertexBuffer
 {
-	HANDLE fileHandle;
-	void* data;
+    ID3D11Buffer* buffer;
+    UINT stride;
+    UINT offset;
 };
 
-enum MapFilePermissions
+#define kMaxConstantBufferSlotCounts (D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT - 1)
+
+struct RenderPipelineDescription
 {
-	MapFilePermitions_Read = 0,
-    MapFilePermitions_ReadWriteCopy = 1,
-	MapFilePermitions_ReadWrite = 2
+    ID3D11InputLayout* layout;
+    VertexBuffer vertex_buffer;
+
+    ID3D11Buffer* constant_buffers[kMaxConstantBufferSlotCounts];
+    u32 constant_buffers_count;
+
+    ID3D11VertexShader* vshader;
+    ID3D11PixelShader* pshader;
 };
 
 struct DirectX11State
 {
     ID3D11Device* device;
     ID3D11DeviceContext* context;
-	IDXGISwapChain1* swapChain;
+	IDXGISwapChain1* swap_chain;
 
-	ID3D11Buffer* vbuffer;
-	ID3D11InputLayout* layout;
-	ID3D11VertexShader* vshader;
-	ID3D11Buffer* ubuffer;
-	ID3D11Buffer* objectBuffer;
-    ID3D11PixelShader* pshader;
+    ID3D11Buffer* objects_constant_buffer;
 
-	ID3D11RenderTargetView* rtView;
-    ID3D11DepthStencilView* dsView;
+    RenderPipelineDescription main_pipeline;
+    RenderPipelineDescription background_pipeline;
 
-	ID3D11RasterizerState* rasterizerState;
-	ID3D11BlendState* blendState;
-	ID3D11DepthStencilState* depthState;
+	ID3D11RenderTargetView* rt_view;
+    ID3D11DepthStencilView* ds_view;
 
-	s32 currentWidth;
-    s32 currentHeight;
-};
+	ID3D11RasterizerState* rasterizer_state;
+	ID3D11BlendState* blend_state;
+	ID3D11DepthStencilState* depth_state;
 
-struct Vertex
-{
-	f32 position[2];
-	f32 uv[2];
+	s32 current_width;
+    s32 current_height;
 };
 
 static void
@@ -121,129 +64,169 @@ FatalError(const char* message)
     ExitProcess(0);
 }
 
-static LRESULT CALLBACK 
-WindowProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
+static RenderPipelineDescription 
+CreateBackgroundPipeline(ID3D11Device* device)
 {
-    switch (msg)
+    HRESULT hr;
+
+    struct Vertex
     {
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        return 0;
-    }
-    return DefWindowProcW(wnd, msg, wparam, lparam);
-}
+        f32 position[2];
+        f32 color[3];
+    };
 
-static DirectX11State 
-InitDirectX11(HWND window, m4x4 projection_martix)
-{
-	HRESULT hr;
-
-    ID3D11Device* device;
-    ID3D11DeviceContext* context;
-
-    // create D3D11 device & context
-    {
-        UINT flags = 0;
-		#ifndef NDEBUG
-        // this enables VERY USEFUL debug messages in debugger output
-        flags |= D3D11_CREATE_DEVICE_DEBUG;
-		#endif
-        D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_0 };
-        hr = D3D11CreateDevice(
-            NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, flags, levels, ARRAYSIZE(levels),
-            D3D11_SDK_VERSION, &device, NULL, &context);
-        // make sure device creation succeeeds before continuing
-        // for simple applciation you could retry device creation with
-        // D3D_DRIVER_TYPE_WARP driver type which enables software rendering
-        // (could be useful on broken drivers or remote desktop situations)
-        AssertHR(hr);
-    }
-
-	#ifndef NDEBUG
-    // for debug builds enable VERY USEFUL debug break on API errors
-    {
-        ID3D11InfoQueue* info;
-        ID3D11Device_QueryInterface(device, &IID_ID3D11InfoQueue, (void**)&info);
-        ID3D11InfoQueue_SetBreakOnSeverity(info, D3D11_MESSAGE_SEVERITY_CORRUPTION, TRUE);
-        ID3D11InfoQueue_SetBreakOnSeverity(info, D3D11_MESSAGE_SEVERITY_ERROR, TRUE);
-        ID3D11InfoQueue_Release(info);
-    }
-
-    // enable debug break for DXGI too
-    {
-        IDXGIInfoQueue* dxgiInfo;
-        hr = DXGIGetDebugInterface1(0, &IID_IDXGIInfoQueue, (void**)&dxgiInfo);
-        AssertHR(hr);
-        IDXGIInfoQueue_SetBreakOnSeverity(dxgiInfo, DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_CORRUPTION, TRUE);
-        IDXGIInfoQueue_SetBreakOnSeverity(dxgiInfo, DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_ERROR, TRUE);
-        IDXGIInfoQueue_Release(dxgiInfo);
-    }
-
-    // after this there's no need to check for any errors on device functions manually
-    // so all HRESULT return  values in this code will be ignored
-    // debugger will break on errors anyway
-	#endif
-
-    // create DXGI swap chain
-    IDXGISwapChain1* swapChain;
-    {
-        // get DXGI device from D3D11 device
-        IDXGIDevice* dxgiDevice;
-        hr = ID3D11Device_QueryInterface(device, &IID_IDXGIDevice, (void**)&dxgiDevice);
-        AssertHR(hr);
-
-        // get DXGI adapter from DXGI device
-        IDXGIAdapter* dxgiAdapter;
-        hr = IDXGIDevice_GetAdapter(dxgiDevice, &dxgiAdapter);
-        AssertHR(hr);
-
-        // get DXGI factory from DXGI adapter
-        IDXGIFactory2* factory;
-        hr = IDXGIAdapter_GetParent(dxgiAdapter, &IID_IDXGIFactory2, (void**)&factory);
-        AssertHR(hr);
-
-        DXGI_SWAP_CHAIN_DESC1 desc =
-        {
-            // default 0 value for width & height means to get it from HWND automatically
-            //.Width = 0,
-            //.Height = 0,
-
-            // or use DXGI_FORMAT_R8G8B8A8_UNORM_SRGB for storing sRGB
-            .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
-
-            // FLIP presentation model does not allow MSAA framebuffer
-            // if you want MSAA then you'll need to render offscreen and manually
-            // resolve to non-MSAA framebuffer
-            .SampleDesc = { 1, 0 },
-
-            .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
-            .BufferCount = 2,
-
-            // we don't want any automatic scaling of window content
-            // this is supported only on FLIP presentation model
-            .Scaling = DXGI_SCALING_NONE,
-
-            // use more efficient FLIP presentation model
-            // Windows 10 allows to use DXGI_SWAP_EFFECT_FLIP_DISCARD
-            // for Windows 8 compatibility use DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL
-            // for Windows 7 compatibility use DXGI_SWAP_EFFECT_DISCARD
-            .SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
-        };
-
-        hr = IDXGIFactory2_CreateSwapChainForHwnd(factory, (IUnknown*)device, window, &desc, NULL, NULL, &swapChain);
-        AssertHR(hr);
-
-        // disable silly Alt+Enter changing monitor resolution to match window size
-        IDXGIFactory_MakeWindowAssociation(factory, window, DXGI_MWA_NO_ALT_ENTER);
-
-        IDXGIFactory2_Release(factory);
-        IDXGIAdapter_Release(dxgiAdapter);
-        IDXGIDevice_Release(dxgiDevice);
-    }
-	
     ID3D11Buffer* vbuffer;
     {
-		Vertex data[] =
+		struct Vertex data[] =
+        {
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f, 1.0f } },
+            { { -1.0f, +1.0f }, { 0.0f, 0.0f, 1.0f } },
+            { { +1.0f, +1.0f }, { 0.0f, 0.0f, 1.0f } },
+
+            { { +1.0f, +1.0f }, { 0.0f, 0.0f, 1.0f } },
+            { { +1.0f, -1.0f }, { 0.0f, 0.0f, 1.0f } },
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f, 1.0f } },
+        };
+
+        D3D11_BUFFER_DESC desc =
+        {
+            .ByteWidth = sizeof(data),
+            .Usage = D3D11_USAGE_IMMUTABLE,
+            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
+        };
+
+        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = data };
+        ID3D11Device_CreateBuffer(device, &desc, &initial, &vbuffer);
+    }
+
+    // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
+    ID3D11InputLayout* layout;
+    ID3D11VertexShader* vshader;
+    ID3D11PixelShader* pshader;
+    {
+        // these must match vertex shader input layout (VS_INPUT in vertex shader source below)
+        D3D11_INPUT_ELEMENT_DESC desc[] =
+        {
+            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(struct Vertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(struct Vertex, color),    D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+
+		#if 0
+        // alternative to hlsl compilation at runtime is to precompile shaders offline
+        // it improves startup time - no need to parse hlsl files at runtime!
+        // and it allows to remove runtime dependency on d3dcompiler dll file
+
+        // a) save shader source code into "shader.hlsl" file
+        // b) run hlsl compiler to compile shader, these run compilation with optimizations and without debug info:
+        //      fxc.exe /nologo /T vs_5_0 /E vs /O3 /WX /Zpc /Ges /Fh d3d11_vshader.h /Vn d3d11_vshader /Qstrip_reflect /Qstrip_debug /Qstrip_priv shader.hlsl
+        //      fxc.exe /nologo /T ps_5_0 /E ps /O3 /WX /Zpc /Ges /Fh d3d11_pshader.h /Vn d3d11_pshader /Qstrip_reflect /Qstrip_debug /Qstrip_priv shader.hlsl
+        //    they will save output to d3d11_vshader.h and d3d11_pshader.h files
+        // c) change #if 0 above to #if 1
+
+        // you can also use "/Fo d3d11_*shader.bin" argument to save compiled shader as binary file to store with your assets
+        // then provide binary data for Create*Shader functions below without need to include shader bytes in C
+
+        #include "d3d11_vshader.h"
+        #include "d3d11_pshader.h"
+
+        ID3D11Device_CreateVertexShader(device, d3d11_vshader, sizeof(d3d11_vshader), NULL, &vshader);
+        ID3D11Device_CreatePixelShader(device, d3d11_pshader, sizeof(d3d11_pshader), NULL, &pshader);
+        ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), d3d11_vshader, sizeof(d3d11_vshader), &layout);
+		#else
+        const char hlsl[] =
+            "#line " STR(__LINE__) "                                  \n\n" // actual line number in this file for nicer error messages
+            "                                                           \n"
+            "struct VS_INPUT                                            \n"
+            "{                                                          \n"
+            "  float2 pos        : POSITION;                            \n" // these names must match D3D11_INPUT_ELEMENT_DESC array
+            "  float3 color      : COLOR;                               \n"
+            "  uint   instanceID : SV_InstanceID;                       \n"
+            "};                                                         \n"
+            "                                                           \n"
+            "struct PS_INPUT                                            \n"
+            "{                                                          \n"
+            "  float4 pos   : SV_POSITION;                              \n" // these names do not matter, except SV_... ones
+            "  float4 color : COLOR;                                    \n"
+            "};                                                         \n"
+			"                                                           \n"
+            "PS_INPUT vs(VS_INPUT input)                                \n"
+            "{                                                          \n"
+            "    PS_INPUT output;                                       \n"
+            "                                                           \n"
+            "    output.pos = float4(input.pos, 0, 1);                  \n"
+            "    output.color = float4(input.color, 1);                 \n"
+            "    return output;                                         \n"
+            "}                                                          \n"
+            "                                                           \n"
+            "float4 ps(PS_INPUT input) : SV_TARGET                      \n"
+            "{                                                          \n"
+            "  return input.color;                                      \n"
+            "}                                                          \n";
+        ;
+	
+        UINT flags = D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR | D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_WARNINGS_ARE_ERRORS;
+		#ifndef NDEBUG
+        flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+		#else
+        flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
+		#endif
+
+        ID3DBlob* error;
+
+        ID3DBlob* vblob;
+        hr = D3DCompile(hlsl, sizeof(hlsl), NULL, NULL, NULL, "vs", "vs_5_0", flags, 0, &vblob, &error);
+        if (FAILED(hr))
+        {
+            const char* message = ID3D10Blob_GetBufferPointer(error);
+            OutputDebugStringA(message);
+            Assert(!"Failed to compile vertex shader!");
+        }
+
+        ID3DBlob* pblob;
+        hr = D3DCompile(hlsl, sizeof(hlsl), NULL, NULL, NULL, "ps", "ps_5_0", flags, 0, &pblob, &error);
+        if (FAILED(hr))
+        {
+            const char* message = ID3D10Blob_GetBufferPointer(error);
+            OutputDebugStringA(message);
+            Assert(!"Failed to compile pixel shader!");
+        }
+
+        ID3D11Device_CreateVertexShader(device, ID3D10Blob_GetBufferPointer(vblob), ID3D10Blob_GetBufferSize(vblob), NULL, &vshader);
+        ID3D11Device_CreatePixelShader(device, ID3D10Blob_GetBufferPointer(pblob), ID3D10Blob_GetBufferSize(pblob), NULL, &pshader);
+        ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), ID3D10Blob_GetBufferPointer(vblob), ID3D10Blob_GetBufferSize(vblob), &layout);
+
+        ID3D10Blob_Release(pblob);
+        ID3D10Blob_Release(vblob);
+		#endif
+    }
+
+    RenderPipelineDescription result = { 0 };
+    result.layout  = layout;
+    result.vshader = vshader;
+    result.pshader = pshader;
+    result.vertex_buffer.buffer = vbuffer;
+    result.vertex_buffer.stride = sizeof(struct Vertex);
+    result.vertex_buffer.offset = 0;
+    result.constant_buffers_count = 0;
+    return result;
+}
+
+static RenderPipelineDescription 
+CreateMainPipeline(ID3D11Device* device, 
+                   ID3D11Buffer* transform_constant_buffer, 
+                   ID3D11Buffer* objects_constant_buffer)
+{
+    HRESULT hr;
+
+    struct Vertex
+    {
+        f32 position[2];
+        f32 uv[2];
+    };
+
+    ID3D11Buffer* vbuffer;
+    {
+		struct Vertex data[] =
         {
             { { -0.5f, -0.5f }, { 0.0f, 0.0f } },
             { { -0.5f, +0.5f }, { 0.0f, 1.0f } },
@@ -273,8 +256,8 @@ InitDirectX11(HWND window, m4x4 projection_martix)
         // these must match vertex shader input layout (VS_INPUT in vertex shader source below)
         D3D11_INPUT_ELEMENT_DESC desc[] =
         {
-            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(Vertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(Vertex, uv),       D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(struct Vertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(struct Vertex, uv),       D3D11_INPUT_PER_VERTEX_DATA, 0 },
         };
 
 		#if 0
@@ -396,7 +379,128 @@ InitDirectX11(HWND window, m4x4 projection_martix)
 		#endif
     }
 
-    ID3D11Buffer* ubuffer;
+    RenderPipelineDescription result = { 0 };
+    result.layout  = layout;
+    result.vshader = vshader;
+    result.pshader = pshader;
+    result.vertex_buffer.buffer = vbuffer;
+    result.vertex_buffer.stride = sizeof(struct Vertex);
+    result.vertex_buffer.offset = 0;
+    result.constant_buffers_count = 2;
+    result.constant_buffers[0] = transform_constant_buffer;
+    result.constant_buffers[1] = objects_constant_buffer;
+    return result;
+}
+
+static DirectX11State 
+InitDirectX11(HWND window, m4x4 projection_martix)
+{
+	HRESULT hr;
+
+    ID3D11Device* device;
+    ID3D11DeviceContext* context;
+
+    // create D3D11 device & context
+    {
+        UINT flags = 0;
+		#ifndef NDEBUG
+        // this enables VERY USEFUL debug messages in debugger output
+        flags |= D3D11_CREATE_DEVICE_DEBUG;
+		#endif
+        D3D_FEATURE_LEVEL levels[] = { D3D_FEATURE_LEVEL_11_0 };
+        hr = D3D11CreateDevice(
+            NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, flags, levels, ARRAYSIZE(levels),
+            D3D11_SDK_VERSION, &device, NULL, &context);
+        // make sure device creation succeeeds before continuing
+        // for simple applciation you could retry device creation with
+        // D3D_DRIVER_TYPE_WARP driver type which enables software rendering
+        // (could be useful on broken drivers or remote desktop situations)
+        AssertHR(hr);
+    }
+
+	#ifndef NDEBUG
+    // for debug builds enable VERY USEFUL debug break on API errors
+    {
+        ID3D11InfoQueue* info;
+        ID3D11Device_QueryInterface(device, &IID_ID3D11InfoQueue, (void**)&info);
+        ID3D11InfoQueue_SetBreakOnSeverity(info, D3D11_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+        ID3D11InfoQueue_SetBreakOnSeverity(info, D3D11_MESSAGE_SEVERITY_ERROR, TRUE);
+        ID3D11InfoQueue_Release(info);
+    }
+
+    // enable debug break for DXGI too
+    {
+        IDXGIInfoQueue* dxgiInfo;
+        hr = DXGIGetDebugInterface1(0, &IID_IDXGIInfoQueue, (void**)&dxgiInfo);
+        AssertHR(hr);
+        IDXGIInfoQueue_SetBreakOnSeverity(dxgiInfo, DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+        IDXGIInfoQueue_SetBreakOnSeverity(dxgiInfo, DXGI_DEBUG_ALL, DXGI_INFO_QUEUE_MESSAGE_SEVERITY_ERROR, TRUE);
+        IDXGIInfoQueue_Release(dxgiInfo);
+    }
+
+    // after this there's no need to check for any errors on device functions manually
+    // so all HRESULT return  values in this code will be ignored
+    // debugger will break on errors anyway
+	#endif
+
+    // create DXGI swap chain
+    IDXGISwapChain1* swapChain;
+    {
+        // get DXGI device from D3D11 device
+        IDXGIDevice* dxgiDevice;
+        hr = ID3D11Device_QueryInterface(device, &IID_IDXGIDevice, (void**)&dxgiDevice);
+        AssertHR(hr);
+
+        // get DXGI adapter from DXGI device
+        IDXGIAdapter* dxgiAdapter;
+        hr = IDXGIDevice_GetAdapter(dxgiDevice, &dxgiAdapter);
+        AssertHR(hr);
+
+        // get DXGI factory from DXGI adapter
+        IDXGIFactory2* factory;
+        hr = IDXGIAdapter_GetParent(dxgiAdapter, &IID_IDXGIFactory2, (void**)&factory);
+        AssertHR(hr);
+
+        DXGI_SWAP_CHAIN_DESC1 desc =
+        {
+            // default 0 value for width & height means to get it from HWND automatically
+            //.Width = 0,
+            //.Height = 0,
+
+            // or use DXGI_FORMAT_R8G8B8A8_UNORM_SRGB for storing sRGB
+            .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+
+            // FLIP presentation model does not allow MSAA framebuffer
+            // if you want MSAA then you'll need to render offscreen and manually
+            // resolve to non-MSAA framebuffer
+            .SampleDesc = { 1, 0 },
+
+            .BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
+            .BufferCount = 2,
+
+            // we don't want any automatic scaling of window content
+            // this is supported only on FLIP presentation model
+            .Scaling = DXGI_SCALING_NONE,
+
+            // use more efficient FLIP presentation model
+            // Windows 10 allows to use DXGI_SWAP_EFFECT_FLIP_DISCARD
+            // for Windows 8 compatibility use DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL
+            // for Windows 7 compatibility use DXGI_SWAP_EFFECT_DISCARD
+            .SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
+        };
+
+        hr = IDXGIFactory2_CreateSwapChainForHwnd(factory, (IUnknown*)device, window, &desc, NULL, NULL, &swapChain);
+        AssertHR(hr);
+
+        // disable silly Alt+Enter changing monitor resolution to match window size
+        IDXGIFactory_MakeWindowAssociation(factory, window, DXGI_MWA_NO_ALT_ENTER);
+
+        IDXGIFactory2_Release(factory);
+        IDXGIAdapter_Release(dxgiAdapter);
+        IDXGIDevice_Release(dxgiDevice);
+    }
+	
+    ID3D11Buffer* transform_constant_buffer;
     {
         D3D11_BUFFER_DESC desc =
         {
@@ -406,7 +510,7 @@ InitDirectX11(HWND window, m4x4 projection_martix)
             .BindFlags = D3D11_BIND_CONSTANT_BUFFER,
         };
         D3D11_SUBRESOURCE_DATA initial = { .pSysMem = &projection_martix };
-        ID3D11Device_CreateBuffer(device, &desc, &initial, &ubuffer);
+        ID3D11Device_CreateBuffer(device, &desc, &initial, &transform_constant_buffer);
     }
 
     ID3D11Buffer* objectBuffer;
@@ -471,23 +575,46 @@ InitDirectX11(HWND window, m4x4 projection_martix)
         ID3D11Device_CreateDepthStencilState(device, &desc, &depthState);
     }
 
-	DirectX11State state = {};
+    RenderPipelineDescription main_render_pipeline = CreateMainPipeline(device, transform_constant_buffer, objectBuffer);
+    RenderPipelineDescription backgound_pipeline   = CreateBackgroundPipeline(device);
+
+	DirectX11State state = { 0 };
 	state.device = device;
 	state.context = context;
-	state.swapChain = swapChain;
+	state.swap_chain = swapChain;
 
-	state.vbuffer = vbuffer;
-	state.layout = layout;
-	state.vshader = vshader;
-	state.ubuffer = ubuffer;
-	state.objectBuffer = objectBuffer;
-	state.pshader = pshader;
+    state.main_pipeline       = main_render_pipeline;
+    state.background_pipeline = backgound_pipeline;
 
-	state.rasterizerState = rasterizerState;
-	state.blendState = blendState;
-	state.depthState = depthState;
+	state.objects_constant_buffer = objectBuffer;
+
+	state.rasterizer_state = rasterizerState;
+	state.blend_state = blendState;
+	state.depth_state = depthState;
 
 	return state;
+}
+
+static void
+BindPineline(ID3D11DeviceContext* context, RenderPipelineDescription *pipeline)
+{
+    // Input Assembler
+    ID3D11DeviceContext_IASetInputLayout(context, pipeline->layout);
+    ID3D11DeviceContext_IASetPrimitiveTopology(context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    UINT stride = pipeline->vertex_buffer.stride;
+    UINT offset = pipeline->vertex_buffer.offset;
+    ID3D11DeviceContext_IASetVertexBuffers(context, 0, 1, &pipeline->vertex_buffer.buffer, &stride, &offset);
+
+    // Vertex Shader
+    for (u8 i = 0; i < pipeline->constant_buffers_count; i++)
+    {
+        ID3D11DeviceContext_VSSetConstantBuffers(context, i, 1, &pipeline->constant_buffers[i]);
+    }
+
+    ID3D11DeviceContext_VSSetShader(context, pipeline->vshader, NULL, 0);
+
+    // Pixel Shader
+    ID3D11DeviceContext_PSSetShader(context, pipeline->pshader, NULL, 0);
 }
 
 static void 
@@ -499,31 +626,31 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
     s32 height = *FrameDataHeightPrt(frame_data);
 
 	// resize swap chain if needed
-	if (directx_state->rtView == NULL || width != directx_state->currentWidth || height != directx_state->currentHeight)
+	if (directx_state->rt_view == NULL || width != directx_state->current_width || height != directx_state->current_height)
 	{
-		if (directx_state->rtView)
+		if (directx_state->rt_view)
 		{
 			// release old swap chain buffers
 			ID3D11DeviceContext_ClearState(directx_state->context);
-			ID3D11RenderTargetView_Release(directx_state->rtView);
-			ID3D11DepthStencilView_Release(directx_state->dsView);
-			directx_state->rtView = NULL;
+			ID3D11RenderTargetView_Release(directx_state->rt_view);
+			ID3D11DepthStencilView_Release(directx_state->ds_view);
+			directx_state->rt_view = NULL;
 		}
 
 		// resize to new size for non-zero size
 		if (width != 0 && height != 0)
 		{
-			hr = IDXGISwapChain1_ResizeBuffers(directx_state->swapChain, 0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+			hr = IDXGISwapChain1_ResizeBuffers(directx_state->swap_chain, 0, width, height, DXGI_FORMAT_UNKNOWN, 0);
 			if (FAILED(hr))
 			{
 				FatalError("Failed to resize swap chain!");
 			}
 
 			// create RenderTarget view for new backbuffer texture
-			ID3D11Texture2D* backbuffer;
-			IDXGISwapChain1_GetBuffer(directx_state->swapChain, 0, &IID_ID3D11Texture2D, (void**)&backbuffer);
-			ID3D11Device_CreateRenderTargetView(directx_state->device, (ID3D11Resource*)backbuffer, NULL, &directx_state->rtView);
-			ID3D11Texture2D_Release(backbuffer);
+			ID3D11Texture2D* back_buffer;
+			IDXGISwapChain1_GetBuffer(directx_state->swap_chain, 0, &IID_ID3D11Texture2D, (void**)&back_buffer);
+			ID3D11Device_CreateRenderTargetView(directx_state->device, (ID3D11Resource*)back_buffer, NULL, &directx_state->rt_view);
+			ID3D11Texture2D_Release(back_buffer);
 
 			D3D11_TEXTURE2D_DESC depthDesc =
 			{
@@ -540,16 +667,16 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 			// create new depth stencil texture & DepthStencil view
 			ID3D11Texture2D* depth;
 			ID3D11Device_CreateTexture2D(directx_state->device, &depthDesc, NULL, &depth);
-			ID3D11Device_CreateDepthStencilView(directx_state->device, (ID3D11Resource*)depth, NULL, &directx_state->dsView);
+			ID3D11Device_CreateDepthStencilView(directx_state->device, (ID3D11Resource*)depth, NULL, &directx_state->ds_view);
 			ID3D11Texture2D_Release(depth);
 		}
 
-		directx_state->currentWidth  = width;
-		directx_state->currentHeight = height;
+		directx_state->current_width  = width;
+		directx_state->current_height = height;
 	}
 
 	// can render only if window size is non-zero - we must have backbuffer & RenderTarget view created
-	if (directx_state->rtView)
+	if (directx_state->rt_view)
 	{
         f32 viewport_x  = *FrameDataViewportXPrt(frame_data);
         f32 viewport_y = *FrameDataViewportYPrt(frame_data);
@@ -570,51 +697,46 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 
 		// clear screen
 		FLOAT color[] = { 0.392f, 0.584f, 0.929f, 1.f };
-		ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->rtView, color);
-		ID3D11DeviceContext_ClearDepthStencilView(directx_state->context, directx_state->dsView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+		ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->rt_view, color);
+		ID3D11DeviceContext_ClearDepthStencilView(directx_state->context, directx_state->ds_view, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
 		// setup object data in uniform		
         D3D11_MAPPED_SUBRESOURCE mapped;
-		ID3D11DeviceContext_Map(directx_state->context, (ID3D11Resource*)directx_state->objectBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+		ID3D11DeviceContext_Map(directx_state->context, (ID3D11Resource*)directx_state->objects_constant_buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
 		
         FrameDataFrameData* frame_data_sheet = FrameDataFrameDataPrt(frame_data);
         FrameDataFrameDataObjectData* object_data = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
         memcpy(mapped.pData, object_data, sizeof(FrameDataFrameDataObjectData) * kFrameDataMaxObjectDataCapacity);
-		ID3D11DeviceContext_Unmap(directx_state->context, (ID3D11Resource*)directx_state->objectBuffer, 0);
+		ID3D11DeviceContext_Unmap(directx_state->context, (ID3D11Resource*)directx_state->objects_constant_buffer, 0);
             
-		// Input Assembler
-		ID3D11DeviceContext_IASetInputLayout(directx_state->context, directx_state->layout);
-		ID3D11DeviceContext_IASetPrimitiveTopology(directx_state->context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		UINT stride = sizeof(Vertex);
-		UINT offset = 0;
-		ID3D11DeviceContext_IASetVertexBuffers(directx_state->context, 0, 1, &directx_state->vbuffer, &stride, &offset);
-
-		// Vertex Shader
-		ID3D11DeviceContext_VSSetConstantBuffers(directx_state->context, 0, 1, &directx_state->ubuffer);
-		ID3D11DeviceContext_VSSetConstantBuffers(directx_state->context, 1, 1, &directx_state->objectBuffer);
-		ID3D11DeviceContext_VSSetShader(directx_state->context, directx_state->vshader, NULL, 0);
-
-		// Rasterizer Stage
+        // Rasterizer Stage
 		ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &viewport);
-		ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizerState);
+		ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizer_state);
 
-		// Pixel Shader
-		ID3D11DeviceContext_PSSetShader(directx_state->context, directx_state->pshader, NULL, 0);
+        // Output Merger
+		ID3D11DeviceContext_OMSetBlendState(directx_state->context, directx_state->blend_state, NULL, ~0U);
+		ID3D11DeviceContext_OMSetDepthStencilState(directx_state->context, directx_state->depth_state, 0);
+		ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->rt_view, directx_state->ds_view);
+        {
+            BindPineline(directx_state->context, &directx_state->background_pipeline);
 
-		// Output Merger
-		ID3D11DeviceContext_OMSetBlendState(directx_state->context, directx_state->blendState, NULL, ~0U);
-		ID3D11DeviceContext_OMSetDepthStencilState(directx_state->context, directx_state->depthState, 0);
-		ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->rtView, directx_state->dsView);
+            // Draw objects with 6 vertices
+            ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, 1, 0, 0);
+        }
 
-		// Draw objects with 6 vertices
-		ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, frame_data_count, 0, 0);
+        {
+            BindPineline(directx_state->context, &directx_state->main_pipeline);
+
+            // Draw objects with 6 vertices
+            ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, frame_data_count, 0, 0);
+        }
 			
 	}
 
 	// change to FALSE to disable vsync
 	BOOL vsync = TRUE;
-	hr = IDXGISwapChain1_Present(directx_state->swapChain, vsync ? 1 : 0, 0);
+	hr = IDXGISwapChain1_Present(directx_state->swap_chain, vsync ? 1 : 0, 0);
 	if (hr == DXGI_STATUS_OCCLUDED)
 	{
 		// window is minimized, cannot vsync - instead sleep a bit
@@ -627,356 +749,4 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 	{
 		FatalError("Failed to present swap chain! Device lost?");
 	}
-}
-
-static MapFileData 
-CreateMapFile(LPSTR fileName, MapFilePermissions permissions)
-{
-	MapFileData result = {};
-
-	u32 fileAccess = GENERIC_READ;
-	u32 fileProtection = PAGE_READONLY;
-	u32 memoryAccess = FILE_MAP_READ;
-
-    if (permissions == MapFilePermitions_ReadWriteCopy)
-    {
-        fileProtection = PAGE_WRITECOPY;
-        memoryAccess = FILE_MAP_COPY;
-    }
-	else if (permissions == MapFilePermitions_ReadWrite)
-	{
-		fileAccess |= GENERIC_WRITE;
-		fileProtection = PAGE_READWRITE;
-		memoryAccess = FILE_MAP_WRITE;
-	}
-
-	HANDLE file_handle = CreateFile(
-		fileName,
-		fileAccess,
-		FILE_SHARE_READ,
-		NULL,
-		OPEN_EXISTING,
-		0,
-		NULL);
-	
-    Assert(file_handle != INVALID_HANDLE_VALUE);
-
-	HANDLE file_mapping_handle = CreateFileMapping(
-		file_handle,
-		NULL,
-		fileProtection,
-		// Passing zeroes for the high and low max-size params here will allow the
-		// entire file to be mappable.
-		0,
-		0,
-		NULL);
-
-    Assert(file_mapping_handle != NULL);
-
-	// We can close this now because the file mapping retains an open handle to
-	// the underlying file.
-	CloseHandle(file_handle);
-
-	void* data = MapViewOfFile(
-		file_mapping_handle,
-		memoryAccess,
-		0, // Offset high
-		0, // Offset low
-		// A zero here indicates we want to map the entire range.
-		0);
-
-    Assert(data != NULL);
-
-	result.fileHandle = file_mapping_handle;
-	result.data = data;
-
-	return result;
-}
-
-void
-CloseMapFile(MapFileData *mapData)
-{
-    UnmapViewOfFile(mapData->data);
-	CloseHandle(mapData->fileHandle);
-}
-
-void
-begin_frame(FrameData *frame_data, f32 game_aspect, s32 screen_width, s32 screen_height)
-{
-    u16 *frame_data_count_prt = FrameDataFrameDataCountPrt(frame_data);
-    f32 *viewport_x_prt       = FrameDataViewportXPrt(frame_data);
-    f32 *viewport_y_prt       = FrameDataViewportYPrt(frame_data);
-    f32 *viewport_width_prt   = FrameDataViewportWidthPrt(frame_data);
-    f32 *viewport_height_prt  = FrameDataViewportHeightPrt(frame_data);
-    s32 *width_prt            = FrameDataWidthPrt(frame_data);
-    s32 *height_prt           = FrameDataHeightPrt(frame_data);
-
-    *width_prt     = screen_width;
-    *height_prt    = screen_height;
-    *frame_data_count_prt = 0;
-
-    f32 window_aspect = (f32)(*width_prt) / (*height_prt);
-
-    if (window_aspect > game_aspect)
-    {
-        *viewport_width_prt  = (*height_prt) * game_aspect;
-        *viewport_height_prt = (f32)(*height_prt);
-        *viewport_x_prt      = ((*width_prt) - (*viewport_width_prt)) * 0.5f;
-        *viewport_y_prt      = 0.0f;
-    }
-    else
-    {
-        *viewport_width_prt  = (f32)(*width_prt);
-        *viewport_height_prt = (*width_prt) / game_aspect;
-        *viewport_x_prt      = 0.0f;
-        *viewport_y_prt      = ((*height_prt) - (*viewport_height_prt)) * 0.5f;
-    }
-}
-
-int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
-{
-
-#ifndef NDEBUG
-    enable_console();
-#endif
-
-    // register window class to have custom WindowProc callback
-    WNDCLASSEXW wc =
-    {
-        .cbSize = sizeof(wc),
-        .lpfnWndProc = WindowProc,
-        .hInstance = instance,
-        .hIcon = LoadIcon(NULL, IDI_APPLICATION),
-        .hCursor = LoadCursor(NULL, IDC_ARROW),
-        .lpszClassName = L"d3d11_window_class",
-    };
-    ATOM atom = RegisterClassExW(&wc);
-    Assert(atom && "Failed to register window class");
-
-    // window properties - width, height and style
-    s32 width = CW_USEDEFAULT;
-    s32 height = CW_USEDEFAULT;
-    // WS_EX_NOREDIRECTIONBITMAP flag here is needed to fix ugly bug with Windows 10
-    // when window is resized and DXGI swap chain uses FLIP presentation model
-    // DO NOT use it if you choose to use non-FLIP presentation model
-    // read about the bug here: https://stackoverflow.com/q/63096226 and here: https://stackoverflow.com/q/53000291
-    DWORD exstyle = WS_EX_APPWINDOW | WS_EX_NOREDIRECTIONBITMAP;
-    DWORD style = WS_OVERLAPPEDWINDOW;
-
-    // uncomment in case you want fixed size window
-    //style &= ~WS_THICKFRAME & ~WS_MAXIMIZEBOX;
-    //RECT rect = { 0, 0, 1280, 720 };
-    //AdjustWindowRectEx(&rect, style, FALSE, exstyle);
-    //width = rect.right - rect.left;
-    //height = rect.bottom - rect.top;
-
-    // create window
-    HWND window = CreateWindowExW(
-        exstyle, wc.lpszClassName, L"D3D11 Window", style,
-        CW_USEDEFAULT, CW_USEDEFAULT, width, height,
-        NULL, NULL, wc.hInstance, NULL);
-    Assert(window && "Failed to create window");
-
-    v2 game_area = V2(kPlayAreaWidth, kPlayAreaHeight);
-
-    v2 half_game_area = v2_scale(game_area, 0.5f);
-
-    f32 left = -half_game_area.x;
-    f32 right = half_game_area.x;
-    f32 bottom = -half_game_area.y;
-    f32 top = half_game_area.y;
-
-    f32 near_clip_plane = 0.0f;
-    f32 far_clip_plane = 1.0f;
-
-    m4x4_inv matrix = orthographic_projection(left, right, bottom, top, near_clip_plane, far_clip_plane);
-
-	DirectX11State directx_state = InitDirectX11(window, matrix.forward);
-
-    // show the window
-    ShowWindow(window, SW_SHOWDEFAULT);
-
-    MapFileData game_state_map_data = CreateMapFile("game_state.bin", MapFilePermitions_ReadWriteCopy);
-    GameState *game_state           = (GameState *)game_state_map_data.data;
-
-    MapFileData level_update_map_data = CreateMapFile("level_update.bin", MapFilePermitions_ReadWriteCopy);
-    LevelUpdate *level_update_data     = (LevelUpdate *)level_update_map_data.data;
-
-    MapFileData wave_update_map_data = CreateMapFile("wave_update.bin", MapFilePermitions_ReadWriteCopy);
-    WaveUpdate *wave_update_data     = (WaveUpdate *)wave_update_map_data.data;
-
-	MapFileData enemy_instances_map_data = CreateMapFile("enemy_instances.bin", MapFilePermitions_ReadWriteCopy);
-	EnemyInstances *enemy_instances      = (EnemyInstances *)enemy_instances_map_data.data;
-	
-    MapFileData enemy_bullets_map_data = CreateMapFile("enemy_bullets.bin", MapFilePermitions_Read);
-	Bullets *enemy_bullets             = (Bullets *)enemy_bullets_map_data.data;
-
-    MapFileData hero_bullets_map_data = CreateMapFile("hero_bullets.bin", MapFilePermitions_Read);
-	Bullets *hero_bullets             = (Bullets *)hero_bullets_map_data.data;
-    
-    MapFileData hero_instances_map_data = CreateMapFile("hero_instances.bin", MapFilePermitions_ReadWriteCopy);
-    HeroInstances *hero_instances       = (HeroInstances *)hero_instances_map_data.data;
-
-    MapFileData frame_data_map_data = CreateMapFile("frame_data.bin", MapFilePermitions_ReadWriteCopy);
-    FrameData *frame_data           = (FrameData *)frame_data_map_data.data;
-
-    MapFileData enemy_bullets_update_map_data = CreateMapFile("enemy_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
-    BulletsUpdate *enemy_bullets_update_data  = (BulletsUpdate *)enemy_bullets_update_map_data.data;
-
-    MapFileData hero_bullets_update_map_data = CreateMapFile("hero_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
-    BulletsUpdate *hero_bullets_update_data  = (BulletsUpdate *)hero_bullets_update_map_data.data;
-
-    BulletSourceInstances *enemy_bullet_source_instances = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
-    BulletSourceInstances *hero_bullet_source_instances  = HeroInstancesBulletSourceInstancesMapPrt(hero_instances);
-
-    PlayClock *enemy_play_clock = WaveUpdatePlayClockMapPrt(wave_update_data);
-    PlayClock *hero_play_clock  = LevelUpdatePlayClockMapPrt(level_update_data);
-
-    BulletsUpdateContext enemy_bullets_update_context;
-    enemy_bullets_update_context.Root                     = enemy_bullets_update_data;
-    enemy_bullets_update_context.BulletsBin               = enemy_bullets;
-    enemy_bullets_update_context.BulletSourceInstancesBin = enemy_bullet_source_instances;
-    enemy_bullets_update_context.GameStateBin             = game_state;
-    enemy_bullets_update_context.PlayClockBin             = enemy_play_clock;
-
-    BulletsDrawContext enemy_bullets_draw_context;
-    enemy_bullets_draw_context.BulletsBin       = enemy_bullets;
-    enemy_bullets_draw_context.BulletsUpdateBin = enemy_bullets_update_data;
-    enemy_bullets_draw_context.FrameDataBin     = frame_data;
-
-    BulletsUpdateContext hero_bullets_update_context;
-    hero_bullets_update_context.Root                     = hero_bullets_update_data;
-    hero_bullets_update_context.BulletsBin               = hero_bullets;
-    hero_bullets_update_context.BulletSourceInstancesBin = hero_bullet_source_instances;
-    hero_bullets_update_context.GameStateBin             = game_state;
-    hero_bullets_update_context.PlayClockBin             = hero_play_clock;
-
-    BulletsDrawContext hero_bullets_draw_context;
-    hero_bullets_draw_context.BulletsBin       = hero_bullets;
-    hero_bullets_draw_context.BulletsUpdateBin = hero_bullets_update_data;
-    hero_bullets_draw_context.FrameDataBin     = frame_data;
-
-    EnemyInstancesContext enemy_instances_context;
-    enemy_instances_context.Root           = enemy_instances;
-    enemy_instances_context.GameStateBin   = game_state;
-    enemy_instances_context.WaveUpdateBin  = wave_update_data;
-    enemy_instances_context.LevelUpdateBin = level_update_data;
-
-    EnemyInstancesDrawContext enemy_instances_draw_context;
-    enemy_instances_draw_context.EnemyInstancesBin = enemy_instances;
-    enemy_instances_draw_context.FrameDataBin      = frame_data;
-
-    LevelUpdateContext level_update_context;
-    level_update_context.Root                  = level_update_data;
-    level_update_context.GameStateBin          = game_state;
-    level_update_context.EnemyInstancesBin     = enemy_instances;
-    level_update_context.EnemyBulletsUpdateBin = enemy_bullets_update_data;
-
-    WaveUpdateContext wave_update_context;
-    wave_update_context.Root                  = wave_update_data;
-    wave_update_context.GameStateBin          = game_state;
-    wave_update_context.EnemyInstancesBin     = enemy_instances;
-    wave_update_context.EnemyBulletsUpdateBin = enemy_bullets_update_data;
-    wave_update_context.LevelUpdateBin        = level_update_data;
-
-    HeroInstancesContext hero_instances_context;
-    hero_instances_context.Root         = hero_instances;
-    hero_instances_context.GameStateBin = game_state;
-
-    HeroInstancesDrawContext hero_instances_draw_context;
-    hero_instances_draw_context.HeroInstancesBin = hero_instances;
-    hero_instances_draw_context.FrameDataBin     = frame_data;
-
-    f32 *time_delta_ptr          = GameStateTimeDeltaPrt(game_state);
-    f64 *time_ptr                = GameStateTimePrt(game_state);
-    f32 *play_time_ptr           = GameStatePlayTimePrt(game_state);
-    u64 *frame_count_ptr         = GameStateFrameCounterPrt(game_state);
-    u32 *state_ptr               = GameStateStatePrt(game_state);
-    v2 *world_mouse_position_ptr = (v2 *)GameStateWorldMousePositionPrt(game_state);
-
-    f32 game_aspect = game_area.x / game_area.y;
-
-    LARGE_INTEGER freq, c1;
-    QueryPerformanceFrequency(&freq);
-    QueryPerformanceCounter(&c1);
-
-    *state_ptr |= kGameStateStateReset;
-
-    for (;;)
-    {
-        // process all incoming Windows messages
-        MSG msg;
-        if (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
-        {
-            if (msg.message == WM_QUIT)
-            {
-                break;
-            }
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
-            continue;
-        }
-
-        // get current size for window client area
-        RECT rect;
-        GetClientRect(window, &rect);
-        width = rect.right - rect.left;
-        height = rect.bottom - rect.top;
-
-        begin_frame(frame_data, game_aspect, width, height);
-
-		if (width != 0 && height != 0)
-		{
-			LARGE_INTEGER c2;
-			QueryPerformanceCounter(&c2);
-            *time_delta_ptr = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
-			c1 = c2;
-
-            POINT mouseP;
-            GetCursorPos(&mouseP);
-            ScreenToClient(window, &mouseP);
-            f32 mouseX = (f32)mouseP.x;
-            f32 mouseY = (f32)((height - 1) - mouseP.y);
-
-            f32 viewport_x      = *FrameDataViewportXPrt(frame_data);
-            f32 viewport_y      = *FrameDataViewportYPrt(frame_data);
-            f32 viewport_width  = *FrameDataViewportWidthPrt(frame_data);
-            f32 viewport_height = *FrameDataViewportHeightPrt(frame_data);
-
-            f32 clip_space_mouseX = clamp_binormal_map_to_range(viewport_x, mouseX, viewport_x + viewport_width);
-            f32 clip_space_mouseY = clamp_binormal_map_to_range(viewport_y, mouseY, viewport_y + viewport_height);
-
-            *world_mouse_position_ptr = transform(matrix.inverse, V2(clip_space_mouseX, clip_space_mouseY));
-
-            level_update(&level_update_context);
-            wave_update(&wave_update_context);
-            enemy_instances_update(&enemy_instances_context);
-            hero_instances_update(&hero_instances_context);
-            bullets_update(&enemy_bullets_update_context);
-            bullets_update(&hero_bullets_update_context);
-
-            enemy_instances_draw(&enemy_instances_draw_context);
-            hero_instances_draw(&hero_instances_draw_context);
-            bullets_draw(&enemy_bullets_draw_context);
-            bullets_draw(&hero_bullets_draw_context);
-
-            *time_ptr += *time_delta_ptr;
-            *play_time_ptr += *time_delta_ptr;
-            (*frame_count_ptr)++;
-            *state_ptr &= ~kGameStateStateReset;
-		}
-
-		EndFrameDirectX11(&directx_state, frame_data);
-    }
-
-	CloseMapFile(&hero_instances_map_data);
-	CloseMapFile(&enemy_instances_map_data);
-	CloseMapFile(&enemy_bullets_map_data);
-	CloseMapFile(&hero_bullets_map_data);
-	CloseMapFile(&frame_data_map_data);
-	CloseMapFile(&enemy_bullets_update_map_data);
-	CloseMapFile(&hero_bullets_update_map_data);
-	CloseMapFile(&game_state_map_data);
-	CloseMapFile(&wave_update_map_data);
-	CloseMapFile(&level_update_map_data);
 }
