@@ -5,32 +5,30 @@ meta:
 constants:
  - name: max_object_data_capacity
    value: 512
+ - name: spatial_grid_resolution
+   value: 32
 
 variables:
- - name: width
+ - name: screen_size
    types:
     - name: width
       type: int32_t
- - name: height
-   types:
     - name: height
       type: int32_t
- - name: viewport_x
+ - name: viewport
    types:
-    - name: viewport_x
+    - name: x
       type: float
- - name: viewport_y
+    - name: y
+      type: float
+    - name: width
+      type: float
+    - name: height
+      type: float
+ - name: frame_object_count
    types:
-    - name: viewport_y
-      type: float
- - name: viewport_width
-   types:
-    - name: viewport_width
-      type: float
- - name: viewport_height
-   types:
-    - name: viewport_height
-      type: float
+    - name: frame_object_count
+      type: uint32_t
 
 sheets:
  - name: frame_data

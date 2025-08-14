@@ -54,6 +54,13 @@
 
 #define AssertHR(hr) Assert(SUCCEEDED(hr))
 
+static void
+FatalError(const char* message)
+{
+    MessageBoxA(NULL, message, "Error", MB_ICONEXCLAMATION);
+    ExitProcess(0);
+}
+
 #include "win32_d3d11.c"
 
 #ifndef __cplusplus
@@ -160,33 +167,32 @@ CloseMapFile(MapFileData *mapData)
 void
 begin_frame(FrameData *frame_data, f32 game_aspect, s32 screen_width, s32 screen_height)
 {
-    u16 *frame_data_count_prt = FrameDataFrameDataCountPrt(frame_data);
-    f32 *viewport_x_prt       = FrameDataViewportXPrt(frame_data);
-    f32 *viewport_y_prt       = FrameDataViewportYPrt(frame_data);
-    f32 *viewport_width_prt   = FrameDataViewportWidthPrt(frame_data);
-    f32 *viewport_height_prt  = FrameDataViewportHeightPrt(frame_data);
-    s32 *width_prt            = FrameDataWidthPrt(frame_data);
-    s32 *height_prt           = FrameDataHeightPrt(frame_data);
+    u16 *frame_data_count_prt   = FrameDataFrameDataCountPrt(frame_data);
+    u32 *frame_object_count_ptr = FrameDataFrameObjectCountPrt(frame_data);
 
-    *width_prt     = screen_width;
-    *height_prt    = screen_height;
-    *frame_data_count_prt = 0;
+    FrameDataViewport *viewport_prt      = FrameDataViewportPrt(frame_data);
+    FrameDataScreenSize *screen_size_prt = FrameDataScreenSizePrt(frame_data);
 
-    f32 window_aspect = (f32)(*width_prt) / (*height_prt);
+    screen_size_prt->Width  = screen_width;
+    screen_size_prt->Height = screen_height;
+    *frame_data_count_prt   = 0;
+    *frame_object_count_ptr = 0;
+
+    f32 window_aspect = (f32)screen_size_prt->Width / screen_size_prt->Height;
 
     if (window_aspect > game_aspect)
     {
-        *viewport_width_prt  = (*height_prt) * game_aspect;
-        *viewport_height_prt = (f32)(*height_prt);
-        *viewport_x_prt      = ((*width_prt) - (*viewport_width_prt)) * 0.5f;
-        *viewport_y_prt      = 0.0f;
+        viewport_prt->Width  = screen_size_prt->Height * game_aspect;
+        viewport_prt->Height = (f32)screen_size_prt->Height;
+        viewport_prt->X      = (screen_size_prt->Width - viewport_prt->Width) * 0.5f;
+        viewport_prt->Y      = 0.0f;
     }
     else
     {
-        *viewport_width_prt  = (f32)(*width_prt);
-        *viewport_height_prt = (*width_prt) / game_aspect;
-        *viewport_x_prt      = 0.0f;
-        *viewport_y_prt      = ((*height_prt) - (*viewport_height_prt)) * 0.5f;
+        viewport_prt->Width  = (f32)screen_size_prt->Width;
+        viewport_prt->Height = screen_size_prt->Width / game_aspect;
+        viewport_prt->X      = 0.0f;
+        viewport_prt->Y      = (screen_size_prt->Height - viewport_prt->Height) * 0.5f;
     }
 }
 
@@ -396,13 +402,10 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             f32 mouseX = (f32)mouseP.x;
             f32 mouseY = (f32)((height - 1) - mouseP.y);
 
-            f32 viewport_x      = *FrameDataViewportXPrt(frame_data);
-            f32 viewport_y      = *FrameDataViewportYPrt(frame_data);
-            f32 viewport_width  = *FrameDataViewportWidthPrt(frame_data);
-            f32 viewport_height = *FrameDataViewportHeightPrt(frame_data);
+            FrameDataViewport viewport = *FrameDataViewportPrt(frame_data);
 
-            f32 clip_space_mouseX = clamp_binormal_map_to_range(viewport_x, mouseX, viewport_x + viewport_width);
-            f32 clip_space_mouseY = clamp_binormal_map_to_range(viewport_y, mouseY, viewport_y + viewport_height);
+            f32 clip_space_mouseX = clamp_binormal_map_to_range(viewport.X, mouseX, viewport.X + viewport.Width);
+            f32 clip_space_mouseY = clamp_binormal_map_to_range(viewport.Y, mouseY, viewport.Y + viewport.Height);
 
             *world_mouse_position_ptr = transform(matrix.inverse, V2(clip_space_mouseX, clip_space_mouseY));
 

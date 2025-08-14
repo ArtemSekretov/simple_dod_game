@@ -164,3 +164,33 @@ clamp_binormal_map_to_range(f32 min, f32 t, f32 max)
     f32 result = -1.0f + 2.0f * clamp01_map_to_range(min, t, max);
     return result;
 }
+
+inline f32 
+log_base(f32 base, f32 a)
+{
+    f32 result = logf(a) / logf(base);
+    return result;
+}
+
+inline f32 
+power_of_n(f32 number, f32 n)
+{
+    f32 log = log_base(n, number);
+    f32 ceiling = ceilf(log);
+    f32 result = powf(n, ceiling);
+
+    return result;
+}
+
+inline f32
+multiple_of_n(f32 number, f32 n)
+{ 
+    f32 result = number;
+
+    if (n != 0.0f)
+    {
+        result = ceilf(number / n) * n;
+    }
+
+    return result;
+}

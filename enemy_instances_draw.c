@@ -9,7 +9,8 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
-    u16 *frame_data_count_ptr = FrameDataFrameDataCountPrt(frame_data);
+    u16 *frame_data_count_ptr   = FrameDataFrameDataCountPrt(frame_data);
+    u32 *frame_object_count_ptr = FrameDataFrameObjectCountPrt(frame_data);
 
     EnemyInstancesEnemyTypes *enemy_sheet = EnemyInstancesEnemyTypesPrt(enemy_instances);
 
@@ -44,12 +45,13 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
 
         object_data->PositionAndScale[0] = enemy_instance_position.x;
         object_data->PositionAndScale[1] = enemy_instance_position.y;
-        object_data->PositionAndScale[2] = radius * 2.0f;
+        object_data->PositionAndScale[2] = radius;
 
         object_data->Color[0] = 0.0f;
         object_data->Color[1] = 1.0f;
         object_data->Color[2] = 1.0f;
 
         *frame_data_count_ptr = (frame_data_count + 1) % kFrameDataMaxObjectDataCapacity;
+        (*frame_object_count_ptr)++;
     }
 }
