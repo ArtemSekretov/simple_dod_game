@@ -255,7 +255,8 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 
     m4x4_inv matrix = orthographic_projection(left, right, bottom, top, near_clip_plane, far_clip_plane);
 
-	DirectX11State directx_state = InitDirectX11(window, matrix.forward);
+    DirectX11State directx_state = { 0 };
+	InitDirectX11(&directx_state, window, matrix.forward);
 
     // show the window
     ShowWindow(window, SW_SHOWDEFAULT);

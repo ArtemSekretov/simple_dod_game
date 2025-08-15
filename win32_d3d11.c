@@ -25,19 +25,21 @@ struct ObjectBufferHeader
 
 struct VertexBuffer
 {
-    ID3D11Buffer* buffer;
+    ID3D11Buffer *buffer;
     UINT stride;
     UINT offset;
 };
 
 struct PixelTextureResource
 {
-    ID3D11SamplerState* sampler;
-    ID3D11ShaderResourceView* texture_view;
+    ID3D11SamplerState *sampler;
+    ID3D11ShaderResourceView *texture_view;
 };
 
 #define kMaxConstantBufferSlotCounts (D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT - 1)
 #define kMaxPixelTextureResourceSlotCounts (D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT - 1)
+
+#define kMaxRadianceCascades 10
 
 #define KMargin 1
 #define kPlayAreaHalfWidthWithMargin  (kPlayAreaHalfWidth + KMargin)
@@ -55,31 +57,33 @@ struct RadianceData
 
 struct RenderPipelineDescription
 {
-    ID3D11InputLayout* layout;
+    ID3D11InputLayout *layout;
     VertexBuffer vertex_buffer;
 
-    ID3D11Buffer* vertex_constant_buffers[kMaxConstantBufferSlotCounts];
+    ID3D11Buffer *vertex_constant_buffers[kMaxConstantBufferSlotCounts];
     u32 vertex_constant_buffers_count;
 
-    ID3D11Buffer* pixel_constant_buffers[kMaxConstantBufferSlotCounts];
+    ID3D11Buffer *pixel_constant_buffers[kMaxConstantBufferSlotCounts];
     u32 pixel_constant_buffers_count;
 
-    ID3D11VertexShader* vshader;
+    ID3D11VertexShader *vshader;
 
     PixelTextureResource pixel_texture_resources[kMaxPixelTextureResourceSlotCounts];
     u32 pixel_texture_resource_count;
 
-    ID3D11PixelShader* pshader;
+    ID3D11PixelShader *pshader;
 };
 
 struct DirectX11State
 {
-    ID3D11Device* device;
-    ID3D11DeviceContext* context;
-    IDXGISwapChain1* swap_chain;
+    ID3D11Device *device;
+    ID3D11DeviceContext *context;
+    IDXGISwapChain1 *swap_chain;
 
-    ID3D11Buffer* objects_constant_buffer;
-    ID3D11Buffer* radiance_constant_buffer;
+    ID3D11Buffer *objects_constant_buffer;
+    
+    ID3D11Buffer *radiance_constant_buffer[kMaxRadianceCascades];
+    u32 radiance_constant_buffer_count;
 
     RenderPipelineDescription main_pipeline;
     RenderPipelineDescription background_pipeline;
@@ -87,21 +91,24 @@ struct DirectX11State
 
     RenderPipelineDescription radiance_pipeline;
 
-    ID3D11RenderTargetView* backbuffer_rt_view;
-    ID3D11DepthStencilView* ds_view;
+    ID3D11RenderTargetView *backbuffer_rt_view;
+    ID3D11DepthStencilView *ds_view;
 
-    ID3D11RenderTargetView* radiance_current_rt_view;
-    ID3D11ShaderResourceView* radiance_current_view;
+    ID3D11RenderTargetView *radiance_current_rt_view;
+    ID3D11ShaderResourceView *radiance_current_view;
 
-    ID3D11RenderTargetView* sdf_rt_view;
-    ID3D11ShaderResourceView* sdf_view;
+    ID3D11RenderTargetView *radiance_previous_rt_view;
+    ID3D11ShaderResourceView *radiance_previous_view;
 
-    ID3D11RasterizerState* rasterizer_state;
-    ID3D11BlendState* blend_state;
-    ID3D11DepthStencilState* depth_state;
+    ID3D11RenderTargetView *sdf_rt_view;
+    ID3D11ShaderResourceView *sdf_view;
 
-    ID3D11SamplerState* linear_sampler;
-    ID3D11SamplerState* point_sampler;
+    ID3D11RasterizerState *rasterizer_state;
+    ID3D11BlendState *blend_state;
+    ID3D11DepthStencilState *depth_state;
+
+    ID3D11SamplerState *linear_sampler;
+    ID3D11SamplerState *point_sampler;
 
     s32 current_width;
     s32 current_height;
@@ -109,8 +116,7 @@ struct DirectX11State
 
 static RenderPipelineDescription
 CreateRadiancePipeline(ID3D11Device* device,
-                       ID3D11Buffer* objects_constant_buffer,
-                       ID3D11Buffer* radiance_constant_buffer)
+                       ID3D11Buffer* objects_constant_buffer)
 {
     HRESULT hr;
 
@@ -124,6 +130,7 @@ CreateRadiancePipeline(ID3D11Device* device,
     {
         struct Vertex data[] =
         {
+            #if 1
             { { -1.0f, -1.0f }, { -kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
             { { -1.0f, +1.0f }, { -kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
             { { +1.0f, +1.0f }, { kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
@@ -131,6 +138,15 @@ CreateRadiancePipeline(ID3D11Device* device,
             { { +1.0f, +1.0f }, { kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
             { { +1.0f, -1.0f }, { kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
             { { -1.0f, -1.0f }, { -kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
+            #else
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
+            { { -1.0f, + 1.0f }, { 0.0f, 1.0f } },
+            { { + 1.0f, + 1.0f }, { 1.0f, 1.0f } },
+
+            { { + 1.0f, + 1.0f }, { 1.0f, 1.0f } },
+            { { + 1.0f, -1.0f }, { 1.0f, 0.0f } },
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
+            #endif
         };
 
         D3D11_BUFFER_DESC desc =
@@ -183,6 +199,7 @@ CreateRadiancePipeline(ID3D11Device* device,
             "                                                           \n"
             "#define EPS 0.00010                                        \n"
             "#define TAU 6.283185                                       \n"
+            //"#define PlayAreaHalfSize float2("STR(kPlayAreaHalfWidth)", "STR(kPlayAreaHalfHeight)"); \n"
             "#define PlayAreaHalfSize float2("STR(kPlayAreaHalfWidthWithMargin)", "STR(kPlayAreaHalfHeightWithMargin)"); \n"
             "                                                           \n"
             "                                                           \n"
@@ -201,6 +218,10 @@ CreateRadiancePipeline(ID3D11Device* device,
             "sampler sdf_sampler : register(s0);                        \n" // s0 = sampler bound to slot 0
             "                                                           \n"
             "Texture2D<float2> sdf_texture : register(t0);              \n" // t0 = shader resource bound to slot 0
+            "                                                           \n"
+            "sampler radiance_sampler : register(s1);                   \n" // s1 = sampler bound to slot 1
+            "                                                           \n"
+            "Texture2D<float4> radiance_texture : register(t1);         \n" // t1 = shader resource bound to slot 1
             "                                                           \n"
             "struct ObjectData                                          \n"
             "{                                                          \n"
@@ -263,7 +284,7 @@ CreateRadiancePipeline(ID3D11Device* device,
             "                                                           \n"
             "ProbeInfo cascade_texel_info(float2 world_position)        \n"
             "{                                                          \n"
-            "  float2 uv = world_to_uv(world_position);                 \n"
+            "  float2 uv = world_to_uv(world_position);                              \n"
             "  float2 coord = floor(uv * radiance_input.radiance_size); \n"
             "                                                           \n"
             "  float angular = pow(2.0, radiance_input.cascade_index);  \n" // Ray Count.
@@ -304,22 +325,23 @@ CreateRadiancePipeline(ID3D11Device* device,
             "  float2 size = (max_area - min_area);                     \n"
             "  float scale = 1.0 / length(size);                        \n"
             "                                                           \n"
+            "  [loop]                                                   \n"
             "  for(float i = 0.0, rd = 0.0; i < info.range; i++)        \n"
             "  {                                                        \n"
             "    float2 sdf_data = sdf_texture.SampleLevel(sdf_sampler, ray, 0); \n"
             "    float sdf_data_in_uv_space = sdf_data.x * scale;       \n"
             "                                                           \n"
             "    rd += sdf_data_in_uv_space * info.scale;               \n"
-            "    ray += (delta * sdf_data_in_uv_space * info.scale * texel);       \n"
+            "    ray += (delta * sdf_data_in_uv_space * info.scale * texel); \n"
             "                                                           \n"
-            "    if (rd >= info.range) break;                           \n" // If ray has reached range or out-of-bounds, return no-hit.
+            "    if (rd >= info.range || length(floor(ray)) != 0.0) break; \n" // If ray has reached range or out-of-bounds, return no-hit.
             "                                                           \n"
-            "    if (sdf_data.x <= EPS && rd <= EPS && radiance_input.cascade_index != 0) \n" // 2D light only cast light at their surfaces, not their volume.
+            "    if (sdf_data_in_uv_space <= EPS && rd <= EPS && radiance_input.cascade_index != 0) \n" // 2D light only cast light at their surfaces, not their volume.
             "    {                                                      \n"
             "      return float4(0.0, 0.0, 0.0, 0.0);                   \n"
             "    }                                                      \n"
             "                                                           \n"
-            "    if (sdf_data.x <= EPS)                                 \n" // On-hit return radiance from scene (with visibility term of 0--e.g. no visibility to merge with higher cascades).
+            "    if (sdf_data_in_uv_space <= EPS)                       \n" // On-hit return radiance from scene (with visibility term of 0--e.g. no visibility to merge with higher cascades).
             "    {                                                      \n"
             "                                                           \n"
             "      int index = sdf_data.y;                              \n"
@@ -331,18 +353,47 @@ CreateRadiancePipeline(ID3D11Device* device,
             "  return float4(0.0, 0.0, 0.0, 1.0);                       \n"
             "}                                                          \n"
             "                                                           \n"
+            "float4 merge(float4 rinfo, float index, ProbeInfo info)    \n"
+            "{                                                          \n"
+            "  float4 result;                                           \n"
+            "                                                           \n"
+            "  if (rinfo.a == 0.0 || radiance_input.cascade_index >= radiance_input.cascade_count - 1) \n" // For any radiance with zero-alpha do not merge (highest cascade also cannot merge).
+            "  {                                                        \n"
+            "    result = float4(rinfo.rgb, 1.0 - rinfo.a);             \n"  // Return non-merged radiance (invert alpha to correct alpha from raymarch ray-visibility term).
+            "  }                                                        \n"
+            "  else                                                     \n"
+            "  {                                                        \n"
+            "    float angularN1 = pow(2.0, radiance_input.cascade_index + 1.0); \n" // Angular resolution of cascade N+1 for probe lookups.
+            "    float2 sizeN1 = info.size * 0.5;                       \n" // Size of probe group of cascade N+1 (N+1 has 1/4 total probe count or 1/2 each x,y axis).
+            "    float2 probeN1 = float2(fmod(index, angularN1), floor(index / angularN1)) * sizeN1; \n" // Get the probe group correlated to the ray index passed of the current cascade ray we're merging with.
+            "    float2 interpUVN1 = (info.probe * 0.5) + 0.25;         \n" // Interpolated probe position in cascade N+1 (layouts match but with 1/2 count, probe falls into its interpolated position by default).
+            "    float2 clampedUVN1 = max(float2(1.0, 1.0), min(interpUVN1, sizeN1 - float2(1.0, 1.0))); \n" // Clamp interpolated probe position away from edge to avoid hardware inteprolation affecting merge lookups from adjacet probe groups.
+            "    float2 probeUVN1 = probeN1 + clampedUVN1;              \n" // Final lookup cascade position of the interpolated merge lookup.
+            "    float2 probeUV = probeUVN1 * (1.0 / radiance_input.radiance_size); \n"
+            "                                                           \n"
+            "    float4 interpolated = radiance_texture.Sample(radiance_sampler, probeUV); \n" // Texture lookup of the merge sample.
+            "                                                           \n"
+            // @Note: need compensate for borders in uv in sdf
+            //"    result = rinfo + interpolated;                         \n"
+            "    result = rinfo;                         \n"
+            "  }                                                        \n"
+            "  return result;                                           \n"
+            "}                                                          \n"
+            "                                                           \n"
             "float4 ps(PS_INPUT input) : SV_TARGET                      \n"
             "{                                                          \n"
             "                                                           \n"
-            "  ProbeInfo pinfo = cascade_texel_info(input.uv);          \n"
+            //"  float2 uv = float2(input.uv.x, 1.0 - input.uv.y);        \n"
+            "  float2 uv = input.uv;                                    \n"
+            "  ProbeInfo pinfo = cascade_texel_info(uv);                \n"
             "                                                           \n"
             "  float2 origin = (pinfo.probe + 0.5f) * pinfo.linear_spacing;\n" // Get this probes position in screen space.
             "  float preavg_index = pinfo.index * 4.0;                  \n" // Convert this probe's pre-averaged index to its actual angular index (casting 4x rays, but storing 1x averaged).
             "  float theta_scalar = TAU / (pinfo.angular * 4.0);        \n" // Get the scalar for converting our angular index to radians (0 to 2pi).
             "                                                           \n"
-            "                                                           \n"
             "  float4 result = float4(0.0f, 0.0f, 0.0f, 0.0f);          \n"
             "                                                           \n"
+            "  [unroll]                                                 \n"
             "  for(float i = 0.0; i < 4.0; i++)                         \n" // Cast 4 rays, one for each angular index for this pre-averaged ray.
             "  {                                                        \n"
             "    float index = preavg_index + i;                        \n" // Get the actual index for this pre-averaged ray.
@@ -350,8 +401,15 @@ CreateRadiancePipeline(ID3D11Device* device,
             "                                                           \n"
             "    float4 rinfo = raymarch(origin, theta, pinfo);         \n"
             "                                                           \n"
-            "    result += rinfo * 0.25f;                               \n"
+            "    float4 merge_result = merge(rinfo, index, pinfo);      \n"
+            "                                                           \n"
+            "    result += merge_result * 0.25f;                        \n"
             "  }                                                        \n"
+            "                                                           \n"
+            "  if (radiance_input.cascade_index == 0.0)	                \n"
+            "  {                                                         \n"
+            "     result = float4(pow(result.rgb, float3(1.0/2.2, 1.0/2.2, 1.0/2.2)), 1.0);                                                           \n"
+            "  }                                                         \n"
             "  return result;                                           \n"
             "}                                                          \n";
 	
@@ -400,9 +458,8 @@ CreateRadiancePipeline(ID3D11Device* device,
     result.vertex_buffer.offset = 0;
     result.vertex_constant_buffers_count = 0;
     result.pixel_texture_resource_count = 0;
-    result.pixel_constant_buffers_count = 2;
+    result.pixel_constant_buffers_count = 1;
     result.pixel_constant_buffers[0] = objects_constant_buffer;
-    result.pixel_constant_buffers[1] = radiance_constant_buffer;
     return result;
 }
 
@@ -422,6 +479,7 @@ CreateSDFPipeline(ID3D11Device* device,
     {
         struct Vertex data[] =
         {
+            #if 1
             { { -1.0f, -1.0f }, { -kPlayAreaHalfWidthWithMargin, -kPlayAreaHalfHeightWithMargin } },
             { { -1.0f, +1.0f }, { -kPlayAreaHalfWidthWithMargin, kPlayAreaHalfHeightWithMargin } },
             { { +1.0f, +1.0f }, { kPlayAreaHalfWidthWithMargin, kPlayAreaHalfHeightWithMargin } },
@@ -429,6 +487,15 @@ CreateSDFPipeline(ID3D11Device* device,
             { { +1.0f, +1.0f }, { kPlayAreaHalfWidthWithMargin, kPlayAreaHalfHeightWithMargin } },
             { { +1.0f, -1.0f }, { kPlayAreaHalfWidthWithMargin, -kPlayAreaHalfHeightWithMargin } },
             { { -1.0f, -1.0f }, { -kPlayAreaHalfWidthWithMargin, -kPlayAreaHalfHeightWithMargin } },
+            #else
+            { { -1.0f, -1.0f }, { -kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
+            { { -1.0f, +1.0f }, { -kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
+            { { +1.0f, +1.0f }, { kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
+
+            { { +1.0f, +1.0f }, { kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
+            { { +1.0f, -1.0f }, { kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
+            { { -1.0f, -1.0f }, { -kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
+            #endif
         };
 
         D3D11_BUFFER_DESC desc =
@@ -916,8 +983,8 @@ CreateMainPipeline(ID3D11Device* device,
     return result;
 }
 
-static DirectX11State
-InitDirectX11(HWND window, m4x4 projection_martix)
+static void
+InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
 {
     HRESULT hr;
 
@@ -1050,7 +1117,7 @@ InitDirectX11(HWND window, m4x4 projection_martix)
         ID3D11Device_CreateBuffer(device, &desc, NULL, &object_buffer);
     }
 
-    ID3D11Buffer* radiance_buffer;
+    for (u8 i = 0; i < ArrayCount(state->radiance_constant_buffer); i++)
     {
         D3D11_BUFFER_DESC desc =
         {
@@ -1060,7 +1127,7 @@ InitDirectX11(HWND window, m4x4 projection_martix)
             .CPUAccessFlags = D3D11_CPU_ACCESS_WRITE,
         };
 
-        ID3D11Device_CreateBuffer(device, &desc, NULL, &radiance_buffer);
+        ID3D11Device_CreateBuffer(device, &desc, NULL, &state->radiance_constant_buffer[i]);
     }
 
     ID3D11BlendState* blend_state;
@@ -1152,29 +1219,26 @@ InitDirectX11(HWND window, m4x4 projection_martix)
 
     RenderPipelineDescription sdf_pipeline = CreateSDFPipeline(device, object_buffer);
 
-    RenderPipelineDescription radiance_pipeline = CreateRadiancePipeline(device, object_buffer, radiance_buffer);
+    RenderPipelineDescription radiance_pipeline = CreateRadiancePipeline(device, object_buffer);
 
-    DirectX11State state = { 0 };
-    state.device = device;
-    state.context = context;
-    state.swap_chain = swap_chain;
+    state->device = device;
+    state->context = context;
+    state->swap_chain = swap_chain;
 
-    state.main_pipeline = main_render_pipeline;
-    state.background_pipeline = backgound_pipeline;
-    state.sdf_pipeline = sdf_pipeline;
-    state.radiance_pipeline = radiance_pipeline;
+    state->main_pipeline = main_render_pipeline;
+    state->background_pipeline = backgound_pipeline;
+    state->sdf_pipeline = sdf_pipeline;
+    state->radiance_pipeline = radiance_pipeline;
 
-    state.objects_constant_buffer  = object_buffer;
-    state.radiance_constant_buffer = radiance_buffer;
+    state->objects_constant_buffer  = object_buffer;
+    state->radiance_constant_buffer_count = 0;
 
-    state.linear_sampler = linear_sampler;
-    state.point_sampler = point_sampler;
+    state->linear_sampler = linear_sampler;
+    state->point_sampler = point_sampler;
 
-    state.rasterizer_state = rasterizer_state;
-    state.blend_state = blend_state;
-    state.depth_state = depth_state;
-
-    return state;
+    state->rasterizer_state = rasterizer_state;
+    state->blend_state = blend_state;
+    state->depth_state = depth_state;
 }
 
 static void
@@ -1232,6 +1296,9 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
             ID3D11RenderTargetView_Release(directx_state->radiance_current_rt_view);
             ID3D11ShaderResourceView_Release(directx_state->radiance_current_view);
 
+            ID3D11RenderTargetView_Release(directx_state->radiance_previous_rt_view);
+            ID3D11ShaderResourceView_Release(directx_state->radiance_previous_view);
+
             ID3D11RenderTargetView_Release(directx_state->sdf_rt_view);
             ID3D11ShaderResourceView_Release(directx_state->sdf_view);
 			
@@ -1256,7 +1323,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
             // Divide the final cascade size by 2, since we're "pre-avergaing."
             // Angular resolution is now set to a minimuim default 4-rays per probe (keeps cascade size consistent).
             // Fidelity can be increased by decreasing spacing between probes instead of rays per probe.
-            s32 radiance_cascades = (s32)ceilf(log_base(4.0f, v2_length(V2((f32)screen_size.Width, (f32)screen_size.Height))));
+            u32 radiance_cascades = (u32)ceilf(log_base(4.0f, v2_length(V2((f32)screen_size.Width, (f32)screen_size.Height))));
             f32 radiance_linear   = power_of_n(render_linear, 2.0f);
             f32 radiance_interval = multiple_of_n(render_interval, 2.0f);
 
@@ -1272,23 +1339,27 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
             s32 radiance_width = (s32)(floorf(render_width / radiance_linear));
             s32 radiance_height = (s32)(floorf(render_height / radiance_linear));
 
-            RadianceData radiance_data = { 0 };
-            radiance_data.cascade_count = radiance_cascades;
-            radiance_data.cascade_index = 1;
-            radiance_data.radiance_linear = radiance_linear;
-            radiance_data.radiance_interval = radiance_interval;
-            radiance_data.render_size = V2((f32)render_width, (f32)render_height);
-            radiance_data.radiance_size = V2((f32)radiance_width, (f32)radiance_height);
+            directx_state->radiance_constant_buffer_count = radiance_cascades;
 
-            // upload data to gpu
+            for (u32 i = 0; i < radiance_cascades; i++)
             {
-                // setup object data in uniform		
-                D3D11_MAPPED_SUBRESOURCE mapped;
-                ID3D11DeviceContext_Map(directx_state->context, (ID3D11Resource*)directx_state->radiance_constant_buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
-                memcpy(mapped.pData, &radiance_data, sizeof(RadianceData));
-                ID3D11DeviceContext_Unmap(directx_state->context, (ID3D11Resource*)directx_state->radiance_constant_buffer, 0);
-            }
+                RadianceData radiance_data = { 0 };
+                radiance_data.cascade_count = radiance_cascades;
+                radiance_data.cascade_index = i;
+                radiance_data.radiance_linear = radiance_linear;
+                radiance_data.radiance_interval = radiance_interval;
+                radiance_data.render_size = V2((f32)render_width, (f32)render_height);
+                radiance_data.radiance_size = V2((f32)radiance_width, (f32)radiance_height);
 
+                // upload data to gpu
+                {
+                    // setup object data in uniform		
+                    D3D11_MAPPED_SUBRESOURCE mapped;
+                    ID3D11DeviceContext_Map(directx_state->context, (ID3D11Resource*)directx_state->radiance_constant_buffer[i], 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+                    memcpy(mapped.pData, &radiance_data, sizeof(RadianceData));
+                    ID3D11DeviceContext_Unmap(directx_state->context, (ID3D11Resource*)directx_state->radiance_constant_buffer[i], 0);
+                }
+            }
             {
                 hr = IDXGISwapChain1_ResizeBuffers(directx_state->swap_chain, 0, screen_size.Width, screen_size.Height, DXGI_FORMAT_UNKNOWN, 0);
                 if (FAILED(hr))
@@ -1351,7 +1422,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
                     .Height = radiance_height,
                     .MipLevels = 1,
                     .ArraySize = 1,
-                    .Format = DXGI_FORMAT_R32G32B32A32_FLOAT,
+                    .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
                     .SampleDesc = { 1, 0 },
                     .Usage = D3D11_USAGE_DEFAULT,
                     .BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE,
@@ -1362,6 +1433,27 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
                 ID3D11Device_CreateTexture2D(directx_state->device, &radiance_desc, NULL, &radiance);
                 ID3D11Device_CreateRenderTargetView(directx_state->device, (ID3D11Resource*)radiance, NULL, &directx_state->radiance_current_rt_view);
                 ID3D11Device_CreateShaderResourceView(directx_state->device, (ID3D11Resource*)radiance, NULL, &directx_state->radiance_current_view);
+                ID3D11Texture2D_Release(radiance);
+            }
+
+            {
+                D3D11_TEXTURE2D_DESC radiance_desc =
+                {
+                    .Width = radiance_width,
+                    .Height = radiance_height,
+                    .MipLevels = 1,
+                    .ArraySize = 1,
+                    .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+                    .SampleDesc = { 1, 0 },
+                    .Usage = D3D11_USAGE_DEFAULT,
+                    .BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE,
+                };
+
+                // create new radiance texture & view
+                ID3D11Texture2D* radiance;
+                ID3D11Device_CreateTexture2D(directx_state->device, &radiance_desc, NULL, &radiance);
+                ID3D11Device_CreateRenderTargetView(directx_state->device, (ID3D11Resource*)radiance, NULL, &directx_state->radiance_previous_rt_view);
+                ID3D11Device_CreateShaderResourceView(directx_state->device, (ID3D11Resource*)radiance, NULL, &directx_state->radiance_previous_view);
                 ID3D11Texture2D_Release(radiance);
             }
         }
@@ -1444,27 +1536,81 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         }
         
         #if 1
-        #if 0
-        ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->radiance_current_rt_view, NULL);
-        #else
-        // Rasterizer Stage
-        ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &game_viewport);
-        ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizer_state);
 
-        // Output Merger
-        ID3D11DeviceContext_OMSetBlendState(directx_state->context, directx_state->blend_state, NULL, ~0U);
-        ID3D11DeviceContext_OMSetDepthStencilState(directx_state->context, directx_state->depth_state, 0);
-        ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->backbuffer_rt_view, directx_state->ds_view);
-        #endif
+        ID3D11RenderTargetView *radiance_render_target_swap[2];
+        ID3D11ShaderResourceView *radiance_resource_view_swap[2];
+
+        radiance_render_target_swap[0] = directx_state->radiance_current_rt_view;
+        radiance_render_target_swap[1] = directx_state->radiance_previous_rt_view;
+
+        radiance_resource_view_swap[0] = directx_state->radiance_previous_view;
+        radiance_resource_view_swap[1] = directx_state->radiance_current_view;
+
+        u8 swap_index = 0;
+
+        FLOAT black_color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+        ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->radiance_current_rt_view, black_color);
+        ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->radiance_previous_rt_view, black_color);
+
+        for (s32 i = directx_state->radiance_constant_buffer_count - 1; i >= 0; i--)
         {
-            directx_state->radiance_pipeline.pixel_texture_resource_count = 1;
-            directx_state->radiance_pipeline.pixel_texture_resources[0].sampler = directx_state->point_sampler;
-            directx_state->radiance_pipeline.pixel_texture_resources[0].texture_view = directx_state->sdf_view;
+            #if 1
+            ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &radiance_render_target_swap[swap_index], NULL);
+            #else
+            // Rasterizer Stage
+            ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &game_viewport);
+            ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizer_state);
 
-            BindPineline(directx_state->context, &directx_state->radiance_pipeline);
+            // Output Merger
+            ID3D11DeviceContext_OMSetBlendState(directx_state->context, directx_state->blend_state, NULL, ~0U);
+            ID3D11DeviceContext_OMSetDepthStencilState(directx_state->context, directx_state->depth_state, 0);
+            ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->backbuffer_rt_view, directx_state->ds_view);
+            #endif
+            {
+                directx_state->radiance_pipeline.pixel_texture_resource_count = 2;
+                directx_state->radiance_pipeline.pixel_texture_resources[0].sampler = directx_state->point_sampler;
+                directx_state->radiance_pipeline.pixel_texture_resources[0].texture_view = directx_state->sdf_view;
+                directx_state->radiance_pipeline.pixel_texture_resources[1].sampler = directx_state->linear_sampler;
+                directx_state->radiance_pipeline.pixel_texture_resources[1].texture_view = radiance_resource_view_swap[swap_index];
 
-            // Draw object with 6 vertices
-            ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, 1, 0, 0);
+                directx_state->radiance_pipeline.pixel_constant_buffers_count = 2;
+                directx_state->radiance_pipeline.pixel_constant_buffers[1] = directx_state->radiance_constant_buffer[i];
+
+                BindPineline(directx_state->context, &directx_state->radiance_pipeline);
+
+                // Draw object with 6 vertices
+                ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, 1, 0, 0);
+
+                // Unbind textures
+                ID3D11ShaderResourceView* nullSRV[1] = { NULL };
+                for (u8 t = 0; t < directx_state->radiance_pipeline.pixel_texture_resource_count; t++)
+                {
+                    ID3D11DeviceContext_PSSetShaderResources(directx_state->context, t, 1, nullSRV);
+                }
+            }
+
+            u8 current_index = swap_index;
+            swap_index = (swap_index + 1) % ArrayCount(radiance_render_target_swap);
+
+            #if 0
+            if (i > 0)
+            {
+                ID3D11Resource *current_resource;
+                ID3D11Resource *next_resource;
+
+                ID3D11RenderTargetView *current = radiance_render_target_swap[current_index];
+                ID3D11RenderTargetView *next = radiance_render_target_swap[swap_index];
+
+                ID3D11RenderTargetView_GetResource(current, &current_resource);
+                ID3D11RenderTargetView_GetResource(next, &next_resource);
+
+                ID3D11DeviceContext_CopyResource(directx_state->context, next_resource, current_resource);
+            
+                ID3D11Texture2D_Release(current_resource);
+                ID3D11Texture2D_Release(next_resource);
+            }
+            #endif
         }
         #endif
 
@@ -1480,10 +1626,10 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->backbuffer_rt_view, directx_state->ds_view);
 
         {
-            //BindPineline(directx_state->context, &directx_state->background_pipeline);
+            BindPineline(directx_state->context, &directx_state->background_pipeline);
 
             // Draw object with 6 vertices
-            //ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, 1, 0, 0);
+            ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, 1, 0, 0);
         }
 
         {
