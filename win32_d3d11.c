@@ -1315,6 +1315,8 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
             f32 radiance_linear   = power_of_n(render_linear, 2.0f);
             f32 radiance_interval = multiple_of_n(render_interval, 2.0f);
 
+            radiance_cascades = min(radiance_cascades, kMaxRadianceCascades);
+
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             // FIXES CASCADE RAY/PROBE TRADE-OFF ERROR RATE FOR NON-POW2 RESOLUTIONS: (very important).
             f32 error_rate = powf((f32)(radiance_cascades - 1), 2.0f);
