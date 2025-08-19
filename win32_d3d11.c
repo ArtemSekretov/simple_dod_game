@@ -110,8 +110,14 @@ struct DirectX11State
     ID3D11SamplerState *linear_sampler;
     ID3D11SamplerState *point_sampler;
 
-    s32 current_width;
-    s32 current_height;
+    s32 current_screen_width;
+    s32 current_screen_height;
+
+    s32 render_width;
+    s32 render_height;
+
+    s32 radiance_width;
+    s32 radiance_height;
 };
 
 static RenderPipelineDescription
@@ -130,23 +136,13 @@ CreateRadiancePipeline(ID3D11Device* device,
     {
         struct Vertex data[] =
         {
-            #if 1
-            { { -1.0f, -1.0f }, { -kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
-            { { -1.0f, +1.0f }, { -kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
-            { { +1.0f, +1.0f }, { kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
-
-            { { +1.0f, +1.0f }, { kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
-            { { +1.0f, -1.0f }, { kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
-            { { -1.0f, -1.0f }, { -kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
-            #else
             { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-            { { -1.0f, + 1.0f }, { 0.0f, 1.0f } },
-            { { + 1.0f, + 1.0f }, { 1.0f, 1.0f } },
+            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
 
-            { { + 1.0f, + 1.0f }, { 1.0f, 1.0f } },
-            { { + 1.0f, -1.0f }, { 1.0f, 0.0f } },
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
+            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
             { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-            #endif
         };
 
         D3D11_BUFFER_DESC desc =
@@ -199,8 +195,8 @@ CreateRadiancePipeline(ID3D11Device* device,
             "                                                           \n"
             "#define EPS 0.00010                                        \n"
             "#define TAU 6.283185                                       \n"
-            //"#define PlayAreaHalfSize float2("STR(kPlayAreaHalfWidth)", "STR(kPlayAreaHalfHeight)"); \n"
-            "#define PlayAreaHalfSize float2("STR(kPlayAreaHalfWidthWithMargin)", "STR(kPlayAreaHalfHeightWithMargin)"); \n"
+            "#define PlayAreaHalfSize float2("STR(kPlayAreaHalfWidth)", "STR(kPlayAreaHalfHeight)"); \n"
+            "#define PlayAreaHalfSizeWithMargin float2("STR(kPlayAreaHalfWidthWithMargin)", "STR(kPlayAreaHalfHeightWithMargin)"); \n"
             "                                                           \n"
             "                                                           \n"
             "struct VS_INPUT                                            \n"
@@ -274,17 +270,16 @@ CreateRadiancePipeline(ID3D11Device* device,
             "                                                           \n"
             "float2 world_to_uv(float2 world)                           \n"
             "{                                                          \n"
-            "  float2 min_area = -PlayAreaHalfSize;                     \n"
-            "  float2 max_area = PlayAreaHalfSize;                      \n"
+            "  float2 min_area = -PlayAreaHalfSizeWithMargin;           \n"
+            "  float2 max_area = PlayAreaHalfSizeWithMargin;            \n"
             "  float2 sdf_uv = (world - min_area) / (max_area - min_area); \n"
-            "  sdf_uv = float2(sdf_uv.x, 1.0f - sdf_uv.y);              \n"
+            "  sdf_uv = float2(sdf_uv.x, sdf_uv.y);              \n"
             "                                                           \n"
             "  return sdf_uv;                                           \n"
             "}                                                          \n"
             "                                                           \n"
-            "ProbeInfo cascade_texel_info(float2 world_position)        \n"
+            "ProbeInfo cascade_texel_info(float2 uv)                    \n"
             "{                                                          \n"
-            "  float2 uv = world_to_uv(world_position);                              \n"
             "  float2 coord = floor(uv * radiance_input.radiance_size); \n"
             "                                                           \n"
             "  float angular = pow(2.0, radiance_input.cascade_index);  \n" // Ray Count.
@@ -325,16 +320,26 @@ CreateRadiancePipeline(ID3D11Device* device,
             "  float2 size = (max_area - min_area);                     \n"
             "  float scale = 1.0 / length(size);                        \n"
             "                                                           \n"
+            "  float2 min_uv = world_to_uv(min_area);                   \n"
+            "  float2 max_uv = world_to_uv(max_area);                   \n"
+            "                                                           \n"
+            "                                                           \n"
             "  [loop]                                                   \n"
             "  for(float i = 0.0, rd = 0.0; i < info.range; i++)        \n"
             "  {                                                        \n"
-            "    float2 sdf_data = sdf_texture.SampleLevel(sdf_sampler, ray, 0); \n"
+            "    float2 sample_uv = lerp(min_uv, max_uv, ray);          \n"
+            "                                                           \n"
+            "    float2 sdf_data = sdf_texture.SampleLevel(sdf_sampler, sample_uv, 0); \n"
             "    float sdf_data_in_uv_space = sdf_data.x * scale;       \n"
             "                                                           \n"
             "    rd += sdf_data_in_uv_space * info.scale;               \n"
             "    ray += (delta * sdf_data_in_uv_space * info.scale * texel); \n"
             "                                                           \n"
-            "    if (rd >= info.range || length(floor(ray)) != 0.0) break; \n" // If ray has reached range or out-of-bounds, return no-hit.
+            "    float2 floor_ray = floor(ray);                         \n"
+            "    if (rd >= info.range || max(floor_ray.x, floor_ray.y) != 0.0) \n" // If ray has reached range or out-of-bounds, return no-hit.
+            "    {                                                      \n"
+            "      break;                                               \n"
+            "    }                                                      \n"
             "                                                           \n"
             "    if (sdf_data_in_uv_space <= EPS && rd <= EPS && radiance_input.cascade_index != 0) \n" // 2D light only cast light at their surfaces, not their volume.
             "    {                                                      \n"
@@ -373,9 +378,7 @@ CreateRadiancePipeline(ID3D11Device* device,
             "                                                           \n"
             "    float4 interpolated = radiance_texture.Sample(radiance_sampler, probeUV); \n" // Texture lookup of the merge sample.
             "                                                           \n"
-            // @Note: need compensate for borders in uv in sdf
-            //"    result = rinfo + interpolated;                         \n"
-            "    result = rinfo;                         \n"
+            "    result = rinfo + interpolated;                         \n"
             "  }                                                        \n"
             "  return result;                                           \n"
             "}                                                          \n"
@@ -383,8 +386,7 @@ CreateRadiancePipeline(ID3D11Device* device,
             "float4 ps(PS_INPUT input) : SV_TARGET                      \n"
             "{                                                          \n"
             "                                                           \n"
-            //"  float2 uv = float2(input.uv.x, 1.0 - input.uv.y);        \n"
-            "  float2 uv = input.uv;                                    \n"
+            "  float2 uv = float2(input.uv.x, 1.0 - input.uv.y);        \n"
             "  ProbeInfo pinfo = cascade_texel_info(uv);                \n"
             "                                                           \n"
             "  float2 origin = (pinfo.probe + 0.5f) * pinfo.linear_spacing;\n" // Get this probes position in screen space.
@@ -394,9 +396,9 @@ CreateRadiancePipeline(ID3D11Device* device,
             "  float4 result = float4(0.0f, 0.0f, 0.0f, 0.0f);          \n"
             "                                                           \n"
             "  [unroll]                                                 \n"
-            "  for(float i = 0.0; i < 4.0; i++)                         \n" // Cast 4 rays, one for each angular index for this pre-averaged ray.
+            "  for(uint i = 0; i < 4; i++)                              \n" // Cast 4 rays, one for each angular index for this pre-averaged ray.
             "  {                                                        \n"
-            "    float index = preavg_index + i;                        \n" // Get the actual index for this pre-averaged ray.
+            "    float index = preavg_index + float(i);                 \n" // Get the actual index for this pre-averaged ray.
             "    float theta = (index + 0.5) * theta_scalar;            \n" // Get the actual angle (theta) for this pre-averaged ray.
             "                                                           \n"
             "    float4 rinfo = raymarch(origin, theta, pinfo);         \n"
@@ -406,10 +408,6 @@ CreateRadiancePipeline(ID3D11Device* device,
             "    result += merge_result * 0.25f;                        \n"
             "  }                                                        \n"
             "                                                           \n"
-            "  if (radiance_input.cascade_index == 0.0)	                \n"
-            "  {                                                         \n"
-            "     result = float4(pow(result.rgb, float3(1.0/2.2, 1.0/2.2, 1.0/2.2)), 1.0);                                                           \n"
-            "  }                                                         \n"
             "  return result;                                           \n"
             "}                                                          \n";
 	
@@ -479,7 +477,6 @@ CreateSDFPipeline(ID3D11Device* device,
     {
         struct Vertex data[] =
         {
-            #if 1
             { { -1.0f, -1.0f }, { -kPlayAreaHalfWidthWithMargin, -kPlayAreaHalfHeightWithMargin } },
             { { -1.0f, +1.0f }, { -kPlayAreaHalfWidthWithMargin, kPlayAreaHalfHeightWithMargin } },
             { { +1.0f, +1.0f }, { kPlayAreaHalfWidthWithMargin, kPlayAreaHalfHeightWithMargin } },
@@ -487,15 +484,6 @@ CreateSDFPipeline(ID3D11Device* device,
             { { +1.0f, +1.0f }, { kPlayAreaHalfWidthWithMargin, kPlayAreaHalfHeightWithMargin } },
             { { +1.0f, -1.0f }, { kPlayAreaHalfWidthWithMargin, -kPlayAreaHalfHeightWithMargin } },
             { { -1.0f, -1.0f }, { -kPlayAreaHalfWidthWithMargin, -kPlayAreaHalfHeightWithMargin } },
-            #else
-            { { -1.0f, -1.0f }, { -kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
-            { { -1.0f, +1.0f }, { -kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
-            { { +1.0f, +1.0f }, { kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
-
-            { { +1.0f, +1.0f }, { kPlayAreaHalfWidth, kPlayAreaHalfHeight } },
-            { { +1.0f, -1.0f }, { kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
-            { { -1.0f, -1.0f }, { -kPlayAreaHalfWidth, -kPlayAreaHalfHeight } },
-            #endif
         };
 
         D3D11_BUFFER_DESC desc =
@@ -1285,7 +1273,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
     FrameDataViewport frame_data_viewport = *FrameDataViewportPrt(frame_data);
 
     // resize swap chain if needed
-    if (directx_state->backbuffer_rt_view == NULL || screen_size.Width != directx_state->current_width || screen_size.Height != directx_state->current_height)
+    if (directx_state->backbuffer_rt_view == NULL || screen_size.Width != directx_state->current_screen_width || screen_size.Height != directx_state->current_screen_height)
     {
         if (directx_state->backbuffer_rt_view)
         {
@@ -1340,6 +1328,12 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
             s32 radiance_height = (s32)(floorf(render_height / radiance_linear));
 
             directx_state->radiance_constant_buffer_count = radiance_cascades;
+
+            directx_state->render_width = render_width;
+            directx_state->render_height = render_height;
+
+            directx_state->radiance_width = radiance_width;
+            directx_state->radiance_height = radiance_height;
 
             for (u32 i = 0; i < radiance_cascades; i++)
             {
@@ -1458,8 +1452,8 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
             }
         }
 
-        directx_state->current_width = screen_size.Width;
-        directx_state->current_height = screen_size.Height;
+        directx_state->current_screen_width = screen_size.Width;
+        directx_state->current_screen_height = screen_size.Height;
     }
 
     // can render only if window size is non-zero - we must have backbuffer & RenderTarget view created
@@ -1496,16 +1490,25 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
             .MaxDepth = 1,
         };
 
-        D3D11_VIEWPORT screen_viewport =
+        D3D11_VIEWPORT render_viewport =
         {
             .TopLeftX = 0,
             .TopLeftY = 0,
-            .Width = (FLOAT)directx_state->current_width,
-            .Height = (FLOAT)directx_state->current_height,
+            .Width = (FLOAT)directx_state->render_width,
+            .Height = (FLOAT)directx_state->render_height,
             .MinDepth = 0,
             .MaxDepth = 1,
         };
 
+        D3D11_VIEWPORT radiance_viewport =
+        {
+            .TopLeftX = 0,
+            .TopLeftY = 0,
+            .Width = (FLOAT)directx_state->radiance_width,
+            .Height = (FLOAT)directx_state->radiance_height,
+            .MinDepth = 0,
+            .MaxDepth = 1,
+        };
 
         // clear screen
         FLOAT color[] = { 0.392f, 0.584f, 0.929f, 1.f };
@@ -1513,7 +1516,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         ID3D11DeviceContext_ClearDepthStencilView(directx_state->context, directx_state->ds_view, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
         // Rasterizer Stage
-        ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &screen_viewport);
+        ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &render_viewport);
         ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizer_state);
 
         #if 1
@@ -1549,6 +1552,10 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         u8 swap_index = 0;
 
         FLOAT black_color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+        // Rasterizer Stage
+        ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &radiance_viewport);
+        ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizer_state);
 
         ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->radiance_current_rt_view, black_color);
         ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->radiance_previous_rt_view, black_color);
@@ -1590,27 +1597,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
                 }
             }
 
-            u8 current_index = swap_index;
             swap_index = (swap_index + 1) % ArrayCount(radiance_render_target_swap);
-
-            #if 0
-            if (i > 0)
-            {
-                ID3D11Resource *current_resource;
-                ID3D11Resource *next_resource;
-
-                ID3D11RenderTargetView *current = radiance_render_target_swap[current_index];
-                ID3D11RenderTargetView *next = radiance_render_target_swap[swap_index];
-
-                ID3D11RenderTargetView_GetResource(current, &current_resource);
-                ID3D11RenderTargetView_GetResource(next, &next_resource);
-
-                ID3D11DeviceContext_CopyResource(directx_state->context, next_resource, current_resource);
-            
-                ID3D11Texture2D_Release(current_resource);
-                ID3D11Texture2D_Release(next_resource);
-            }
-            #endif
         }
         #endif
 
