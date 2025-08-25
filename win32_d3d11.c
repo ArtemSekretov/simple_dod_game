@@ -91,6 +91,8 @@ struct DirectX11State
 
     RenderPipelineDescription radiance_pipeline;
 
+    RenderPipelineDescription final_blit_pipeline;
+
     ID3D11RenderTargetView *backbuffer_rt_view;
     ID3D11DepthStencilView *ds_view;
 
@@ -273,7 +275,7 @@ CreateRadiancePipeline(ID3D11Device* device,
             "  float2 min_area = -PlayAreaHalfSizeWithMargin;           \n"
             "  float2 max_area = PlayAreaHalfSizeWithMargin;            \n"
             "  float2 sdf_uv = (world - min_area) / (max_area - min_area); \n"
-            "  sdf_uv = float2(sdf_uv.x, sdf_uv.y);              \n"
+            "  sdf_uv = float2(sdf_uv.x, sdf_uv.y);                     \n"
             "                                                           \n"
             "  return sdf_uv;                                           \n"
             "}                                                          \n"
@@ -314,6 +316,7 @@ CreateRadiancePipeline(ID3D11Device* device,
             "                                                           \n"
             "  float2 ray = (origin + (delta * info.offset)) * texel;   \n" // Ray origin at interval offset starting point.
             "                                                           \n"
+            "                                                           \n"
             "  float2 min_area = -PlayAreaHalfSize;                     \n"
             "  float2 max_area = PlayAreaHalfSize;                      \n"
             "                                                           \n"
@@ -323,7 +326,7 @@ CreateRadiancePipeline(ID3D11Device* device,
             "  float2 min_uv = world_to_uv(min_area);                   \n"
             "  float2 max_uv = world_to_uv(max_area);                   \n"
             "                                                           \n"
-            "                                                           \n"
+            "  float4 result = float4(0.0, 0.0, 0.0, 1.0);              \n"
             "  [loop]                                                   \n"
             "  for(float i = 0.0, rd = 0.0; i < info.range; i++)        \n"
             "  {                                                        \n"
@@ -343,7 +346,11 @@ CreateRadiancePipeline(ID3D11Device* device,
             "                                                           \n"
             "    if (sdf_data_in_uv_space <= EPS && rd <= EPS && radiance_input.cascade_index != 0) \n" // 2D light only cast light at their surfaces, not their volume.
             "    {                                                      \n"
-            "      return float4(0.0, 0.0, 0.0, 0.0);                   \n"
+            "      int index = sdf_data.y;                              \n"
+            "      ObjectData object = objects[index];                  \n"
+            "                                                           \n"
+            "      result = float4(object.color.rgb, 0.0);              \n"
+            "      break;                                               \n"
             "    }                                                      \n"
             "                                                           \n"
             "    if (sdf_data_in_uv_space <= EPS)                       \n" // On-hit return radiance from scene (with visibility term of 0--e.g. no visibility to merge with higher cascades).
@@ -352,10 +359,11 @@ CreateRadiancePipeline(ID3D11Device* device,
             "      int index = sdf_data.y;                              \n"
             "      ObjectData object = objects[index];                  \n"
             "                                                           \n"
-            "      return float4(object.color.rgb, 0.0);                \n"
+            "      result = float4(object.color.rgb, 0.0);              \n"
+            "      break;                                               \n"
             "    }                                                      \n"
             "  }                                                        \n"
-            "  return float4(0.0, 0.0, 0.0, 1.0);                       \n"
+            "  return result;                                           \n"
             "}                                                          \n"
             "                                                           \n"
             "float4 merge(float4 rinfo, float index, ProbeInfo info)    \n"
@@ -379,6 +387,7 @@ CreateRadiancePipeline(ID3D11Device* device,
             "    float4 interpolated = radiance_texture.Sample(radiance_sampler, probeUV); \n" // Texture lookup of the merge sample.
             "                                                           \n"
             "    result = rinfo + interpolated;                         \n"
+            "    result.a = 1;                                          \n"
             "  }                                                        \n"
             "  return result;                                           \n"
             "}                                                          \n"
@@ -736,6 +745,160 @@ CreateBackgroundPipeline(ID3D11Device* device)
             "float4 ps(PS_INPUT input) : SV_TARGET                      \n"
             "{                                                          \n"
             "  return input.color;                                      \n"
+            "}                                                          \n";
+        ;
+	
+        UINT flags = D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR | D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_WARNINGS_ARE_ERRORS;
+        #ifndef NDEBUG
+        flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+        #else
+        flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
+        #endif
+
+        ID3DBlob* error;
+
+        ID3DBlob* vblob;
+        hr = D3DCompile(hlsl, sizeof(hlsl), NULL, NULL, NULL, "vs", "vs_5_0", flags, 0, &vblob, &error);
+        if (FAILED(hr))
+        {
+            const char* message = ID3D10Blob_GetBufferPointer(error);
+            OutputDebugStringA(message);
+            Assert(!"Failed to compile vertex shader!");
+        }
+
+        ID3DBlob* pblob;
+        hr = D3DCompile(hlsl, sizeof(hlsl), NULL, NULL, NULL, "ps", "ps_5_0", flags, 0, &pblob, &error);
+        if (FAILED(hr))
+        {
+            const char* message = ID3D10Blob_GetBufferPointer(error);
+            OutputDebugStringA(message);
+            Assert(!"Failed to compile pixel shader!");
+        }
+
+        ID3D11Device_CreateVertexShader(device, ID3D10Blob_GetBufferPointer(vblob), ID3D10Blob_GetBufferSize(vblob), NULL, &vshader);
+        ID3D11Device_CreatePixelShader(device, ID3D10Blob_GetBufferPointer(pblob), ID3D10Blob_GetBufferSize(pblob), NULL, &pshader);
+        ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), ID3D10Blob_GetBufferPointer(vblob), ID3D10Blob_GetBufferSize(vblob), &layout);
+
+        ID3D10Blob_Release(pblob);
+        ID3D10Blob_Release(vblob);
+        #endif
+    }
+
+    RenderPipelineDescription result = { 0 };
+    result.layout = layout;
+    result.vshader = vshader;
+    result.pshader = pshader;
+    result.vertex_buffer.buffer = vbuffer;
+    result.vertex_buffer.stride = sizeof(struct Vertex);
+    result.vertex_buffer.offset = 0;
+    result.vertex_constant_buffers_count = 0;
+    result.pixel_texture_resource_count = 0;
+    return result;
+}
+
+static RenderPipelineDescription
+CreateFinalBlitPipeline(ID3D11Device* device)
+{
+    HRESULT hr;
+
+    struct Vertex
+    {
+        f32 position[2];
+        f32 uv[2];
+    };
+
+    ID3D11Buffer* vbuffer;
+    {
+        struct Vertex data[] =
+        {
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
+            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
+
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
+            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
+        };
+
+        D3D11_BUFFER_DESC desc =
+        {
+            .ByteWidth = sizeof(data),
+            .Usage = D3D11_USAGE_IMMUTABLE,
+            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
+        };
+
+        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = data };
+        ID3D11Device_CreateBuffer(device, &desc, &initial, &vbuffer);
+    }
+
+    // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
+    ID3D11InputLayout* layout;
+    ID3D11VertexShader* vshader;
+    ID3D11PixelShader* pshader;
+    {
+        // these must match vertex shader input layout (VS_INPUT in vertex shader source below)
+        D3D11_INPUT_ELEMENT_DESC desc[] =
+        {
+            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(struct Vertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(struct Vertex, uv),       D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+
+        #if 0
+        // alternative to hlsl compilation at runtime is to precompile shaders offline
+        // it improves startup time - no need to parse hlsl files at runtime!
+        // and it allows to remove runtime dependency on d3dcompiler dll file
+
+        // a) save shader source code into "shader.hlsl" file
+        // b) run hlsl compiler to compile shader, these run compilation with optimizations and without debug info:
+        //      fxc.exe /nologo /T vs_5_0 /E vs /O3 /WX /Zpc /Ges /Fh d3d11_vshader.h /Vn d3d11_vshader /Qstrip_reflect /Qstrip_debug /Qstrip_priv shader.hlsl
+        //      fxc.exe /nologo /T ps_5_0 /E ps /O3 /WX /Zpc /Ges /Fh d3d11_pshader.h /Vn d3d11_pshader /Qstrip_reflect /Qstrip_debug /Qstrip_priv shader.hlsl
+        //    they will save output to d3d11_vshader.h and d3d11_pshader.h files
+        // c) change #if 0 above to #if 1
+
+        // you can also use "/Fo d3d11_*shader.bin" argument to save compiled shader as binary file to store with your assets
+        // then provide binary data for Create*Shader functions below without need to include shader bytes in C
+
+        #include "d3d11_vshader.h"
+        #include "d3d11_pshader.h"
+
+        ID3D11Device_CreateVertexShader(device, d3d11_vshader, sizeof(d3d11_vshader), NULL, &vshader);
+        ID3D11Device_CreatePixelShader(device, d3d11_pshader, sizeof(d3d11_pshader), NULL, &pshader);
+        ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), d3d11_vshader, sizeof(d3d11_vshader), &layout);
+        #else
+        const char hlsl[] =
+            "#line " STR(__LINE__) "                                  \n\n" // actual line number in this file for nicer error messages
+            "                                                           \n"
+            "struct VS_INPUT                                            \n"
+            "{                                                          \n"
+            "  float2 pos        : POSITION;                            \n" // these names must match D3D11_INPUT_ELEMENT_DESC array
+            "  float2 uv         : TEXCOORD;                            \n"
+            "};                                                         \n"
+            "                                                           \n"
+            "struct PS_INPUT                                            \n"
+            "{                                                          \n"
+            "  float4 pos   : SV_POSITION;                              \n" // these names do not matter, except SV_... ones
+            "  float2 uv    : TEXCOORD;                                 \n"
+            "};                                                         \n"
+            "                                                           \n"
+            "sampler texture_sampler : register(s0);                    \n" // s0 = sampler bound to slot 0
+            "                                                           \n"
+            "Texture2D<float4> main_texture : register(t0);             \n" // t0 = shader resource bound to slot 0
+            "                                                           \n"
+            "PS_INPUT vs(VS_INPUT input)                                \n"
+            "{                                                          \n"
+            "    PS_INPUT output;                                       \n"
+            "                                                           \n"
+            "    output.pos = float4(input.pos, 0, 1);                  \n"
+            "    output.uv = input.uv;                                  \n"
+            "    return output;                                         \n"
+            "}                                                          \n"
+            "                                                           \n"
+            "float4 ps(PS_INPUT input) : SV_TARGET                      \n"
+            "{                                                          \n"
+            "  float2 uv = float2(input.uv.x, 1.0 - input.uv.y);        \n"
+            "                                                           \n"
+            "  float4 color = main_texture.Sample(texture_sampler, uv); \n"
+            "  return color;                                            \n"
             "}                                                          \n";
         ;
 	
@@ -1209,6 +1372,8 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
 
     RenderPipelineDescription radiance_pipeline = CreateRadiancePipeline(device, object_buffer);
 
+    RenderPipelineDescription final_blit_pipeline = CreateFinalBlitPipeline(device);
+
     state->device = device;
     state->context = context;
     state->swap_chain = swap_chain;
@@ -1217,6 +1382,7 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
     state->background_pipeline = backgound_pipeline;
     state->sdf_pipeline = sdf_pipeline;
     state->radiance_pipeline = radiance_pipeline;
+    state->final_blit_pipeline = final_blit_pipeline;
 
     state->objects_constant_buffer  = object_buffer;
     state->radiance_constant_buffer_count = 0;
@@ -1306,22 +1472,30 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
             // Set to a large distance for debugging (should see individually cascaded rays in scene).
             f32 render_interval = v2_length(V2(render_linear, render_linear)) * 0.5f;
 
+            #if 1
+            f32 targer_width = (f32)screen_size.Width;
+            f32 targer_height = (f32)screen_size.Height;
+            #else
+            f32 targer_width = 1024.0f;
+            f32 targer_height = 1024.0f;
+            #endif
             // Calculate the max cascade count based on the highest interval distance that would reach outside the screen.
             // Valdiate intput and correct input settings.
             // Divide the final cascade size by 2, since we're "pre-avergaing."
             // Angular resolution is now set to a minimuim default 4-rays per probe (keeps cascade size consistent).
             // Fidelity can be increased by decreasing spacing between probes instead of rays per probe.
-            u32 radiance_cascades = (u32)ceilf(log_base(4.0f, v2_length(V2((f32)screen_size.Width, (f32)screen_size.Height))));
+            u32 radiance_cascades = (u32)ceilf(log_base(4.0f, v2_length(V2(targer_width, targer_height))));
             f32 radiance_linear   = power_of_n(render_linear, 2.0f);
             f32 radiance_interval = multiple_of_n(render_interval, 2.0f);
 
             radiance_cascades = min(radiance_cascades, kMaxRadianceCascades);
+            //radiance_cascades = 4;
 
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             // FIXES CASCADE RAY/PROBE TRADE-OFF ERROR RATE FOR NON-POW2 RESOLUTIONS: (very important).
             f32 error_rate = powf((f32)(radiance_cascades - 1), 2.0f);
-            f32 errorx = ceilf(screen_size.Width / error_rate);
-            f32 errory = ceilf(screen_size.Height / error_rate);
+            f32 errorx = ceilf(targer_width / error_rate);
+            f32 errory = ceilf(targer_height / error_rate);
             s32 render_width = (s32)(errorx * error_rate);
             s32 render_height = (s32)(errory * error_rate);
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1514,6 +1688,8 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 
         // clear screen
         FLOAT color[] = { 0.392f, 0.584f, 0.929f, 1.f };
+        FLOAT black_color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+
         ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->backbuffer_rt_view, color);
         ID3D11DeviceContext_ClearDepthStencilView(directx_state->context, directx_state->ds_view, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
@@ -1521,18 +1697,8 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &render_viewport);
         ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizer_state);
 
-        #if 1
         ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->sdf_rt_view, NULL);
-        #else
-        // Rasterizer Stage
-        ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &game_viewport);
-        ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizer_state);
 
-        // Output Merger
-        ID3D11DeviceContext_OMSetBlendState(directx_state->context, directx_state->blend_state, NULL, ~0U);
-        ID3D11DeviceContext_OMSetDepthStencilState(directx_state->context, directx_state->depth_state, 0);
-        ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->backbuffer_rt_view, directx_state->ds_view);
-        #endif
         {
             BindPineline(directx_state->context, &directx_state->sdf_pipeline);
 
@@ -1553,8 +1719,6 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 
         u8 swap_index = 0;
 
-        FLOAT black_color[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-
         // Rasterizer Stage
         ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &radiance_viewport);
         ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizer_state);
@@ -1564,18 +1728,8 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 
         for (s32 i = directx_state->radiance_constant_buffer_count - 1; i >= 0; i--)
         {
-            #if 1
+            //ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, radiance_render_target_swap[swap_index], black_color);
             ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &radiance_render_target_swap[swap_index], NULL);
-            #else
-            // Rasterizer Stage
-            ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &game_viewport);
-            ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizer_state);
-
-            // Output Merger
-            ID3D11DeviceContext_OMSetBlendState(directx_state->context, directx_state->blend_state, NULL, ~0U);
-            ID3D11DeviceContext_OMSetDepthStencilState(directx_state->context, directx_state->depth_state, 0);
-            ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->backbuffer_rt_view, directx_state->ds_view);
-            #endif
             {
                 directx_state->radiance_pipeline.pixel_texture_resource_count = 2;
                 directx_state->radiance_pipeline.pixel_texture_resources[0].sampler = directx_state->point_sampler;
@@ -1603,7 +1757,6 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         }
         #endif
 
-        #if 1
         // Rasterizer Stage
         ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &game_viewport);
         ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizer_state);
@@ -1614,6 +1767,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         ID3D11DeviceContext_OMSetDepthStencilState(directx_state->context, directx_state->depth_state, 0);
         ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->backbuffer_rt_view, directx_state->ds_view);
 
+        #if 0
         {
             BindPineline(directx_state->context, &directx_state->background_pipeline);
 
@@ -1626,6 +1780,27 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 
             // Draw objects with 6 vertices
             ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, object_count_this_frame, 0, 0);
+        }
+        #else
+        {
+            directx_state->final_blit_pipeline.pixel_texture_resource_count = 1;
+            directx_state->final_blit_pipeline.pixel_texture_resources[0].sampler = directx_state->linear_sampler;
+            #if 1
+            directx_state->final_blit_pipeline.pixel_texture_resources[0].texture_view = radiance_resource_view_swap[swap_index];
+            #else
+            directx_state->final_blit_pipeline.pixel_texture_resources[0].texture_view = directx_state->sdf_view;
+            #endif
+            BindPineline(directx_state->context, &directx_state->final_blit_pipeline);
+
+            // Draw object with 6 vertices
+            ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, 1, 0, 0);
+
+            // Unbind textures
+            ID3D11ShaderResourceView* nullSRV[1] = { NULL };
+            for (u8 t = 0; t < directx_state->final_blit_pipeline.pixel_texture_resource_count; t++)
+            {
+                ID3D11DeviceContext_PSSetShaderResources(directx_state->context, t, 1, nullSRV);
+            }
         }
         #endif
     }
