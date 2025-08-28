@@ -86,8 +86,10 @@ struct DirectX11State
     u32 radiance_constant_buffer_count;
 
     RenderPipelineDescription main_pipeline;
-    RenderPipelineDescription background_pipeline;
+    
     RenderPipelineDescription sdf_pipeline;
+
+    RenderPipelineDescription seed_jump_flood_pipeline;
 
     RenderPipelineDescription radiance_pipeline;
 
@@ -102,8 +104,14 @@ struct DirectX11State
     ID3D11RenderTargetView *radiance_previous_rt_view;
     ID3D11ShaderResourceView *radiance_previous_view;
 
+    ID3D11RenderTargetView *jf_rt_view;
+    ID3D11ShaderResourceView *jf_view;
+
     ID3D11RenderTargetView *sdf_rt_view;
     ID3D11ShaderResourceView *sdf_view;
+
+    ID3D11RenderTargetView *game_rt_view;
+    ID3D11ShaderResourceView *game_view;
 
     ID3D11RasterizerState *rasterizer_state;
     ID3D11BlendState *blend_state;
@@ -121,6 +129,166 @@ struct DirectX11State
     s32 radiance_width;
     s32 radiance_height;
 };
+
+static RenderPipelineDescription
+CreateSeedJumpFloodPipeline(ID3D11Device* device)
+{
+    HRESULT hr;
+
+    struct Vertex
+    {
+        f32 position[2];
+        f32 uv[2];
+    };
+
+    ID3D11Buffer* vbuffer;
+    {
+        struct Vertex data[] =
+        {
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
+            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
+
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
+            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
+        };
+
+        D3D11_BUFFER_DESC desc =
+        {
+            .ByteWidth = sizeof(data),
+            .Usage = D3D11_USAGE_IMMUTABLE,
+            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
+        };
+
+        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = data };
+        ID3D11Device_CreateBuffer(device, &desc, &initial, &vbuffer);
+    }
+
+    // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
+    ID3D11InputLayout* layout;
+    ID3D11VertexShader* vshader;
+    ID3D11PixelShader* pshader;
+    {
+        // these must match vertex shader input layout (VS_INPUT in vertex shader source below)
+        D3D11_INPUT_ELEMENT_DESC desc[] =
+        {
+            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(struct Vertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(struct Vertex, uv),       D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+
+        #if 0
+        // alternative to hlsl compilation at runtime is to precompile shaders offline
+        // it improves startup time - no need to parse hlsl files at runtime!
+        // and it allows to remove runtime dependency on d3dcompiler dll file
+
+        // a) save shader source code into "shader.hlsl" file
+        // b) run hlsl compiler to compile shader, these run compilation with optimizations and without debug info:
+        //      fxc.exe /nologo /T vs_5_0 /E vs /O3 /WX /Zpc /Ges /Fh d3d11_vshader.h /Vn d3d11_vshader /Qstrip_reflect /Qstrip_debug /Qstrip_priv shader.hlsl
+        //      fxc.exe /nologo /T ps_5_0 /E ps /O3 /WX /Zpc /Ges /Fh d3d11_pshader.h /Vn d3d11_pshader /Qstrip_reflect /Qstrip_debug /Qstrip_priv shader.hlsl
+        //    they will save output to d3d11_vshader.h and d3d11_pshader.h files
+        // c) change #if 0 above to #if 1
+
+        // you can also use "/Fo d3d11_*shader.bin" argument to save compiled shader as binary file to store with your assets
+        // then provide binary data for Create*Shader functions below without need to include shader bytes in C
+
+        #include "d3d11_vshader.h"
+        #include "d3d11_pshader.h"
+
+        ID3D11Device_CreateVertexShader(device, d3d11_vshader, sizeof(d3d11_vshader), NULL, &vshader);
+        ID3D11Device_CreatePixelShader(device, d3d11_pshader, sizeof(d3d11_pshader), NULL, &pshader);
+        ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), d3d11_vshader, sizeof(d3d11_vshader), &layout);
+        #else
+        const char hlsl[] =
+            "#line " STR(__LINE__) "                                  \n\n" // actual line number in this file for nicer error messages
+            "                                                           \n"
+            "#define F16V2(f) float2(floor(f * 255.0) * 0.0039215689, frac(f * 255.0)) \n"
+
+            "struct VS_INPUT                                            \n"
+            "{                                                          \n"
+            "  float2 pos        : POSITION;                            \n" // these names must match D3D11_INPUT_ELEMENT_DESC array
+            "  float2 uv         : TEXCOORD;                            \n"
+            "};                                                         \n"
+            "                                                           \n"
+            "struct PS_INPUT                                            \n"
+            "{                                                          \n"
+            "  float4 pos   : SV_POSITION;                              \n" // these names do not matter, except SV_... ones
+            "  float2 uv    : TEXCOORD;                                 \n"
+            "};                                                         \n"
+            "sampler game_sampler : register(s0);                       \n" // s0 = sampler bound to slot 0
+            "                                                           \n"
+            "Texture2D<float4> game_texture : register(t0);             \n" // t0 = shader resource bound to slot 0
+            "                                                           \n"
+            "PS_INPUT vs(VS_INPUT input)                                \n"
+            "{                                                          \n"
+            "  PS_INPUT output;                                         \n"
+            "                                                           \n"
+            "  output.pos = float4(input.pos, 0, 1);                    \n"
+            "  output.uv = input.uv;                                    \n"
+            "  return output;                                           \n"
+            "}                                                          \n"
+            "                                                           \n"
+            "float4 ps(PS_INPUT input) : SV_TARGET                      \n"
+            "{                                                          \n"
+            "  float2 uv = float2(input.uv.x, 1.0 - input.uv.y);        \n"
+            "                                                           \n"
+            "  float4 scene = game_texture.Sample(game_sampler, uv);    \n"
+            "                                                           \n"
+            "  float2 u = F16V2(uv.x * scene.a);                        \n"
+            "  float2 v = F16V2(uv.y * scene.a);                        \n"
+            "                                                           \n"
+            "  return float4(u.x, u.y, v.x, v.y);                       \n"
+            "}                                                          \n";
+        ;
+	
+        UINT flags = D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR | D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_WARNINGS_ARE_ERRORS;
+        #ifndef NDEBUG
+        flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+        #else
+        flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
+        #endif
+
+        ID3DBlob* error;
+
+        ID3DBlob* vblob;
+        hr = D3DCompile(hlsl, sizeof(hlsl), NULL, NULL, NULL, "vs", "vs_5_0", flags, 0, &vblob, &error);
+        if (FAILED(hr))
+        {
+            const char* message = ID3D10Blob_GetBufferPointer(error);
+            OutputDebugStringA(message);
+            Assert(!"Failed to compile vertex shader!");
+        }
+
+        ID3DBlob* pblob;
+        hr = D3DCompile(hlsl, sizeof(hlsl), NULL, NULL, NULL, "ps", "ps_5_0", flags, 0, &pblob, &error);
+        if (FAILED(hr))
+        {
+            const char* message = ID3D10Blob_GetBufferPointer(error);
+            OutputDebugStringA(message);
+            Assert(!"Failed to compile pixel shader!");
+        }
+
+        ID3D11Device_CreateVertexShader(device, ID3D10Blob_GetBufferPointer(vblob), ID3D10Blob_GetBufferSize(vblob), NULL, &vshader);
+        ID3D11Device_CreatePixelShader(device, ID3D10Blob_GetBufferPointer(pblob), ID3D10Blob_GetBufferSize(pblob), NULL, &pshader);
+        ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), ID3D10Blob_GetBufferPointer(vblob), ID3D10Blob_GetBufferSize(vblob), &layout);
+
+        ID3D10Blob_Release(pblob);
+        ID3D10Blob_Release(vblob);
+        #endif
+    }
+
+    RenderPipelineDescription result = { 0 };
+    result.layout = layout;
+    result.vshader = vshader;
+    result.pshader = pshader;
+    result.vertex_buffer.buffer = vbuffer;
+    result.vertex_buffer.stride = sizeof(struct Vertex);
+    result.vertex_buffer.offset = 0;
+    result.vertex_constant_buffers_count = 0;
+    result.pixel_texture_resource_count = 0;
+    result.pixel_constant_buffers_count = 0;
+    return result;
+}
 
 static RenderPipelineDescription
 CreateRadiancePipeline(ID3D11Device* device,
@@ -316,7 +484,6 @@ CreateRadiancePipeline(ID3D11Device* device,
             "                                                           \n"
             "  float2 ray = (origin + (delta * info.offset)) * texel;   \n" // Ray origin at interval offset starting point.
             "                                                           \n"
-            "                                                           \n"
             "  float2 min_area = -PlayAreaHalfSize;                     \n"
             "  float2 max_area = PlayAreaHalfSize;                      \n"
             "                                                           \n"
@@ -333,7 +500,7 @@ CreateRadiancePipeline(ID3D11Device* device,
             "    float2 sample_uv = lerp(min_uv, max_uv, ray);          \n"
             "                                                           \n"
             "    float2 sdf_data = sdf_texture.SampleLevel(sdf_sampler, sample_uv, 0); \n"
-            "    float sdf_data_in_uv_space = sdf_data.x * scale;       \n"
+            "    float sdf_data_in_uv_space = sdf_data.x;               \n"
             "                                                           \n"
             "    rd += sdf_data_in_uv_space * info.scale;               \n"
             "    ray += (delta * sdf_data_in_uv_space * info.scale * texel); \n"
@@ -346,10 +513,11 @@ CreateRadiancePipeline(ID3D11Device* device,
             "                                                           \n"
             "    if (sdf_data_in_uv_space <= EPS && rd <= EPS && radiance_input.cascade_index != 0) \n" // 2D light only cast light at their surfaces, not their volume.
             "    {                                                      \n"
-            "      int index = sdf_data.y;                              \n"
-            "      ObjectData object = objects[index];                  \n"
+            //"      int index = sdf_data.y;                              \n"
+            //"      ObjectData object = objects[index];                  \n"
             "                                                           \n"
-            "      result = float4(object.color.rgb, 0.0);              \n"
+            //"      result = float4(object.color.rgb, 0.0);              \n"
+            "      result = float4(0.0, 0.0, 0.0, 0.0);                 \n"
             "      break;                                               \n"
             "    }                                                      \n"
             "                                                           \n"
@@ -472,6 +640,7 @@ CreateRadiancePipeline(ID3D11Device* device,
 
 static RenderPipelineDescription
 CreateSDFPipeline(ID3D11Device* device,
+                  ID3D11Buffer* transform_constant_buffer,
                   ID3D11Buffer* objects_constant_buffer)
 {
     HRESULT hr;
@@ -486,6 +655,7 @@ CreateSDFPipeline(ID3D11Device* device,
     {
         struct Vertex data[] =
         {
+            #if 1
             { { -1.0f, -1.0f }, { -kPlayAreaHalfWidthWithMargin, -kPlayAreaHalfHeightWithMargin } },
             { { -1.0f, +1.0f }, { -kPlayAreaHalfWidthWithMargin, kPlayAreaHalfHeightWithMargin } },
             { { +1.0f, +1.0f }, { kPlayAreaHalfWidthWithMargin, kPlayAreaHalfHeightWithMargin } },
@@ -493,6 +663,15 @@ CreateSDFPipeline(ID3D11Device* device,
             { { +1.0f, +1.0f }, { kPlayAreaHalfWidthWithMargin, kPlayAreaHalfHeightWithMargin } },
             { { +1.0f, -1.0f }, { kPlayAreaHalfWidthWithMargin, -kPlayAreaHalfHeightWithMargin } },
             { { -1.0f, -1.0f }, { -kPlayAreaHalfWidthWithMargin, -kPlayAreaHalfHeightWithMargin } },
+            #else
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
+            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
+
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
+            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
+            #endif
         };
 
         D3D11_BUFFER_DESC desc =
@@ -561,7 +740,12 @@ CreateSDFPipeline(ID3D11Device* device,
             "  float4 color;                                            \n"
             "};                                                         \n"
             "                                                           \n"
-            "cbuffer cbuffer1 : register(b0)                            \n" // b0 = constant buffer bound to slot 0
+            "cbuffer cbuffer0 : register(b0)                            \n" // b0 = constant buffer bound to slot 0
+            "{                                                          \n"
+            "  float4x4 uTransform;                                     \n"
+            "}                                                          \n"
+            "                                                           \n"
+            "cbuffer cbuffer1 : register(b1)                            \n" // b1 = constant buffer bound to slot 0
             "{                                                          \n"
             "  uint count;                                              \n"
             "  uint3 padding;                                           \n"
@@ -582,6 +766,10 @@ CreateSDFPipeline(ID3D11Device* device,
             "    float min_dist = 1e10;                                 \n"
             "    float min_index = -1.0f;                               \n"
             "                                                           \n"
+            "    float2 render_texture_size = float2(1225.0, 750.0);                                                       \n"
+            "    float  render_texture_scale = length(render_texture_size);                                                     \n"
+            "                                                           \n"
+            "                                                           \n"
             "    [loop]                                                 \n"
             "    for(uint index = 0; index < count; index++)            \n"
             "    {                                                      \n"
@@ -595,7 +783,24 @@ CreateSDFPipeline(ID3D11Device* device,
             "        }                                                  \n"
             "    }                                                      \n"
             "                                                           \n"
-            "    return float4(min_dist, min_index, 0.0f, 1.0f);        \n"
+            "                                                           \n"
+            "    float2 min = mul(uTransform, float4(0.0, 0.0, 0.0, 1.0)).xy;                                                       \n"
+            "    float2 max = mul(uTransform, float4(1.0, 1.0, 0.0, 1.0)).xy;                                                       \n"
+            "                                                           \n"
+            "    min = (min + 1.0) * 0.5;                                                       \n"
+            "    max = (max + 1.0) * 0.5;                                                       \n"
+            "                                                           \n"
+            "                                                           \n"
+            "    float length1 = length(float2(1.0, 1.0));                                                       \n"
+            "    float length2 = length(max - min);                                                       \n"
+            "                                                           \n"
+            //   length1 = length2
+            //   min_dist = dist
+            "                                                           \n"
+            "                                                           \n"
+            "    float dist = (min_dist * length1)/ length2;                                                      \n"
+            "                                                           \n"
+            "    return float4(dist, min_index, 0.0f, 1.0f);        \n"
             "}                                                          \n";
         ;
 	
@@ -644,155 +849,9 @@ CreateSDFPipeline(ID3D11Device* device,
     result.vertex_buffer.offset = 0;
     result.vertex_constant_buffers_count = 0;
     result.pixel_texture_resource_count = 0;
-    result.pixel_constant_buffers_count = 1;
-    result.pixel_constant_buffers[0] = objects_constant_buffer;
-    return result;
-}
-
-static RenderPipelineDescription
-CreateBackgroundPipeline(ID3D11Device* device)
-{
-    HRESULT hr;
-
-    struct Vertex
-    {
-        f32 position[2];
-        f32 color[3];
-    };
-
-    ID3D11Buffer* vbuffer;
-    {
-        struct Vertex data[] =
-        {
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f, 1.0f } },
-            { { -1.0f, + 1.0f }, { 0.0f, 0.0f, 1.0f } },
-            { { + 1.0f, + 1.0f }, { 0.0f, 0.0f, 1.0f } },
-
-            { { + 1.0f, + 1.0f }, { 0.0f, 0.0f, 1.0f } },
-            { { + 1.0f, -1.0f }, { 0.0f, 0.0f, 1.0f } },
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f, 1.0f } },
-        };
-
-        D3D11_BUFFER_DESC desc =
-        {
-            .ByteWidth = sizeof(data),
-            .Usage = D3D11_USAGE_IMMUTABLE,
-            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
-        };
-
-        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = data };
-        ID3D11Device_CreateBuffer(device, &desc, &initial, &vbuffer);
-    }
-
-    // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
-    ID3D11InputLayout* layout;
-    ID3D11VertexShader* vshader;
-    ID3D11PixelShader* pshader;
-    {
-        // these must match vertex shader input layout (VS_INPUT in vertex shader source below)
-        D3D11_INPUT_ELEMENT_DESC desc[] =
-        {
-            { "POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(struct Vertex, position), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(struct Vertex, color),    D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        };
-
-        #if 0
-        // alternative to hlsl compilation at runtime is to precompile shaders offline
-        // it improves startup time - no need to parse hlsl files at runtime!
-        // and it allows to remove runtime dependency on d3dcompiler dll file
-
-        // a) save shader source code into "shader.hlsl" file
-        // b) run hlsl compiler to compile shader, these run compilation with optimizations and without debug info:
-        //      fxc.exe /nologo /T vs_5_0 /E vs /O3 /WX /Zpc /Ges /Fh d3d11_vshader.h /Vn d3d11_vshader /Qstrip_reflect /Qstrip_debug /Qstrip_priv shader.hlsl
-        //      fxc.exe /nologo /T ps_5_0 /E ps /O3 /WX /Zpc /Ges /Fh d3d11_pshader.h /Vn d3d11_pshader /Qstrip_reflect /Qstrip_debug /Qstrip_priv shader.hlsl
-        //    they will save output to d3d11_vshader.h and d3d11_pshader.h files
-        // c) change #if 0 above to #if 1
-
-        // you can also use "/Fo d3d11_*shader.bin" argument to save compiled shader as binary file to store with your assets
-        // then provide binary data for Create*Shader functions below without need to include shader bytes in C
-
-        #include "d3d11_vshader.h"
-        #include "d3d11_pshader.h"
-
-        ID3D11Device_CreateVertexShader(device, d3d11_vshader, sizeof(d3d11_vshader), NULL, &vshader);
-        ID3D11Device_CreatePixelShader(device, d3d11_pshader, sizeof(d3d11_pshader), NULL, &pshader);
-        ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), d3d11_vshader, sizeof(d3d11_vshader), &layout);
-        #else
-        const char hlsl[] =
-            "#line " STR(__LINE__) "                                  \n\n" // actual line number in this file for nicer error messages
-            "                                                           \n"
-            "struct VS_INPUT                                            \n"
-            "{                                                          \n"
-            "  float2 pos        : POSITION;                            \n" // these names must match D3D11_INPUT_ELEMENT_DESC array
-            "  float3 color      : COLOR;                               \n"
-            "};                                                         \n"
-            "                                                           \n"
-            "struct PS_INPUT                                            \n"
-            "{                                                          \n"
-            "  float4 pos   : SV_POSITION;                              \n" // these names do not matter, except SV_... ones
-            "  float4 color : COLOR;                                    \n"
-            "};                                                         \n"
-            "                                                           \n"
-            "PS_INPUT vs(VS_INPUT input)                                \n"
-            "{                                                          \n"
-            "    PS_INPUT output;                                       \n"
-            "                                                           \n"
-            "    output.pos = float4(input.pos, 0, 1);                  \n"
-            "    output.color = float4(input.color, 1);                 \n"
-            "    return output;                                         \n"
-            "}                                                          \n"
-            "                                                           \n"
-            "float4 ps(PS_INPUT input) : SV_TARGET                      \n"
-            "{                                                          \n"
-            "  return input.color;                                      \n"
-            "}                                                          \n";
-        ;
-	
-        UINT flags = D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR | D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_WARNINGS_ARE_ERRORS;
-        #ifndef NDEBUG
-        flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-        #else
-        flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
-        #endif
-
-        ID3DBlob* error;
-
-        ID3DBlob* vblob;
-        hr = D3DCompile(hlsl, sizeof(hlsl), NULL, NULL, NULL, "vs", "vs_5_0", flags, 0, &vblob, &error);
-        if (FAILED(hr))
-        {
-            const char* message = ID3D10Blob_GetBufferPointer(error);
-            OutputDebugStringA(message);
-            Assert(!"Failed to compile vertex shader!");
-        }
-
-        ID3DBlob* pblob;
-        hr = D3DCompile(hlsl, sizeof(hlsl), NULL, NULL, NULL, "ps", "ps_5_0", flags, 0, &pblob, &error);
-        if (FAILED(hr))
-        {
-            const char* message = ID3D10Blob_GetBufferPointer(error);
-            OutputDebugStringA(message);
-            Assert(!"Failed to compile pixel shader!");
-        }
-
-        ID3D11Device_CreateVertexShader(device, ID3D10Blob_GetBufferPointer(vblob), ID3D10Blob_GetBufferSize(vblob), NULL, &vshader);
-        ID3D11Device_CreatePixelShader(device, ID3D10Blob_GetBufferPointer(pblob), ID3D10Blob_GetBufferSize(pblob), NULL, &pshader);
-        ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), ID3D10Blob_GetBufferPointer(vblob), ID3D10Blob_GetBufferSize(vblob), &layout);
-
-        ID3D10Blob_Release(pblob);
-        ID3D10Blob_Release(vblob);
-        #endif
-    }
-
-    RenderPipelineDescription result = { 0 };
-    result.layout = layout;
-    result.vshader = vshader;
-    result.pshader = pshader;
-    result.vertex_buffer.buffer = vbuffer;
-    result.vertex_buffer.stride = sizeof(struct Vertex);
-    result.vertex_buffer.offset = 0;
-    result.vertex_constant_buffers_count = 0;
-    result.pixel_texture_resource_count = 0;
+    result.pixel_constant_buffers_count = 2;
+    result.pixel_constant_buffers[0] = transform_constant_buffer;
+    result.pixel_constant_buffers[1] = objects_constant_buffer;
     return result;
 }
 
@@ -968,11 +1027,11 @@ CreateMainPipeline(ID3D11Device* device,
         struct Vertex data[] =
         {
             { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-            { { -1.0f, + 1.0f }, { 0.0f, 1.0f } },
-            { { + 1.0f, + 1.0f }, { 1.0f, 1.0f } },
+            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
 
-            { { + 1.0f, + 1.0f }, { 1.0f, 1.0f } },
-            { { + 1.0f, -1.0f }, { 1.0f, 0.0f } },
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
+            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
             { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
         };
 
@@ -1366,9 +1425,10 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
 
 
     RenderPipelineDescription main_render_pipeline = CreateMainPipeline(device, transform_constant_buffer, object_buffer);
-    RenderPipelineDescription backgound_pipeline = CreateBackgroundPipeline(device);
 
-    RenderPipelineDescription sdf_pipeline = CreateSDFPipeline(device, object_buffer);
+    RenderPipelineDescription seed_jump_flood_pipeline = CreateSeedJumpFloodPipeline(device);
+
+    RenderPipelineDescription sdf_pipeline = CreateSDFPipeline(device, transform_constant_buffer, object_buffer);
 
     RenderPipelineDescription radiance_pipeline = CreateRadiancePipeline(device, object_buffer);
 
@@ -1379,10 +1439,10 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
     state->swap_chain = swap_chain;
 
     state->main_pipeline = main_render_pipeline;
-    state->background_pipeline = backgound_pipeline;
     state->sdf_pipeline = sdf_pipeline;
     state->radiance_pipeline = radiance_pipeline;
     state->final_blit_pipeline = final_blit_pipeline;
+    state->seed_jump_flood_pipeline = seed_jump_flood_pipeline;
 
     state->objects_constant_buffer  = object_buffer;
     state->radiance_constant_buffer_count = 0;
@@ -1428,6 +1488,29 @@ BindPineline(ID3D11DeviceContext* context, RenderPipelineDescription *pipeline)
         ID3D11DeviceContext_PSSetConstantBuffers(context, i, 1, &pipeline->pixel_constant_buffers[i]);
     }
     ID3D11DeviceContext_PSSetShader(context, pipeline->pshader, NULL, 0);
+}
+
+static void
+CreateRenderTexture(ID3D11Device *device, u32 width, u32 height, DXGI_FORMAT format, ID3D11RenderTargetView **rt_view, ID3D11ShaderResourceView **view)
+{ 
+    D3D11_TEXTURE2D_DESC desc =
+    {
+        .Width = width,
+        .Height = height,
+        .MipLevels = 1,
+        .ArraySize = 1,
+        .Format = format,
+        .SampleDesc = { 1, 0 },
+        .Usage = D3D11_USAGE_DEFAULT,
+        .BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE,
+    };
+
+    ID3D11Texture2D* texture;
+    ID3D11Device_CreateTexture2D(device, &desc, NULL, &texture);
+    ID3D11Device_CreateRenderTargetView(device, (ID3D11Resource*)texture, NULL, rt_view);
+    ID3D11Device_CreateShaderResourceView(device, (ID3D11Resource*)texture, NULL, view);
+    ID3D11Texture2D_Release(texture);
+    
 }
 
 static void
@@ -1563,69 +1646,17 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
                 ID3D11Device_CreateDepthStencilView(directx_state->device, (ID3D11Resource*)depth, NULL, &directx_state->ds_view);
                 ID3D11Texture2D_Release(depth);
             }
+         
+            // create new sdf texture & view
+            CreateRenderTexture(directx_state->device, render_width, render_height, DXGI_FORMAT_R32G32_FLOAT, &directx_state->sdf_rt_view, &directx_state->sdf_view);
 
-            {
-                D3D11_TEXTURE2D_DESC sdf_desc =
-                {
-                    .Width = render_width,
-                    .Height = render_height,
-                    .MipLevels = 1,
-                    .ArraySize = 1,
-                    .Format = DXGI_FORMAT_R32G32_FLOAT,
-                    .SampleDesc = { 1, 0 },
-                    .Usage = D3D11_USAGE_DEFAULT,
-                    .BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE,
-                };
+            CreateRenderTexture(directx_state->device, render_width, render_height, DXGI_FORMAT_R8G8B8A8_UNORM, &directx_state->jf_rt_view, &directx_state->jf_view);
 
-                // create new sdf texture & view
-                ID3D11Texture2D* sdf;
-                ID3D11Device_CreateTexture2D(directx_state->device, &sdf_desc, NULL, &sdf);
-                ID3D11Device_CreateRenderTargetView(directx_state->device, (ID3D11Resource*)sdf, NULL, &directx_state->sdf_rt_view);
-                ID3D11Device_CreateShaderResourceView(directx_state->device, (ID3D11Resource*)sdf, NULL, &directx_state->sdf_view);
-                ID3D11Texture2D_Release(sdf);
-            }
+            CreateRenderTexture(directx_state->device, render_width, render_height, DXGI_FORMAT_R8G8B8A8_UNORM, &directx_state->game_rt_view, &directx_state->game_view);
 
-            {
-                D3D11_TEXTURE2D_DESC radiance_desc =
-                {
-                    .Width = radiance_width,
-                    .Height = radiance_height,
-                    .MipLevels = 1,
-                    .ArraySize = 1,
-                    .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
-                    .SampleDesc = { 1, 0 },
-                    .Usage = D3D11_USAGE_DEFAULT,
-                    .BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE,
-                };
-
-                // create new radiance texture & view
-                ID3D11Texture2D* radiance;
-                ID3D11Device_CreateTexture2D(directx_state->device, &radiance_desc, NULL, &radiance);
-                ID3D11Device_CreateRenderTargetView(directx_state->device, (ID3D11Resource*)radiance, NULL, &directx_state->radiance_current_rt_view);
-                ID3D11Device_CreateShaderResourceView(directx_state->device, (ID3D11Resource*)radiance, NULL, &directx_state->radiance_current_view);
-                ID3D11Texture2D_Release(radiance);
-            }
-
-            {
-                D3D11_TEXTURE2D_DESC radiance_desc =
-                {
-                    .Width = radiance_width,
-                    .Height = radiance_height,
-                    .MipLevels = 1,
-                    .ArraySize = 1,
-                    .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
-                    .SampleDesc = { 1, 0 },
-                    .Usage = D3D11_USAGE_DEFAULT,
-                    .BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE,
-                };
-
-                // create new radiance texture & view
-                ID3D11Texture2D* radiance;
-                ID3D11Device_CreateTexture2D(directx_state->device, &radiance_desc, NULL, &radiance);
-                ID3D11Device_CreateRenderTargetView(directx_state->device, (ID3D11Resource*)radiance, NULL, &directx_state->radiance_previous_rt_view);
-                ID3D11Device_CreateShaderResourceView(directx_state->device, (ID3D11Resource*)radiance, NULL, &directx_state->radiance_previous_view);
-                ID3D11Texture2D_Release(radiance);
-            }
+            // create new radiance texture & view
+            CreateRenderTexture(directx_state->device, radiance_width, radiance_height, DXGI_FORMAT_R8G8B8A8_UNORM, &directx_state->radiance_current_rt_view, &directx_state->radiance_current_view);
+            CreateRenderTexture(directx_state->device, radiance_width, radiance_height, DXGI_FORMAT_R8G8B8A8_UNORM, &directx_state->radiance_previous_rt_view, &directx_state->radiance_previous_view);
         }
 
         directx_state->current_screen_width = screen_size.Width;
@@ -1697,6 +1728,37 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         ID3D11DeviceContext_RSSetViewports(directx_state->context, 1, &render_viewport);
         ID3D11DeviceContext_RSSetState(directx_state->context, directx_state->rasterizer_state);
 
+        #if 1
+        ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->game_rt_view, black_color);
+        ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->game_rt_view, NULL);
+        {
+            BindPineline(directx_state->context, &directx_state->main_pipeline);
+
+            // Draw objects with 6 vertices
+            ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, object_count_this_frame, 0, 0);
+        }
+        #endif
+
+        ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->jf_rt_view, black_color);
+        ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->jf_rt_view, NULL);
+        {
+            directx_state->seed_jump_flood_pipeline.pixel_texture_resource_count = 1;
+            directx_state->seed_jump_flood_pipeline.pixel_texture_resources[0].sampler = directx_state->linear_sampler;
+            directx_state->seed_jump_flood_pipeline.pixel_texture_resources[0].texture_view = directx_state->game_view;
+
+            BindPineline(directx_state->context, &directx_state->seed_jump_flood_pipeline);
+
+            // Draw object with 6 vertices
+            ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, 1, 0, 0);
+
+            // Unbind textures
+            ID3D11ShaderResourceView* nullSRV[1] = { NULL };
+            for (u8 t = 0; t < directx_state->seed_jump_flood_pipeline.pixel_texture_resource_count; t++)
+            {
+                ID3D11DeviceContext_PSSetShaderResources(directx_state->context, t, 1, nullSRV);
+            }
+        }
+
         ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->sdf_rt_view, NULL);
 
         {
@@ -1767,28 +1829,13 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         ID3D11DeviceContext_OMSetDepthStencilState(directx_state->context, directx_state->depth_state, 0);
         ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->backbuffer_rt_view, directx_state->ds_view);
 
-        #if 0
-        {
-            BindPineline(directx_state->context, &directx_state->background_pipeline);
-
-            // Draw object with 6 vertices
-            ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, 1, 0, 0);
-        }
-
-        {
-            BindPineline(directx_state->context, &directx_state->main_pipeline);
-
-            // Draw objects with 6 vertices
-            ID3D11DeviceContext_DrawInstanced(directx_state->context, 6, object_count_this_frame, 0, 0);
-        }
-        #else
         {
             directx_state->final_blit_pipeline.pixel_texture_resource_count = 1;
             directx_state->final_blit_pipeline.pixel_texture_resources[0].sampler = directx_state->linear_sampler;
-            #if 1
+            #if 0
             directx_state->final_blit_pipeline.pixel_texture_resources[0].texture_view = radiance_resource_view_swap[swap_index];
             #else
-            directx_state->final_blit_pipeline.pixel_texture_resources[0].texture_view = directx_state->sdf_view;
+            directx_state->final_blit_pipeline.pixel_texture_resources[0].texture_view = directx_state->jf_view;
             #endif
             BindPineline(directx_state->context, &directx_state->final_blit_pipeline);
 
@@ -1802,7 +1849,6 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
                 ID3D11DeviceContext_PSSetShaderResources(directx_state->context, t, 1, nullSRV);
             }
         }
-        #endif
     }
 
     // change to FALSE to disable vsync
