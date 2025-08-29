@@ -134,7 +134,8 @@ struct DirectX11State
     ID3D11BlendState *no_blend_state;
     ID3D11DepthStencilState *depth_state;
 
-    ID3D11SamplerState *linear_sampler;
+    ID3D11SamplerState *linear_clamp_sampler;
+    ID3D11SamplerState *linear_wrap_sampler;
     ID3D11SamplerState *point_sampler;
 
     s32 current_screen_width;
@@ -1583,7 +1584,7 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
         ID3D11Device_CreateDepthStencilState(device, &desc, &depth_state);
     }
 
-    ID3D11SamplerState* linear_sampler;
+    ID3D11SamplerState* linear_clamp_sampler;
     {
         D3D11_SAMPLER_DESC desc =
         {
@@ -1597,7 +1598,24 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
             .MaxLOD = D3D11_FLOAT32_MAX,
         };
 
-        ID3D11Device_CreateSamplerState(device, &desc, &linear_sampler);
+        ID3D11Device_CreateSamplerState(device, &desc, &linear_clamp_sampler);
+    }
+
+    ID3D11SamplerState* linear_wrap_sampler;
+    {
+        D3D11_SAMPLER_DESC desc =
+        {
+            .Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR,
+            .AddressU = D3D11_TEXTURE_ADDRESS_WRAP,
+            .AddressV = D3D11_TEXTURE_ADDRESS_WRAP,
+            .AddressW = D3D11_TEXTURE_ADDRESS_WRAP,
+            .MipLODBias = 0,
+            .MaxAnisotropy = 1,
+            .MinLOD = 0,
+            .MaxLOD = D3D11_FLOAT32_MAX,
+        };
+
+        ID3D11Device_CreateSamplerState(device, &desc, &linear_wrap_sampler);
     }
 
     ID3D11SamplerState* point_sampler;
@@ -1605,9 +1623,9 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
         D3D11_SAMPLER_DESC desc =
         {
             .Filter = D3D11_FILTER_MIN_MAG_MIP_POINT,
-            .AddressU = D3D11_TEXTURE_ADDRESS_CLAMP,
-            .AddressV = D3D11_TEXTURE_ADDRESS_CLAMP,
-            .AddressW = D3D11_TEXTURE_ADDRESS_CLAMP,
+            .AddressU = D3D11_TEXTURE_ADDRESS_WRAP,
+            .AddressV = D3D11_TEXTURE_ADDRESS_WRAP,
+            .AddressW = D3D11_TEXTURE_ADDRESS_WRAP,
             .MipLODBias = 0,
             .MaxAnisotropy = 1,
             .MinLOD = 0,
@@ -1644,7 +1662,8 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
     state->objects_constant_buffer  = object_buffer;
     state->radiance_constant_buffer_count = 0;
 
-    state->linear_sampler = linear_sampler;
+    state->linear_clamp_sampler = linear_clamp_sampler;
+    state->linear_wrap_sampler = linear_wrap_sampler;
     state->point_sampler = point_sampler;
 
     state->rasterizer_state = rasterizer_state;
@@ -1964,7 +1983,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->jf_rt_view, NULL);
         {
             directx_state->seed_jump_flood_pipeline.pixel_texture_resource_count = 1;
-            directx_state->seed_jump_flood_pipeline.pixel_texture_resources[0].sampler = directx_state->linear_sampler;
+            directx_state->seed_jump_flood_pipeline.pixel_texture_resources[0].sampler = directx_state->linear_clamp_sampler;
             directx_state->seed_jump_flood_pipeline.pixel_texture_resources[0].texture_view = directx_state->game_view;
 
             BindPineline(directx_state->context, &directx_state->seed_jump_flood_pipeline);
@@ -2014,7 +2033,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
                 }
 
                 directx_state->jump_flood_pipeline.pixel_texture_resource_count = 1;
-                directx_state->jump_flood_pipeline.pixel_texture_resources[0].sampler = directx_state->point_sampler;
+                directx_state->jump_flood_pipeline.pixel_texture_resources[0].sampler = directx_state->linear_wrap_sampler;
                 directx_state->jump_flood_pipeline.pixel_texture_resources[0].texture_view = jump_flood_resource_view_swap[jump_flood_swap_index];
 
                 BindPineline(directx_state->context, &directx_state->jump_flood_pipeline);
@@ -2040,7 +2059,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->sdf_rt_view, NULL);
         {
             directx_state->sdf_pipeline.pixel_texture_resource_count = 1;
-            directx_state->sdf_pipeline.pixel_texture_resources[0].sampler = directx_state->point_sampler;
+            directx_state->sdf_pipeline.pixel_texture_resources[0].sampler = directx_state->linear_wrap_sampler;
             directx_state->sdf_pipeline.pixel_texture_resources[0].texture_view = directx_state->jf_view;
 
             BindPineline(directx_state->context, &directx_state->sdf_pipeline);
@@ -2083,11 +2102,11 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
             ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &radiance_render_target_swap[radiance_swap_index], NULL);
             {
                 directx_state->radiance_pipeline.pixel_texture_resource_count = 3;
-                directx_state->radiance_pipeline.pixel_texture_resources[0].sampler = directx_state->point_sampler;
+                directx_state->radiance_pipeline.pixel_texture_resources[0].sampler = directx_state->linear_wrap_sampler;
                 directx_state->radiance_pipeline.pixel_texture_resources[0].texture_view = directx_state->sdf_view;
-                directx_state->radiance_pipeline.pixel_texture_resources[1].sampler = directx_state->linear_sampler;
+                directx_state->radiance_pipeline.pixel_texture_resources[1].sampler = directx_state->linear_wrap_sampler;
                 directx_state->radiance_pipeline.pixel_texture_resources[1].texture_view = radiance_resource_view_swap[radiance_swap_index];
-                directx_state->radiance_pipeline.pixel_texture_resources[2].sampler = directx_state->linear_sampler;
+                directx_state->radiance_pipeline.pixel_texture_resources[2].sampler = directx_state->linear_clamp_sampler;
                 directx_state->radiance_pipeline.pixel_texture_resources[2].texture_view = directx_state->game_view;
 
                 directx_state->radiance_pipeline.pixel_constant_buffers_count = 1;
@@ -2120,7 +2139,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 
         {
             directx_state->final_blit_pipeline.pixel_texture_resource_count = 1;
-            directx_state->final_blit_pipeline.pixel_texture_resources[0].sampler = directx_state->linear_sampler;
+            directx_state->final_blit_pipeline.pixel_texture_resources[0].sampler = directx_state->linear_wrap_sampler;
             #if 1
             directx_state->final_blit_pipeline.pixel_texture_resources[0].texture_view = radiance_resource_view_swap[radiance_swap_index];
             #else

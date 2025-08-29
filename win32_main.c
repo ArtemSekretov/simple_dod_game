@@ -426,6 +426,8 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             *play_time_ptr += *time_delta_ptr;
             (*frame_count_ptr)++;
             *state_ptr &= ~kGameStateStateReset;
+
+            //printf("%f\n", *time_delta_ptr);
 		}
 
 		EndFrameDirectX11(&directx_state, frame_data);
