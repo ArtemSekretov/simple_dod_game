@@ -19,6 +19,12 @@ typedef struct JumpFloodData JumpFloodData;
 typedef struct RenderSizeData RenderSizeData;
 #endif
 
+struct Vertex
+{
+    f32 position[2];
+    f32 uv[2];
+};
+
 struct ObjectBufferHeader
 {
     u32 frame_object_count;
@@ -149,39 +155,9 @@ struct DirectX11State
 };
 
 static RenderPipelineDescription
-CreateSeedJumpFloodPipeline(ID3D11Device* device)
+CreateSeedJumpFloodPipeline(ID3D11Device* device, ID3D11Buffer* vbuffer)
 {
     HRESULT hr;
-
-    struct Vertex
-    {
-        f32 position[2];
-        f32 uv[2];
-    };
-
-    ID3D11Buffer* vbuffer;
-    {
-        struct Vertex data[] =
-        {
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-        };
-
-        D3D11_BUFFER_DESC desc =
-        {
-            .ByteWidth = sizeof(data),
-            .Usage = D3D11_USAGE_IMMUTABLE,
-            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
-        };
-
-        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = data };
-        ID3D11Device_CreateBuffer(device, &desc, &initial, &vbuffer);
-    }
 
     // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
     ID3D11InputLayout* layout;
@@ -310,40 +286,11 @@ CreateSeedJumpFloodPipeline(ID3D11Device* device)
 
 static RenderPipelineDescription
 CreateJumpFloodPipeline(ID3D11Device* device,
+                        ID3D11Buffer* vbuffer,
                         ID3D11Buffer* render_size_constant_buffer,
                         ID3D11Buffer* jump_flood_constant_buffer)
 {
     HRESULT hr;
-
-    struct Vertex
-    {
-        f32 position[2];
-        f32 uv[2];
-    };
-
-    ID3D11Buffer* vbuffer;
-    {
-        struct Vertex data[] =
-        {
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-        };
-
-        D3D11_BUFFER_DESC desc =
-        {
-            .ByteWidth = sizeof(data),
-            .Usage = D3D11_USAGE_IMMUTABLE,
-            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
-        };
-
-        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = data };
-        ID3D11Device_CreateBuffer(device, &desc, &initial, &vbuffer);
-    }
 
     // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
     ID3D11InputLayout* layout;
@@ -523,39 +470,9 @@ CreateJumpFloodPipeline(ID3D11Device* device,
 }
 
 static RenderPipelineDescription
-CreateRadiancePipeline(ID3D11Device* device)
+CreateRadiancePipeline(ID3D11Device* device, ID3D11Buffer* vbuffer)
 {
     HRESULT hr;
-
-    struct Vertex
-    {
-        f32 position[2];
-        f32 uv[2];
-    };
-
-    ID3D11Buffer* vbuffer;
-    {
-        struct Vertex data[] =
-        {
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-        };
-
-        D3D11_BUFFER_DESC desc =
-        {
-            .ByteWidth = sizeof(data),
-            .Usage = D3D11_USAGE_IMMUTABLE,
-            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
-        };
-
-        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = data };
-        ID3D11Device_CreateBuffer(device, &desc, &initial, &vbuffer);
-    }
 
     // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
     ID3D11InputLayout* layout;
@@ -717,7 +634,9 @@ CreateRadiancePipeline(ID3D11Device* device)
             "                                                           \n"
             "    if (sdf_data <= EPS)                                   \n" // On-hit return radiance from scene (with visibility term of 0--e.g. no visibility to merge with higher cascades).
             "    {                                                      \n"
-            "      float4 scene = game_texture.SampleLevel(game_sampler, ray, 0); \n"
+            "      float coef = 1.0 - smoothstep(0.0, float(radiance_input.cascade_count), float(radiance_input.cascade_index)); \n"
+            "                                                           \n"
+            "      float4 scene = game_texture.SampleLevel(game_sampler, ray, 0) * coef; \n"
             "      result = float4(scene.x, scene.y, scene.z, 0.0);     \n"
             "      break;                                               \n"
             "    }                                                      \n"
@@ -830,39 +749,10 @@ CreateRadiancePipeline(ID3D11Device* device)
 
 static RenderPipelineDescription
 CreateSDFPipeline(ID3D11Device* device,
+                  ID3D11Buffer* vbuffer,
                   ID3D11Buffer* render_size_constant_buffer)
 {
     HRESULT hr;
-
-    struct Vertex
-    {
-        f32 position[2];
-        f32 uv[2];
-    };
-
-    ID3D11Buffer* vbuffer;
-    {
-        struct Vertex data[] =
-        {
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-        };
-
-        D3D11_BUFFER_DESC desc =
-        {
-            .ByteWidth = sizeof(data),
-            .Usage = D3D11_USAGE_IMMUTABLE,
-            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
-        };
-
-        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = data };
-        ID3D11Device_CreateBuffer(device, &desc, &initial, &vbuffer);
-    }
 
     // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
     ID3D11InputLayout* layout;
@@ -1006,39 +896,9 @@ CreateSDFPipeline(ID3D11Device* device,
 }
 
 static RenderPipelineDescription
-CreateFinalBlitPipeline(ID3D11Device* device)
+CreateFinalBlitPipeline(ID3D11Device* device, ID3D11Buffer* vbuffer)
 {
     HRESULT hr;
-
-    struct Vertex
-    {
-        f32 position[2];
-        f32 uv[2];
-    };
-
-    ID3D11Buffer* vbuffer;
-    {
-        struct Vertex data[] =
-        {
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-        };
-
-        D3D11_BUFFER_DESC desc =
-        {
-            .ByteWidth = sizeof(data),
-            .Usage = D3D11_USAGE_IMMUTABLE,
-            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
-        };
-
-        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = data };
-        ID3D11Device_CreateBuffer(device, &desc, &initial, &vbuffer);
-    }
 
     // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
     ID3D11InputLayout* layout;
@@ -1161,40 +1021,11 @@ CreateFinalBlitPipeline(ID3D11Device* device)
 
 static RenderPipelineDescription
 CreateMainPipeline(ID3D11Device* device,
+                   ID3D11Buffer* vbuffer,
                    ID3D11Buffer* transform_constant_buffer,
                    ID3D11Buffer* objects_constant_buffer)
 {
     HRESULT hr;
-
-    struct Vertex
-    {
-        f32 position[2];
-        f32 uv[2];
-    };
-
-    ID3D11Buffer* vbuffer;
-    {
-        struct Vertex data[] =
-        {
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-
-            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
-            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
-            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
-        };
-
-        D3D11_BUFFER_DESC desc =
-        {
-            .ByteWidth = sizeof(data),
-            .Usage = D3D11_USAGE_IMMUTABLE,
-            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
-        };
-
-        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = data };
-        ID3D11Device_CreateBuffer(device, &desc, &initial, &vbuffer);
-    }
 
     // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
     ID3D11InputLayout* layout;
@@ -1635,16 +1466,40 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
         ID3D11Device_CreateSamplerState(device, &desc, &point_sampler);
     }
 
-    RenderPipelineDescription main_render_pipeline = CreateMainPipeline(device, transform_constant_buffer, object_buffer);
+    ID3D11Buffer* vbuffer;
+    {
+        struct Vertex data[] =
+        {
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
+            { { -1.0f, +1.0f }, { 0.0f, 1.0f } },
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
 
-    RenderPipelineDescription seed_jump_flood_pipeline = CreateSeedJumpFloodPipeline(device);
-    RenderPipelineDescription jump_flood_pipeline = CreateJumpFloodPipeline(device, render_size_constant_buffer, jump_flood_constant_buffer);
+            { { +1.0f, +1.0f }, { 1.0f, 1.0f } },
+            { { +1.0f, -1.0f }, { 1.0f, 0.0f } },
+            { { -1.0f, -1.0f }, { 0.0f, 0.0f } },
+        };
 
-    RenderPipelineDescription sdf_pipeline = CreateSDFPipeline(device, render_size_constant_buffer);
+        D3D11_BUFFER_DESC desc =
+        {
+            .ByteWidth = sizeof(data),
+            .Usage = D3D11_USAGE_IMMUTABLE,
+            .BindFlags = D3D11_BIND_VERTEX_BUFFER,
+        };
 
-    RenderPipelineDescription radiance_pipeline = CreateRadiancePipeline(device);
+        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = data };
+        ID3D11Device_CreateBuffer(device, &desc, &initial, &vbuffer);
+    }
 
-    RenderPipelineDescription final_blit_pipeline = CreateFinalBlitPipeline(device);
+    RenderPipelineDescription main_render_pipeline = CreateMainPipeline(device, vbuffer, transform_constant_buffer, object_buffer);
+
+    RenderPipelineDescription seed_jump_flood_pipeline = CreateSeedJumpFloodPipeline(device, vbuffer);
+    RenderPipelineDescription jump_flood_pipeline = CreateJumpFloodPipeline(device, vbuffer, render_size_constant_buffer, jump_flood_constant_buffer);
+
+    RenderPipelineDescription sdf_pipeline = CreateSDFPipeline(device, vbuffer, render_size_constant_buffer);
+
+    RenderPipelineDescription radiance_pipeline = CreateRadiancePipeline(device, vbuffer);
+
+    RenderPipelineDescription final_blit_pipeline = CreateFinalBlitPipeline(device, vbuffer);
 
     state->device = device;
     state->context = context;
