@@ -134,15 +134,21 @@ function buildImHexPattern(schema)
                         `${imHexMetaSize} ${undersoreToPascal(mapSheet.target)}Count @ ${imHexMetaSize}(${undersoreToPascal(mapSheet.target)}CountOffset + addressof(this))`,
                         `${imHexMetaSize} ${undersoreToPascal(mapSheet.target)}Offset`])
                     
-                    const sheetIndex = sheets.findIndex( s => s.name == mapSheet.source);
-                    if(sheetIndex != -1)
+                    let sheet = null;
+
+                    if(mapSheet.hasOwnProperty("source"))
                     {
-                        exportMapSheet(mapFields, sheets[sheetIndex], mapSheet, rootStructName, mapStructName, mapOffset, exportTypes);
+                        const sheetIndex = sheets.findIndex( s => s.name == mapSheet.source);
+                        if(sheetIndex != -1)
+                        {
+                            sheet = sheets[sheetIndex];
+                        }
+                        else
+                        {
+                            console.log(`Unable find sheet ${mapSheet.source} mapping`);
+                        }
                     }
-                    else
-                    {
-                        console.log(`Unable find sheet ${mapSheet.source} mapping`);
-                    }
+                    exportMapSheet(mapFields, sheet, mapSheet, rootStructName, mapStructName, mapOffset, exportTypes);
 
                 });                
             }
@@ -154,28 +160,31 @@ function buildImHexPattern(schema)
 
                 mapValues.forEach( mapValue => {
                     
-                    const valueIndex = values.findIndex( v => v.name == mapValue.source);
-                    if(valueIndex != -1)
+                    mapFields.push(`${imHexMetaSize} ${undersoreToPascal(mapValue.target)}Offset`);
+                    
+                    if(mapValue.hasOwnProperty("source"))
                     {
-                        const variable = values[valueIndex];
-                        const types = variable.types;
-            
-                        const variableType = exportComplexTypes(undersoreToPascal(variable.name), types, false, exportTypes);
-
-                        mapFields.push(`${imHexMetaSize} ${undersoreToPascal(mapValue.target)}Offset`);
-
-                        if(variableType.count > 1)
+                        const valueIndex = values.findIndex( v => v.name == mapValue.source);
+                        if(valueIndex != -1)
                         {
-                            mapFields.push(`${variableType.type} ${undersoreToPascal(mapValue.target)}[${variableType.count}] @ ${imHexMetaSize}(${undersoreToPascal(mapValue.target)}Offset + addressof(this))`);
+                            const variable = values[valueIndex];
+                            const types = variable.types;
+            
+                            const variableType = exportComplexTypes(undersoreToPascal(variable.name), types, false, exportTypes);
+
+                            if(variableType.count > 1)
+                            {
+                                mapFields.push(`${variableType.type} ${undersoreToPascal(mapValue.target)}[${variableType.count}] @ ${imHexMetaSize}(${undersoreToPascal(mapValue.target)}Offset + addressof(this))`);
+                            }
+                            else
+                            {
+                                mapFields.push(`${variableType.type} ${undersoreToPascal(mapValue.target)} @ ${imHexMetaSize}(${undersoreToPascal(mapValue.target)}Offset + addressof(this))`);
+                            }
                         }
                         else
                         {
-                            mapFields.push(`${variableType.type} ${undersoreToPascal(mapValue.target)} @ ${imHexMetaSize}(${undersoreToPascal(mapValue.target)}Offset + addressof(this))`);
+                            console.log(`Unable find variable ${mapValue.source} mapping`);
                         }
-                    }
-                    else
-                    {
-                        console.log(`Unable find variable ${mapValue.source} mapping`);
                     }
                 });
             }
@@ -189,15 +198,8 @@ function buildImHexPattern(schema)
         function exportMapSheet(mapFields, sheet, mapSheet, rootStructName, mapStructName, mapOffset, exportTypes)
         {
             const mapSheetStructName = `${mapStructName}${undersoreToPascal(mapSheet.target)}`;
-            const sheetStructName = `${rootStructName}${undersoreToPascal(mapSheet.source)}`;
             
             const columns = mapSheet.columns;
-
-            let rowCapacity = 0;
-            if(sheet.hasOwnProperty('capacity'))
-			{
-				rowCapacity = resolveExpression(sheet.capacity)|0;
-			}
 
             const fields = [];
 
@@ -206,27 +208,42 @@ function buildImHexPattern(schema)
             columns.forEach( column => {
                 fields.push(`${getImHexType(schema.meta.size)} ${undersoreToPascal(column.target)}Offset`);
                 
-                const columnIndex = sheet.columns.findIndex( c => c.name == column.source);
-
-                if(columnIndex != -1)
+                if(sheet)
                 {
-                    const sourceColumn = sheet.columns[columnIndex];
-
-                    const columnStructName = `${sheetStructName}${undersoreToPascal(column.source)}`;
+                    const sheetStructName = `${rootStructName}${undersoreToPascal(mapSheet.source)}`;
                     
-                    let columnType;
-			
-                    if(sourceColumn.sources.length == 1)
-                    {
-                        const source = sourceColumn.sources[0];
-				
-                        if(source.hasOwnProperty('count'))
-                        {
-                            const count = resolveExpression(source.count)|0;
+                    let rowCapacity = 0;
 
-                            if(count > 1)
+                    if(sheet.hasOwnProperty('capacity'))
+                    {
+                        rowCapacity = resolveExpression(sheet.capacity)|0;
+                    }
+                    const columnIndex = sheet.columns.findIndex( c => c.name == column.source);
+
+                    if(columnIndex != -1)
+                    {
+                        const sourceColumn = sheet.columns[columnIndex];
+
+                        const columnStructName = `${sheetStructName}${undersoreToPascal(column.source)}`;
+                    
+                        let columnType;
+			
+                        if(sourceColumn.sources.length == 1)
+                        {
+                            const source = sourceColumn.sources[0];
+				
+                            if(source.hasOwnProperty('count'))
                             {
-                                columnType = columnStructName;
+                                const count = resolveExpression(source.count)|0;
+
+                                if(count > 1)
+                                {
+                                    columnType = columnStructName;
+                                }
+                                else
+                                {
+                                    columnType = getImHexType(source.type);
+                                }
                             }
                             else
                             {
@@ -235,20 +252,16 @@ function buildImHexPattern(schema)
                         }
                         else
                         {
-                            columnType = getImHexType(source.type);
+                            columnType = columnStructName;
                         }
+
+
+                        fields.push(`${columnType} ${undersoreToPascal(column.target)}[GetCapacity(${rowCapacity}, parent.${undersoreToPascal(mapSheet.target)}Count)] @ ${imHexMetaSize}(${undersoreToPascal(column.target)}Offset + addressof(parent))`);
                     }
                     else
                     {
-                        columnType = columnStructName;
+                        console.log(`Unable find column ${column.source} for sheet ${mapSheet.source} mapping`);
                     }
-
-
-                    fields.push(`${columnType} ${undersoreToPascal(column.target)}[GetCapacity(${rowCapacity}, parent.${undersoreToPascal(mapSheet.target)}Count)] @ ${imHexMetaSize}(${undersoreToPascal(column.target)}Offset + addressof(parent))`);
-                }
-                else
-                {
-                    console.log(`Unable find column ${column.source} for sheet ${mapSheet.source} mapping`);
                 }
             });
 

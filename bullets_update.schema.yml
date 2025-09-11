@@ -52,3 +52,14 @@ ref:
    type: game_state
  - name: play_clock_bin
    type: play_clock
+
+maps:
+ - type: collision_source_instances
+   sheets:
+    - source: bullet_positions
+      target: source_instances
+      columns:
+       - source: type_index
+         target: source_type_index
+       - source: current_position
+         target: position

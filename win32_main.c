@@ -52,6 +52,10 @@
 #include "level_update.c"
 #include "wave_update.c"
 
+#include "collision_grid.h"
+#include "collision_source_instances.h"
+#include "collision_source_types.h"
+
 #define AssertHR(hr) Assert(SUCCEEDED(hr))
 
 static void
@@ -291,6 +295,18 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     MapFileData hero_bullets_update_map_data = CreateMapFile("hero_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
     BulletsUpdate *hero_bullets_update_data  = (BulletsUpdate *)hero_bullets_update_map_data.data;
 
+    MapFileData hero_bullets_collition_grip_map_data = CreateMapFile("hero_bullets_collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *hero_bullets_collition_grip       = (CollisionGrid *)hero_bullets_collition_grip_map_data.data;
+
+    MapFileData enemy_bullets_collition_grip_map_data = CreateMapFile("enemy_bullets_collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *enemy_bullets_collition_grip       = (CollisionGrid *)enemy_bullets_collition_grip_map_data.data;
+
+    MapFileData hero_instances_collition_grip_map_data = CreateMapFile("hero_instances_collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *hero_instances_collition_grip       = (CollisionGrid *)hero_instances_collition_grip_map_data.data;
+
+    MapFileData enemy_instances_collition_grip_map_data = CreateMapFile("enemy_instances_collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *enemy_instances_collition_grip       = (CollisionGrid *)enemy_instances_collition_grip_map_data.data;
+
     BulletSourceInstances *enemy_bullet_source_instances = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
     BulletSourceInstances *hero_bullet_source_instances  = HeroInstancesBulletSourceInstancesMapPrt(hero_instances);
 
@@ -351,6 +367,16 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     HeroInstancesDrawContext hero_instances_draw_context;
     hero_instances_draw_context.HeroInstancesBin = hero_instances;
     hero_instances_draw_context.FrameDataBin     = frame_data;
+
+    CollisionGridContext hero_bullets_collition_grip_context;
+    hero_bullets_collition_grip_context.Root = hero_bullets_collition_grip;
+    hero_bullets_collition_grip_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(hero_bullets_update_data);
+    hero_bullets_collition_grip_context.CollisionSourceTypesBin = BulletsCollisionSourceTypesMapPrt(hero_bullets);
+
+    CollisionGridContext enemy_bullets_collition_grip_context;
+    enemy_bullets_collition_grip_context.Root = enemy_bullets_collition_grip;
+    enemy_bullets_collition_grip_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(enemy_bullets_update_data);
+    enemy_bullets_collition_grip_context.CollisionSourceTypesBin = BulletsCollisionSourceTypesMapPrt(enemy_bullets);
 
     f32 *time_delta_ptr          = GameStateTimeDeltaPrt(game_state);
     f64 *time_ptr                = GameStateTimePrt(game_state);
@@ -443,4 +469,8 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 	CloseMapFile(&game_state_map_data);
 	CloseMapFile(&wave_update_map_data);
 	CloseMapFile(&level_update_map_data);
+    CloseMapFile(&hero_bullets_collition_grip_map_data);
+    CloseMapFile(&enemy_bullets_collition_grip_map_data);
+    CloseMapFile(&hero_instances_collition_grip_map_data);
+    CloseMapFile(&enemy_instances_collition_grip_map_data);
 }

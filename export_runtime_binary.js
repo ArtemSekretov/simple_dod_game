@@ -39,6 +39,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
     relocationTable.forEach( relocation => {
         let offset = relocation.offset;
         const size = relocation.size;
+        const sizeInBytes = getBytesSize(size);
 
         let relativeSegmentOffset = 0;
         if(relocation.hasOwnProperty('relativeSegment'))
@@ -47,16 +48,18 @@ function buildRuntimeBinary(schema, sourceWorkbook)
         }
 
         relocation.names.forEach( name => {
-            const segmentOffset = (exportDataSegmentOffsets[name]|0) - relativeSegmentOffset;
-            
-            const bytes = bytesAsSize([segmentOffset], size);
-
-            for(let i = 0; i < bytes.length; i++)
+            if(name)
             {
-                data[offset + i] = bytes[i];
-            }
+                const segmentOffset = (exportDataSegmentOffsets[name]|0) - relativeSegmentOffset;
+            
+                const bytes = bytesAsSize([segmentOffset], size);
 
-            offset += bytes.length;
+                for(let i = 0; i < bytes.length; i++)
+                {
+                    data[offset + i] = bytes[i];
+                }
+            }
+            offset += sizeInBytes;
         });
     });
 
@@ -232,9 +235,14 @@ function buildRuntimeBinary(schema, sourceWorkbook)
         {   
             const targetSheetNameSegmentName   = `${mapSegmentName}:${mapSheet.target}`;
             const targetCountOffsetSegmentName = `${targetSheetNameSegmentName}Count`;
-            const sourceSheetNameSegmentName   = mapSheet.source;
-            const sourceCountOffsetSegmentName = `${sourceSheetNameSegmentName}Count`;
 
+            let sourceCountOffsetSegmentName = "";
+            let sourceSheetNameSegmentName = "";
+            if(mapSheet.hasOwnProperty("source"))
+            {
+                sourceSheetNameSegmentName   = mapSheet.source;
+                sourceCountOffsetSegmentName = `${sourceSheetNameSegmentName}Count`;
+            }
             const mapColumns = mapSheet.columns;
 
             relocationTable.push({
@@ -251,15 +259,17 @@ function buildRuntimeBinary(schema, sourceWorkbook)
                 name: targetSheetNameSegmentName,
                 getBytes: (data, exportDataSegments) => {
                     mapColumns.forEach( column => {
-                        const sourceColumnSegmentName = sourceSheetNameSegmentName + ":" + column.source;
+                        if(sourceSheetNameSegmentName && column.hasOwnProperty("source"))
+                        {
+                            const sourceColumnSegmentName = sourceSheetNameSegmentName + ":" + column.source;
                         
-                        relocationTable.push({
-                            offset: data.length,
-                            names: [sourceColumnSegmentName],
-                            size: schema.meta.size,
-                            relativeSegment: mapSegmentName
-                        });
-
+                            relocationTable.push({
+                                offset: data.length,
+                                names: [sourceColumnSegmentName],
+                                size: schema.meta.size,
+                                relativeSegment: mapSegmentName
+                            });
+                        }
                         // put space in data this will be patch by relocation table
 			            data.push( ...bytesAsSize([0], schema.meta.size) );
                     });
@@ -428,6 +438,39 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             });
 		}
 	}
+}
+
+function getBytesSize(size)
+{
+    switch(size)
+    {
+        case 'uint8_t':
+        case 'int8_t':
+        {
+            return 1;
+        }
+        break;
+        case 'uint16_t':
+        case 'int16_t':
+        {
+            return 2;
+        }
+        break;
+        case 'uint32_t':
+        case 'int32_t':
+        case 'float':
+        {
+            return 4;
+        }
+        break;
+        case 'uint64_t':
+        case 'int64_t':
+        case 'double':
+        {
+            return 8;
+        }
+        break;
+    }
 }
 
 function bytesAsSize(values, size)

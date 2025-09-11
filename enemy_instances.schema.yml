@@ -133,16 +133,12 @@ ref:
 maps:
  - type: bullet_source_instances
    variables:
-    - source: instances_live
-      target: instances_live
+    - target: instances_live
    sheets:
-    - source: enemy_instances
-      target: source_instances
+    - target: source_instances
       columns:
-       - source: start_time_q4
-         target: start_time_q4
-       - source: enemy_index
-         target: source_index
+       - target: start_time_q4
+       - target: source_index
     - source: enemy_positions
       target: source_positions
       columns:
@@ -150,14 +146,20 @@ maps:
          target: positions
  - type: enemy_instances_wave
    sheets:
-    - source: enemy_instances
-      target: enemy_instances
+    - target: enemy_instances
       columns:
-       - source: start_time_q4
-         target: start_time_q4
-       - source: enemy_index
-         target: enemy_index
-       - source: flat_spawn_point_index
-         target: flat_spawn_point_index
-       - source: way_point_path_index
-         target: way_point_path_index
+       - target: start_time_q4
+       - target: enemy_index
+       - target: flat_spawn_point_index
+       - target: way_point_path_index
+ - type: collision_source_instances
+   sheets:
+    - target: source_instances
+      columns:
+       - target: source_type_index
+       - target: position
+ - type: collision_source_types
+   sheets:
+    - target: source_types
+      columns:
+       - target: radius_q8

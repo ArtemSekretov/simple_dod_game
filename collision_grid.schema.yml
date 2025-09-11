@@ -1,0 +1,21 @@
+meta:
+ name: collision_grid
+ size: uint16_t
+
+variables:
+ - name: grid_row_count
+   types:
+    - name: grid_row_count
+      type: uint8_t
+      count: 16
+ - name: grid_rows
+   types:
+    - name: grid_rows
+      type: uint8_t
+      count: 240
+
+ref:
+ - name: collision_source_instances_bin
+   type: collision_source_instances
+ - name: collision_source_types_bin
+   type: collision_source_types

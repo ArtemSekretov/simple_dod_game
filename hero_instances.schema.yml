@@ -55,6 +55,22 @@ maps:
       columns:
        - source: positions
          target: positions
+ - type: collision_source_instances
+   sheets:
+    - source: hero_instances
+      target: source_instances
+      columns:
+       - source: hero_type_index
+         target: source_type_index
+       - source: positions
+         target: position
+ - type: collision_source_types
+   sheets:
+    - source: hero_types
+      target: source_types
+      columns:
+       - source: radius_q4
+         target: radius_q8
 
 ref:
  - name: game_state_bin
