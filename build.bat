@@ -61,10 +61,7 @@ where /q node && (
         start /B node export_c_header.js collision_source_types.shema.yml generated/collision_source_types.h
 
         start /B node export_c_header.js collision_grid.schema.yml generated/collision_grid.h
-        start /B node export_runtime_binary.js collision_grid.schema.yml build/enemy_bullets_collision_grid.bin
-        start /B node export_runtime_binary.js collision_grid.schema.yml build/hero_bullets_collision_grid.bin
-        start /B node export_runtime_binary.js collision_grid.schema.yml build/enemy_instances_collision_grid.bin
-        start /B node export_runtime_binary.js collision_grid.schema.yml build/hero_instances_collision_grid.bin
+        start /B node export_runtime_binary.js collision_grid.schema.yml build/collision_grid.bin
         start /B node export_imhex_pattern.js collision_grid.schema.yml generated/collision_grid.hexpat
 
     ) | pause

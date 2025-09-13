@@ -295,16 +295,16 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     MapFileData hero_bullets_update_map_data = CreateMapFile("hero_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
     BulletsUpdate *hero_bullets_update_data  = (BulletsUpdate *)hero_bullets_update_map_data.data;
 
-    MapFileData hero_bullets_collition_grip_map_data = CreateMapFile("hero_bullets_collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    MapFileData hero_bullets_collition_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
     CollisionGrid *hero_bullets_collition_grip       = (CollisionGrid *)hero_bullets_collition_grip_map_data.data;
 
-    MapFileData enemy_bullets_collition_grip_map_data = CreateMapFile("enemy_bullets_collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    MapFileData enemy_bullets_collition_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
     CollisionGrid *enemy_bullets_collition_grip       = (CollisionGrid *)enemy_bullets_collition_grip_map_data.data;
 
-    MapFileData hero_instances_collition_grip_map_data = CreateMapFile("hero_instances_collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    MapFileData hero_instances_collition_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
     CollisionGrid *hero_instances_collition_grip       = (CollisionGrid *)hero_instances_collition_grip_map_data.data;
 
-    MapFileData enemy_instances_collition_grip_map_data = CreateMapFile("enemy_instances_collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    MapFileData enemy_instances_collition_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
     CollisionGrid *enemy_instances_collition_grip       = (CollisionGrid *)enemy_instances_collition_grip_map_data.data;
 
     BulletSourceInstances *enemy_bullet_source_instances = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
