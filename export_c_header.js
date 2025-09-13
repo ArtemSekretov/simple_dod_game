@@ -72,7 +72,7 @@ function buildCHeader(schema)
 
             	exportTypes.functions.push({
 				    declaration: `${mapType} *${rootStructName}${mapType}MapPrt(${rootStructName} *root)`,
-				    body: `return (${mapType} *)((uintptr_t)root + root->${mapType}MapOffset);`
+				    body: `return (root->${mapType}MapOffset) ? (${mapType} *)((uintptr_t)root + root->${mapType}MapOffset) : NULL;`
 			    });
                 
                 exportTypes.refStructs.push(mapType);
@@ -90,7 +90,7 @@ function buildCHeader(schema)
             sheets.forEach( sheet => {
             	exportTypes.functions.push({
 				    declaration: `${schema.meta.size} *${rootStructName}${undersoreToPascal(sheet.name)}CountPrt(${rootStructName} *root)`,
-				    body: `return (${schema.meta.size} *)((uintptr_t)root + root->${undersoreToPascal(sheet.name)}CountOffset);`
+				    body: `return (root->${undersoreToPascal(sheet.name)}CountOffset) ? (${schema.meta.size} *)((uintptr_t)root + root->${undersoreToPascal(sheet.name)}CountOffset) : NULL;`
 			    });
                 exportSheet(sheet, rootStructName, exportTypes);		
             });
@@ -156,7 +156,7 @@ function buildCHeader(schema)
 
             exportTypes.functions.push({
 				declaration: `${variableType.type} *${rootStructName}${variableName}Prt(${rootStructName} *root)`,
-				body: `return (${variableType.type} *)((uintptr_t)root + root->${variableName}Offset);`
+				body: `return (root->${variableName}Offset) ? (${variableType.type} *)((uintptr_t)root + root->${variableName}Offset) : NULL;`
 			});
         }
 
@@ -176,7 +176,7 @@ function buildCHeader(schema)
 			
 			exportTypes.functions.push({
 				declaration: `${sheetStructName} *${sheetStructName}Prt(${rootStructName} *root)`,
-				body: `return (${sheetStructName} *)((uintptr_t)root + root->${undersoreToPascal(sheetName)}Offset);`
+				body: `return (root->${undersoreToPascal(sheetName)}Offset) ? (${sheetStructName} *)((uintptr_t)root + root->${undersoreToPascal(sheetName)}Offset) : NULL;`
 			});
 		
 			columns.forEach( column => {
@@ -195,7 +195,7 @@ function buildCHeader(schema)
 
 			exportTypes.functions.push({
 				declaration: `${columnType.type} *${columnStructName}Prt(${rootStructName} *root, ${sheetStructName} *sheet)`,
-				body: `return (${columnType.type} *)((uintptr_t)root + sheet->${undersoreToPascal(column.name)}Offset);`
+				body: `return (sheet->${undersoreToPascal(column.name)}Offset) ? (${columnType.type} *)((uintptr_t)root + sheet->${undersoreToPascal(column.name)}Offset) : NULL;`
 			});
 			
 		}		

@@ -62,4 +62,4 @@ maps:
        - source: type_index
          target: source_type_index
        - source: current_position
-         target: position
+         target: positions

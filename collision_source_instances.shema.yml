@@ -9,8 +9,8 @@ sheets:
       sources: 
        - name: source_type_index
          type: uint8_t
-    - name: position
+    - name: positions
       sources: 
-       - name: position
+       - name: positions
          type: float
          count: 2

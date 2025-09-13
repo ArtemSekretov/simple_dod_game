@@ -41,6 +41,10 @@
 #include "enemy_instances_draw.h"
 #include "hero_instances_draw.h"
 
+#include "collision_grid.h"
+#include "collision_source_instances.h"
+#include "collision_source_types.h"
+
 #include "enemy_instances_update.c"
 #include "enemy_instances_draw.c"
 
@@ -51,10 +55,6 @@
 #include "bullets_draw.c"
 #include "level_update.c"
 #include "wave_update.c"
-
-#include "collision_grid.h"
-#include "collision_source_instances.h"
-#include "collision_source_types.h"
 
 #define AssertHR(hr) Assert(SUCCEEDED(hr))
 
@@ -377,6 +377,16 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     enemy_bullets_collition_grip_context.Root = enemy_bullets_collition_grip;
     enemy_bullets_collition_grip_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(enemy_bullets_update_data);
     enemy_bullets_collition_grip_context.CollisionSourceTypesBin = BulletsCollisionSourceTypesMapPrt(enemy_bullets);
+
+    CollisionGridContext hero_instances_collition_grip_context;
+    hero_instances_collition_grip_context.Root = hero_instances_collition_grip;
+    hero_instances_collition_grip_context.CollisionSourceInstancesBin = HeroInstancesCollisionSourceInstancesMapPrt(hero_instances);
+    hero_instances_collition_grip_context.CollisionSourceTypesBin = HeroInstancesCollisionSourceTypesMapPrt(hero_instances);
+
+    CollisionGridContext enemy_instances_collition_grip_context;
+    enemy_instances_collition_grip_context.Root = enemy_instances_collition_grip;
+    enemy_instances_collition_grip_context.CollisionSourceInstancesBin = EnemyInstancesCollisionSourceInstancesMapPrt(enemy_instances);
+    enemy_instances_collition_grip_context.CollisionSourceTypesBin = EnemyInstancesCollisionSourceTypesMapPrt(enemy_instances);
 
     f32 *time_delta_ptr          = GameStateTimeDeltaPrt(game_state);
     f64 *time_ptr                = GameStateTimePrt(game_state);

@@ -133,7 +133,8 @@ ref:
 maps:
  - type: bullet_source_instances
    variables:
-    - target: instances_live
+    - source: instances_live
+      target: instances_live
    sheets:
     - target: source_instances
       columns:
@@ -157,9 +158,14 @@ maps:
     - target: source_instances
       columns:
        - target: source_type_index
-       - target: position
+       - sheet: enemy_positions
+         source: positions
+         target: positions
  - type: collision_source_types
    sheets:
-    - target: source_types
+    - source: enemy_types
+      target: source_types
       columns:
+       - source: radius_q4
+         target: radius_q4
        - target: radius_q8

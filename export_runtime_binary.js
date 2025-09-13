@@ -218,14 +218,17 @@ function buildRuntimeBinary(schema, sourceWorkbook)
         
         function exportMapValue(data, mapSegmentName, value, exportDataSegments)
         {   
-            const sourceValueSegmentName = `${schema.meta.name}:${value.source}`;
-
-            relocationTable.push({
-                offset: data.length,
-                names: [sourceValueSegmentName],
-                size: schema.meta.size,
-                relativeSegment: mapSegmentName
-            });
+            if(value.hasOwnProperty("source"))
+            {
+                const sourceValueSegmentName = `${schema.meta.name}:${value.source}`;
+                
+                relocationTable.push({
+                    offset: data.length,
+                    names: [sourceValueSegmentName],
+                    size: schema.meta.size,
+                    relativeSegment: mapSegmentName
+                });
+            }
 
             // put space in data this will be patch by relocation table
 			data.push( ...bytesAsSize([0], schema.meta.size) );
@@ -243,7 +246,6 @@ function buildRuntimeBinary(schema, sourceWorkbook)
                 sourceSheetNameSegmentName   = mapSheet.source;
                 sourceCountOffsetSegmentName = `${sourceSheetNameSegmentName}Count`;
             }
-            const mapColumns = mapSheet.columns;
 
             relocationTable.push({
                 offset: data.length,
@@ -255,14 +257,22 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             // put space in data this will be patch by relocation table
 			data.push( ...bytesAsSize([0, 0], schema.meta.size) );
 
+            const mapColumns = mapSheet.columns;
+
             exportDataSegments.push( {
                 name: targetSheetNameSegmentName,
                 getBytes: (data, exportDataSegments) => {
                     mapColumns.forEach( column => {
-                        if(sourceSheetNameSegmentName && column.hasOwnProperty("source"))
+                        let columnSheet = sourceSheetNameSegmentName;
+                        if(column.hasOwnProperty("sheet"))
                         {
-                            const sourceColumnSegmentName = sourceSheetNameSegmentName + ":" + column.source;
-                        
+                            columnSheet = column.sheet;
+                        }
+
+                        if(columnSheet && column.hasOwnProperty("source"))
+                        {
+                            const sourceColumnSegmentName = columnSheet + ":" + column.source;
+                            
                             relocationTable.push({
                                 offset: data.length,
                                 names: [sourceColumnSegmentName],
@@ -270,6 +280,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
                                 relativeSegment: mapSegmentName
                             });
                         }
+
                         // put space in data this will be patch by relocation table
 			            data.push( ...bytesAsSize([0], schema.meta.size) );
                     });

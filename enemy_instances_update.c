@@ -194,15 +194,16 @@ enemy_instances_update(EnemyInstancesContext *context)
     u32 *wave_state_ptr            = EnemyInstancesWaveStatePrt(enemy_instances);
     u16 *enemy_positions_count_prt = EnemyInstancesEnemyPositionsCountPrt(enemy_instances);
 
-    EnemyInstancesWave *enemy_instances_wave              = EnemyInstancesEnemyInstancesWaveMapPrt(enemy_instances);
-    BulletSourceInstances *enemy_bullets_source_instances = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
-
     EnemyInstancesLevelWaveIndex *level_wave_index_sheet = EnemyInstancesLevelWaveIndexPrt(enemy_instances);
     EnemyInstancesLevelWaveIndexLevelWave *level_wave_index_instance = EnemyInstancesLevelWaveIndexLevelWavePrt(enemy_instances, level_wave_index_sheet);
     EnemyInstancesLevelWaveIndexLevelWave *wave_instance = &level_wave_index_instance[flat_wave_index];
 
     if (wave_state & kWaveUpdateStateReset)
     {
+        EnemyInstancesWave *enemy_instances_wave              = EnemyInstancesEnemyInstancesWaveMapPrt(enemy_instances);
+        BulletSourceInstances *enemy_bullets_source_instances = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
+        CollisionSourceInstances *collision_source_instances  = EnemyInstancesCollisionSourceInstancesMapPrt(enemy_instances);
+
         EnemyInstancesEnemyInstances *enemy_instances_sheet = EnemyInstancesEnemyInstancesPrt(enemy_instances);
 
         u16 *enemy_instances_start_time_q4         = EnemyInstancesEnemyInstancesStartTimeQ4Prt(enemy_instances, enemy_instances_sheet);
@@ -210,18 +211,21 @@ enemy_instances_update(EnemyInstancesContext *context)
         u8 *enemy_instances_flat_spawn_point_index = EnemyInstancesEnemyInstancesFlatSpawnPointIndexPrt(enemy_instances, enemy_instances_sheet);
         s8 *enemy_instance_way_point_path_index    = EnemyInstancesEnemyInstancesWayPointPathIndexPrt(enemy_instances, enemy_instances_sheet);
 
-        EnemyInstancesWaveEnemyInstances *enemy_instances_wave_enemy_instances = EnemyInstancesWaveEnemyInstancesPrt(enemy_instances_wave);
-
         enemy_instances_wave->EnemyInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_instances_wave));
         enemy_bullets_source_instances->SourceInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_bullets_source_instances));
+        
+        collision_source_instances->SourceInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)collision_source_instances));
 
+        CollisionSourceInstancesSourceInstances *collision_source_instances_source = CollisionSourceInstancesSourceInstancesPrt(collision_source_instances);
+        collision_source_instances_source->SourceTypeIndexOffset = (u16)(((uintptr_t)&enemy_instances_enemy_index[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)collision_source_instances));
+
+        EnemyInstancesWaveEnemyInstances *enemy_instances_wave_enemy_instances = EnemyInstancesWaveEnemyInstancesPrt(enemy_instances_wave);
         enemy_instances_wave_enemy_instances->StartTimeQ4Offset         = (u16)(((uintptr_t)&enemy_instances_start_time_q4[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)enemy_instances_wave));
         enemy_instances_wave_enemy_instances->EnemyIndexOffset          = (u16)(((uintptr_t)&enemy_instances_enemy_index[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)enemy_instances_wave));
         enemy_instances_wave_enemy_instances->FlatSpawnPointIndexOffset = (u16)(((uintptr_t)&enemy_instances_flat_spawn_point_index[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)enemy_instances_wave));
         enemy_instances_wave_enemy_instances->WayPointPathIndexOffset   = (u16)(((uintptr_t)&enemy_instance_way_point_path_index[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)enemy_instances_wave));
 
         BulletSourceInstancesSourceInstances *enemy_bullet_source_instances_source = BulletSourceInstancesSourceInstancesPrt(enemy_bullets_source_instances);
-
         enemy_bullet_source_instances_source->StartTimeQ4Offset = (u16)(((uintptr_t)&enemy_instances_start_time_q4[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)enemy_bullets_source_instances));
         enemy_bullet_source_instances_source->SourceIndexOffset = (u16)(((uintptr_t)&enemy_instances_enemy_index[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)enemy_bullets_source_instances));
 
