@@ -119,6 +119,23 @@ transform(m4x4 m, v2 p)
     return r;
 }
 
+inline s32
+clamp_s32(s32 min, s32 value, s32 Max)
+{
+    s32 result = value;
+
+    if(result < min)
+    {
+        result = min;
+    }
+    else if(result > Max)
+    {
+        result = Max;
+    }
+
+    return result;
+}
+
 inline f32
 clamp(f32 min, f32 value, f32 Max)
 {

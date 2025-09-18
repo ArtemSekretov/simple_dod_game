@@ -55,6 +55,7 @@
 #include "bullets_draw.c"
 #include "level_update.c"
 #include "wave_update.c"
+#include "collision_grid_update.c"
 
 #define AssertHR(hr) Assert(SUCCEEDED(hr))
 
@@ -200,6 +201,49 @@ begin_frame(FrameData *frame_data, f32 game_aspect, s32 screen_width, s32 screen
     }
 }
 
+#ifndef NDEBUG
+static void
+collision_grid_print_draw(CollisionGridContext *context)
+{
+    CollisionGrid *collision_grid = context->Root;
+
+    CollisionGridGridRowCount *collision_grid_row_count = CollisionGridGridRowCountPrt(collision_grid);
+    CollisionGridGridRows *collision_grid_rows = CollisionGridGridRowsPrt(collision_grid);
+    
+    printf("\033[0;0H");
+
+    for (s32 row_index = 0; row_index < kCollisionGridColCount; row_index++)
+    {
+        u8 count = collision_grid_row_count->GridRowCount[row_index];
+        if (count > kCollisionGridColCount)
+        {
+            printf("\033[1;31m");
+        }
+        else
+        {
+            printf("\033[34m");
+        }
+        printf("%02x ", count);
+
+        printf("\033[32m");
+        s32 col_index = 0;
+        for (; col_index < count; col_index++)
+        {
+            u8 source_index = collision_grid_rows->GridRows[(row_index * kCollisionGridColCount) + col_index];
+            printf("%02x ", source_index);
+        }
+        printf("\033[37m");
+        for (; col_index < kCollisionGridColCount; col_index++)
+        {
+            u8 source_index = collision_grid_rows->GridRows[(row_index * kCollisionGridColCount) + col_index];
+            printf("%02x ", source_index);
+        }
+
+        printf("\n");
+    }
+}
+#endif
+
 int WINAPI 
 WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 {
@@ -295,17 +339,17 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     MapFileData hero_bullets_update_map_data = CreateMapFile("hero_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
     BulletsUpdate *hero_bullets_update_data  = (BulletsUpdate *)hero_bullets_update_map_data.data;
 
-    MapFileData hero_bullets_collition_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
-    CollisionGrid *hero_bullets_collition_grip       = (CollisionGrid *)hero_bullets_collition_grip_map_data.data;
+    MapFileData hero_bullets_collision_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *hero_bullets_collision_grip       = (CollisionGrid *)hero_bullets_collision_grip_map_data.data;
 
-    MapFileData enemy_bullets_collition_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
-    CollisionGrid *enemy_bullets_collition_grip       = (CollisionGrid *)enemy_bullets_collition_grip_map_data.data;
+    MapFileData enemy_bullets_collision_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *enemy_bullets_collision_grip       = (CollisionGrid *)enemy_bullets_collision_grip_map_data.data;
 
-    MapFileData hero_instances_collition_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
-    CollisionGrid *hero_instances_collition_grip       = (CollisionGrid *)hero_instances_collition_grip_map_data.data;
+    MapFileData hero_instances_collision_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *hero_instances_collision_grip       = (CollisionGrid *)hero_instances_collision_grip_map_data.data;
 
-    MapFileData enemy_instances_collition_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
-    CollisionGrid *enemy_instances_collition_grip       = (CollisionGrid *)enemy_instances_collition_grip_map_data.data;
+    MapFileData enemy_instances_collision_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *enemy_instances_collision_grip       = (CollisionGrid *)enemy_instances_collision_grip_map_data.data;
 
     BulletSourceInstances *enemy_bullet_source_instances = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
     BulletSourceInstances *hero_bullet_source_instances  = HeroInstancesBulletSourceInstancesMapPrt(hero_instances);
@@ -368,25 +412,25 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     hero_instances_draw_context.HeroInstancesBin = hero_instances;
     hero_instances_draw_context.FrameDataBin     = frame_data;
 
-    CollisionGridContext hero_bullets_collition_grip_context;
-    hero_bullets_collition_grip_context.Root = hero_bullets_collition_grip;
-    hero_bullets_collition_grip_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(hero_bullets_update_data);
-    hero_bullets_collition_grip_context.CollisionSourceTypesBin = BulletsCollisionSourceTypesMapPrt(hero_bullets);
+    CollisionGridContext hero_bullets_collision_grip_context;
+    hero_bullets_collision_grip_context.Root = hero_bullets_collision_grip;
+    hero_bullets_collision_grip_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(hero_bullets_update_data);
+    hero_bullets_collision_grip_context.CollisionSourceTypesBin = BulletsCollisionSourceTypesMapPrt(hero_bullets);
 
-    CollisionGridContext enemy_bullets_collition_grip_context;
-    enemy_bullets_collition_grip_context.Root = enemy_bullets_collition_grip;
-    enemy_bullets_collition_grip_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(enemy_bullets_update_data);
-    enemy_bullets_collition_grip_context.CollisionSourceTypesBin = BulletsCollisionSourceTypesMapPrt(enemy_bullets);
+    CollisionGridContext enemy_bullets_collision_grip_context;
+    enemy_bullets_collision_grip_context.Root = enemy_bullets_collision_grip;
+    enemy_bullets_collision_grip_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(enemy_bullets_update_data);
+    enemy_bullets_collision_grip_context.CollisionSourceTypesBin = BulletsCollisionSourceTypesMapPrt(enemy_bullets);
 
-    CollisionGridContext hero_instances_collition_grip_context;
-    hero_instances_collition_grip_context.Root = hero_instances_collition_grip;
-    hero_instances_collition_grip_context.CollisionSourceInstancesBin = HeroInstancesCollisionSourceInstancesMapPrt(hero_instances);
-    hero_instances_collition_grip_context.CollisionSourceTypesBin = HeroInstancesCollisionSourceTypesMapPrt(hero_instances);
+    CollisionGridContext hero_instances_collision_grip_context;
+    hero_instances_collision_grip_context.Root = hero_instances_collision_grip;
+    hero_instances_collision_grip_context.CollisionSourceInstancesBin = HeroInstancesCollisionSourceInstancesMapPrt(hero_instances);
+    hero_instances_collision_grip_context.CollisionSourceTypesBin = HeroInstancesCollisionSourceTypesMapPrt(hero_instances);
 
-    CollisionGridContext enemy_instances_collition_grip_context;
-    enemy_instances_collition_grip_context.Root = enemy_instances_collition_grip;
-    enemy_instances_collition_grip_context.CollisionSourceInstancesBin = EnemyInstancesCollisionSourceInstancesMapPrt(enemy_instances);
-    enemy_instances_collition_grip_context.CollisionSourceTypesBin = EnemyInstancesCollisionSourceTypesMapPrt(enemy_instances);
+    CollisionGridContext enemy_instances_collision_grip_context;
+    enemy_instances_collision_grip_context.Root = enemy_instances_collision_grip;
+    enemy_instances_collision_grip_context.CollisionSourceInstancesBin = EnemyInstancesCollisionSourceInstancesMapPrt(enemy_instances);
+    enemy_instances_collision_grip_context.CollisionSourceTypesBin = EnemyInstancesCollisionSourceTypesMapPrt(enemy_instances);
 
     f32 *time_delta_ptr          = GameStateTimeDeltaPrt(game_state);
     f64 *time_ptr                = GameStateTimePrt(game_state);
@@ -413,6 +457,30 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             {
                 break;
             }
+            else if (msg.message == WM_KEYUP)
+            {
+                u32 VKCode = (u32)msg.wParam;
+                
+                //b32 AltKeyWasDown = (msg.lParam & (1 << 29));
+                //b32 ShiftKeyWasDown = (GetKeyState(VK_SHIFT) & (1 << 15));
+                
+                // NOTE(casey): Since we are comparing WasDown to IsDown,
+                // we MUST use == and != to convert these bit tests to actual
+                // 0 or 1 values.
+                b32 WasDown = ((msg.lParam & (1 << 30)) != 0);
+                b32 IsDown = ((msg.lParam & (1UL << 31)) == 0);
+                if (WasDown != IsDown)
+                {
+                    if(VKCode == 'P')
+                    {
+                        //if(IsDown)
+                        {
+                            *state_ptr ^= kGameStateStatePause;
+                        }
+                    }
+                }
+
+            }
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
             continue;
@@ -433,6 +501,11 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             *time_delta_ptr = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
 			c1 = c2;
 
+            if ((*state_ptr) & kGameStateStatePause)
+            {
+                *time_delta_ptr = 0.0f;
+            }
+
             POINT mouseP;
             GetCursorPos(&mouseP);
             ScreenToClient(window, &mouseP);
@@ -452,6 +525,15 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             hero_instances_update(&hero_instances_context);
             bullets_update(&enemy_bullets_update_context);
             bullets_update(&hero_bullets_update_context);
+
+            collision_grid_update(&hero_bullets_collision_grip_context);
+            collision_grid_update(&enemy_bullets_collision_grip_context);
+            collision_grid_update(&hero_instances_collision_grip_context);
+            collision_grid_update(&enemy_instances_collision_grip_context);
+
+            #ifndef NDEBUG
+            collision_grid_print_draw(&hero_instances_collision_grip_context);
+            #endif
 
             enemy_instances_draw(&enemy_instances_draw_context);
             hero_instances_draw(&hero_instances_draw_context);
@@ -479,8 +561,8 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 	CloseMapFile(&game_state_map_data);
 	CloseMapFile(&wave_update_map_data);
 	CloseMapFile(&level_update_map_data);
-    CloseMapFile(&hero_bullets_collition_grip_map_data);
-    CloseMapFile(&enemy_bullets_collition_grip_map_data);
-    CloseMapFile(&hero_instances_collition_grip_map_data);
-    CloseMapFile(&enemy_instances_collition_grip_map_data);
+    CloseMapFile(&hero_bullets_collision_grip_map_data);
+    CloseMapFile(&enemy_bullets_collision_grip_map_data);
+    CloseMapFile(&hero_instances_collision_grip_map_data);
+    CloseMapFile(&enemy_instances_collision_grip_map_data);
 }

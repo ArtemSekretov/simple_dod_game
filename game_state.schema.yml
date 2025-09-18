@@ -5,6 +5,8 @@ meta:
 constants:
  - name: state_reset
    value: 1
+ - name: state_pause
+   value: 2
 
 variables:
  - name: frame_counter

@@ -2,17 +2,23 @@ meta:
  name: collision_grid
  size: uint16_t
 
+constants:
+ - name: row_count
+   value: 16
+ - name: col_count
+   value: 15
+
 variables:
  - name: grid_row_count
    types:
     - name: grid_row_count
       type: uint8_t
-      count: 16
+      count: row_count
  - name: grid_rows
    types:
     - name: grid_rows
       type: uint8_t
-      count: 240
+      count: (row_count * col_count)
 
 ref:
  - name: collision_source_instances_bin
