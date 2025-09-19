@@ -1,6 +1,8 @@
 meta:
  name: bullets_update
  size: uint16_t
+ import:
+  - collision_source_instances
 
 constants:
  - name: source_bullets_max_instance_count

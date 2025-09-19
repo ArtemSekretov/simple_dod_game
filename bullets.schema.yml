@@ -1,6 +1,9 @@
 meta:
  name: bullets
  size: uint16_t
+ import:
+  - collision_source_types
+
 
 sheets:
  - name: source_bullet_types
@@ -62,4 +65,3 @@ maps:
       columns:
        - source: radius_q8
          target: radius_q8
-       - target: radius_q4

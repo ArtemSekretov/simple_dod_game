@@ -19,6 +19,15 @@ if(schema.hasOwnProperty('constants'))
 	});
 }
 
+const importedSchemas = {};
+if(schema.meta.hasOwnProperty('import'))
+{
+    schema.meta.import.forEach( importName => {
+        const importSchemaFile = `${importName}.schema.yml`;
+        importedSchemas[importName] = yaml.load(fs.readFileSync(importSchemaFile), 'utf8');
+    });
+}
+
 let sourceWorkbook = null;
 if(sheetFile)
 {
@@ -183,8 +192,19 @@ function buildRuntimeBinary(schema, sourceWorkbook)
         {
             const mapSegmentName = map.type;
             
-            const hasSheets = map.hasOwnProperty('sheets');
-            const hasValues = map.hasOwnProperty('variables');
+            if(!importedSchemas.hasOwnProperty(mapSegmentName))
+            {
+                Log(`missing import for map type ${mapSegmentName}`);
+                return;
+            }
+
+            const targetSchema = importedSchemas[mapSegmentName];
+
+            const targetHasSheets = targetSchema.hasOwnProperty('sheets');
+            const targetHasValues = targetSchema.hasOwnProperty('variables');
+
+            const mapHasSheets = map.hasOwnProperty('sheets');
+            const mapHasValues = map.hasOwnProperty('variables');
 
             relocationTable.push({
                 offset: data.length,
@@ -194,21 +214,47 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 
 			data.push( ...bytesAsSize([0], schema.meta.size));
 
-            if(hasSheets || hasValues)
+            if(targetHasSheets || targetHasValues)
             {
                 exportDataSegments.push( {
                     name: mapSegmentName,
                     getBytes: (data, exportDataSegments) => {
-                        if(hasSheets)
+                        if(targetHasSheets)
                         {
-                            map.sheets.forEach( mapSheet => {
-                                exportMapSheet(data, mapSegmentName, mapSheet, exportDataSegments);
+                            targetSchema.sheets.forEach( targetSheet => {
+                                let sourceSheet = null;
+                                if(mapHasSheets)
+                                {
+                                    const mapSheetIndex = map.sheets.findIndex( s => s.target == targetSheet.name);
+                                    if(mapSheetIndex != -1)
+                                    {
+                                        sourceSheet = map.sheets[mapSheetIndex];
+                                    }
+                                }
+                                exportMapSheet(data, mapSegmentName, sourceSheet, targetSheet, exportDataSegments);
                             });
                         }
-                        if(hasValues)
+                        if(targetHasValues)
                         {
-                            map.variables.forEach( value => {
-                                exportMapValue(data, mapSegmentName, value, exportDataSegments);
+                            targetSchema.variables.forEach( targetValue => {
+                                let sourceValue = "";
+                                if(mapHasValues)
+                                {    
+                                    const mapValueIndex = map.variables.findIndex( v => v.target == targetValue.name);
+                                    if(mapValueIndex != -1)
+                                    {
+                                        const mapValue = map.variables[mapValueIndex];
+                                        if(mapValue.hasOwnProperty("source"))
+                                        {
+                                            sourceValue = mapValue.source;
+                                        }
+                                        else
+                                        {
+                                            Log(`source value for ${targetValue.name} in map ${mapSegmentName} not specify`);
+                                        }
+                                    }
+                                }
+                                exportMapValue(data, mapSegmentName, sourceValue, exportDataSegments);
                             });
                         }
                     }
@@ -216,11 +262,11 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             }
         }
         
-        function exportMapValue(data, mapSegmentName, value, exportDataSegments)
+        function exportMapValue(data, mapSegmentName, sourceValue, exportDataSegments)
         {   
-            if(value.hasOwnProperty("source"))
+            if(sourceValue)
             {
-                const sourceValueSegmentName = `${schema.meta.name}:${value.source}`;
+                const sourceValueSegmentName = `${schema.meta.name}:${sourceValue}`;
                 
                 relocationTable.push({
                     offset: data.length,
@@ -234,19 +280,22 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 			data.push( ...bytesAsSize([0], schema.meta.size) );
         }
 
-        function exportMapSheet(data, mapSegmentName, mapSheet, exportDataSegments)
+        function exportMapSheet(data, mapSegmentName, sourceSheet, targetSheet, exportDataSegments)
         {   
-            const targetSheetNameSegmentName   = `${mapSegmentName}:${mapSheet.target}`;
+            const targetSheetNameSegmentName   = `${mapSegmentName}:${targetSheet.name}`;
             const targetCountOffsetSegmentName = `${targetSheetNameSegmentName}Count`;
 
             let sourceCountOffsetSegmentName = "";
             let sourceSheetNameSegmentName = "";
-            if(mapSheet.hasOwnProperty("source"))
-            {
-                sourceSheetNameSegmentName   = mapSheet.source;
-                sourceCountOffsetSegmentName = `${sourceSheetNameSegmentName}Count`;
-            }
 
+            if(sourceSheet)
+            {
+                if(sourceSheet.hasOwnProperty("source"))
+                {
+                    sourceSheetNameSegmentName   = sourceSheet.source;
+                    sourceCountOffsetSegmentName = `${sourceSheetNameSegmentName}Count`;
+                }
+            }
             relocationTable.push({
                 offset: data.length,
                 names: [sourceCountOffsetSegmentName, targetSheetNameSegmentName],
@@ -257,28 +306,52 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             // put space in data this will be patch by relocation table
 			data.push( ...bytesAsSize([0, 0], schema.meta.size) );
 
-            const mapColumns = mapSheet.columns;
+            const targetColumns = targetSheet.columns;
 
             exportDataSegments.push( {
                 name: targetSheetNameSegmentName,
                 getBytes: (data, exportDataSegments) => {
-                    mapColumns.forEach( column => {
-                        let columnSheet = sourceSheetNameSegmentName;
-                        if(column.hasOwnProperty("sheet"))
+                    targetColumns.forEach( targetColumn => {
+                        if(sourceSheet)
                         {
-                            columnSheet = column.sheet;
-                        }
+                            if(sourceSheet.hasOwnProperty("columns"))
+                            {
+                                const sourceColumnIndex = sourceSheet.columns.findIndex( c => c.target == targetColumn.name);
+                                if(sourceColumnIndex != -1)
+                                {
+                                    let columnSheet = sourceSheetNameSegmentName;
+                                    
+                                    const sourceColumn = sourceSheet.columns[sourceColumnIndex];
+                                    
+                                    if(sourceColumn.hasOwnProperty("sheet"))
+                                    {
+                                        columnSheet = sourceColumn.sheet;
+                                    }
 
-                        if(columnSheet && column.hasOwnProperty("source"))
-                        {
-                            const sourceColumnSegmentName = columnSheet + ":" + column.source;
+                                    if(columnSheet)
+                                    {
+                                        if(sourceColumn.hasOwnProperty("source"))
+                                        {
+                                            const sourceColumnSegmentName = columnSheet + ":" + sourceColumn.source;
                             
-                            relocationTable.push({
-                                offset: data.length,
-                                names: [sourceColumnSegmentName],
-                                size: schema.meta.size,
-                                relativeSegment: mapSegmentName
-                            });
+                                            relocationTable.push({
+                                                offset: data.length,
+                                                names: [sourceColumnSegmentName],
+                                                size: schema.meta.size,
+                                                relativeSegment: mapSegmentName
+                                            });
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Log(`source sheet for colum ${targetColumn.name} in sheet ${targetSheet.name} in map ${mapSegmentName} not specify`);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                Log(`columns for ${targetSheet.name} in map ${mapSegmentName} not specify`);
+                            }
                         }
 
                         // put space in data this will be patch by relocation table
@@ -607,4 +680,9 @@ function undersoreToPascal(text)
 	const words = text.split('_');
 	const capitalizedWords = words.map( word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() );
 	return capitalizedWords.join('');
+}
+
+function Log(text)
+{
+    console.log(`${text} | ${schemaFile}`)
 }

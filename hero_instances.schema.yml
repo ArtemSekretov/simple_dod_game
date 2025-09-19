@@ -1,6 +1,10 @@
 meta:
  name: hero_instances
  size: uint16_t
+ import:
+  - bullet_source_instances
+  - collision_source_instances
+  - collision_source_types
 
 constants:
  - name: max_instances
@@ -51,7 +55,7 @@ maps:
        - source: hero_type_index
          target: source_index
     - source: hero_instances
-      target: source_positions
+      target: positions
       columns:
        - source: positions
          target: positions
@@ -69,7 +73,6 @@ maps:
     - source: hero_types
       target: source_types
       columns:
-       - target: radius_q8
        - source: radius_q4
          target: radius_q4
 

@@ -1,6 +1,8 @@
 meta:
  name: level_update
  size: uint16_t
+ import:
+  - play_clock
 
 constants:
  - name: state_reset
