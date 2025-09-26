@@ -2,6 +2,12 @@ meta:
  name: collision_source_instances
  size: uint16_t
 
+variables:
+ - name: source_instances_enabled
+   types:
+    - name: source_instances_enabled
+      type: uint64_t
+
 sheets:
  - name: source_instances
    columns:

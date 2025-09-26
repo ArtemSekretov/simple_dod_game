@@ -212,7 +212,7 @@ collision_grid_print_draw(CollisionGridContext *context)
     
     printf("\033[0;0H");
 
-    for (s32 row_index = 0; row_index < kCollisionGridColCount; row_index++)
+    for (s32 row_index = 0; row_index < kCollisionGridRowCount; row_index++)
     {
         u8 count = collision_grid_row_count->GridRowCount[row_index];
         if (count > kCollisionGridColCount)
@@ -532,7 +532,7 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             collision_grid_update(&enemy_instances_collision_grip_context);
 
             #ifndef NDEBUG
-            collision_grid_print_draw(&hero_instances_collision_grip_context);
+            collision_grid_print_draw(&enemy_instances_collision_grip_context);
             #endif
 
             enemy_instances_draw(&enemy_instances_draw_context);

@@ -6,6 +6,7 @@ collision_grid_update(CollisionGridContext *context)
     CollisionSourceTypes *collision_source_types_bin = context->CollisionSourceTypesBin;
 
     u16 collision_source_instances_count = *CollisionSourceInstancesSourceInstancesCountPrt(collision_source_instances_bin);
+    u64* collision_source_instances_enabled = CollisionSourceInstancesSourceInstancesEnabledPrt(collision_source_instances_bin);
 
     CollisionSourceInstancesSourceInstances *collision_source_instances_sheet = CollisionSourceInstancesSourceInstancesPrt(collision_source_instances_bin);
     u8 *collision_source_types = CollisionSourceInstancesSourceInstancesSourceTypeIndexPrt(collision_source_instances_bin, collision_source_instances_sheet);
@@ -26,6 +27,17 @@ collision_grid_update(CollisionGridContext *context)
 
     for (u16 instance_index = 0; instance_index < collision_source_instances_count; instance_index++)
     {
+        if (collision_source_instances_enabled)
+        {
+            u16 instance_word_index = instance_index / 64;
+            u16 instance_bit_index = instance_index - (instance_word_index * 64);
+
+            if ((collision_source_instances_enabled[instance_word_index] & (1ULL << instance_bit_index)) == 0)
+            {
+                continue;
+            }
+        }
+
         v2 instance_position = collision_source_positions[instance_index];
         u8 instance_type = collision_source_types[instance_index];
         u8 instance_radius_q = collision_source_types_radius_q[instance_type];
@@ -46,7 +58,7 @@ collision_grid_update(CollisionGridContext *context)
         {
             continue;
         }
-        if ((instance_position.x - instance_radius) < -kPlayAreaHalfWidth)
+        if ((instance_position.x - instance_radius) > kPlayAreaHalfWidth)
         {
             continue;
         }
