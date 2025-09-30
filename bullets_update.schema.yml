@@ -45,7 +45,7 @@ sheets:
          type: uint16_t
          count: max_source_bullet_types_per_source_type
 
-ref:
+context:
  - name: bullets_bin
    type: bullets
  - name: bullet_source_instances_bin

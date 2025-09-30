@@ -3,7 +3,7 @@ collision_grid_update(CollisionGridContext *context)
 {
     CollisionGrid *collision_grid = context->Root;
     CollisionSourceInstances *collision_source_instances_bin = context->CollisionSourceInstancesBin;
-    CollisionSourceTypes *collision_source_types_bin = context->CollisionSourceTypesBin;
+    CollisionSourceRadius *collision_source_radius_bin = context->CollisionSourceRadiusBin;
 
     u16 collision_source_instances_count = *CollisionSourceInstancesSourceInstancesCountPrt(collision_source_instances_bin);
     u64* collision_source_instances_enabled = CollisionSourceInstancesSourceInstancesEnabledPrt(collision_source_instances_bin);
@@ -12,12 +12,12 @@ collision_grid_update(CollisionGridContext *context)
     u8 *collision_source_types = CollisionSourceInstancesSourceInstancesSourceTypeIndexPrt(collision_source_instances_bin, collision_source_instances_sheet);
     v2 *collision_source_positions = (v2*)CollisionSourceInstancesSourceInstancesPositionsPrt(collision_source_instances_bin, collision_source_instances_sheet);
 
-    CollisionSourceTypesSourceTypes *collision_source_types_sheet = CollisionSourceTypesSourceTypesPrt(collision_source_types_bin);
-    u8 *collision_source_types_radius_q8 = CollisionSourceTypesSourceTypesRadiusQ8Prt(collision_source_types_bin, collision_source_types_sheet);
-    u8 *collision_source_types_radius_q4 = CollisionSourceTypesSourceTypesRadiusQ4Prt(collision_source_types_bin, collision_source_types_sheet);
+    CollisionSourceRadiusSourceTypes *collision_source_radius_sheet = CollisionSourceRadiusSourceTypesPrt(collision_source_radius_bin);
+    u8 *collision_source_radius_q8 = CollisionSourceRadiusSourceTypesRadiusQ8Prt(collision_source_radius_bin, collision_source_radius_sheet);
+    u8 *collision_source_radius_q4 = CollisionSourceRadiusSourceTypesRadiusQ4Prt(collision_source_radius_bin, collision_source_radius_sheet);
 
-    u8 *collision_source_types_radius_q = collision_source_types_radius_q4 ? collision_source_types_radius_q4 : collision_source_types_radius_q8;
-    f32 radius_multiplier = collision_source_types_radius_q4 ? kQ4ToFloat : kQ8ToFloat;
+    u8 *collision_source_radius_q = collision_source_radius_q4 ? collision_source_radius_q4 : collision_source_radius_q8;
+    f32 radius_multiplier = collision_source_radius_q4 ? kQ4ToFloat : kQ8ToFloat;
 
     CollisionGridGridRowCount *collision_grid_row_count = CollisionGridGridRowCountPrt(collision_grid);
     CollisionGridGridRows *collision_grid_rows = CollisionGridGridRowsPrt(collision_grid);
@@ -40,7 +40,7 @@ collision_grid_update(CollisionGridContext *context)
 
         v2 instance_position = collision_source_positions[instance_index];
         u8 instance_type = collision_source_types[instance_index];
-        u8 instance_radius_q = collision_source_types_radius_q[instance_type];
+        u8 instance_radius_q = collision_source_radius_q[instance_type];
         f32 instance_radius = ((f32)instance_radius_q) * radius_multiplier;
 
         s32 top = clamp_s32(0, (s32)((0.5f + ((instance_position.y + instance_radius) / kPlayAreaHeight)) * kCollisionGridRowCount), kCollisionGridRowCount - 1);

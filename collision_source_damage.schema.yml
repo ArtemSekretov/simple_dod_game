@@ -1,0 +1,11 @@
+meta:
+ name: collision_source_damage
+ size: uint16_t
+
+sheets:
+ - name: source_types
+   columns:
+    - name: damage
+      sources: 
+       - name: damage
+         type: uint16_t

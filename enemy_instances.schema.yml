@@ -5,7 +5,8 @@ meta:
   - bullet_source_instances
   - enemy_instances_wave
   - collision_source_instances
-  - collision_source_types
+  - collision_source_radius
+  - collision_source_damage
 
 constants:
  - name: cell_width
@@ -98,6 +99,14 @@ sheets:
       sources: 
        - name: movement_speed_q4
          type: uint8_t
+    - name: health
+      sources: 
+       - name: health
+         type: uint16_t
+    - name: damage
+      sources: 
+       - name: damage
+         type: uint16_t
  - name: level_wave_index
    columns:
     - name: level_wave
@@ -127,7 +136,7 @@ sheets:
        - name: way_point_index
          type: uint8_t
 
-ref:
+context:
  - name: game_state_bin
    type: game_state
  - name: wave_update_bin
@@ -154,10 +163,17 @@ maps:
        - sheet: enemy_positions
          source: positions
          target: positions
- - type: collision_source_types
+ - type: collision_source_radius
    sheets:
     - source: enemy_types
       target: source_types
       columns:
        - target: radius_q4
          source: radius_q4
+ - type: collision_source_damage
+   sheets:
+    - source: enemy_types
+      target: source_types
+      columns:
+       - target: damage
+         source: damage

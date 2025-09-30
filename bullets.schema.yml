@@ -2,7 +2,8 @@ meta:
  name: bullets
  size: uint16_t
  import:
-  - collision_source_types
+  - collision_source_radius
+  - collision_source_damage
 
 
 sheets:
@@ -48,6 +49,14 @@ sheets:
       sources: 
        - name: movement_speed_q4
          type: uint8_t
+    - name: health
+      sources: 
+       - name: health
+         type: uint16_t
+    - name: damage
+      sources: 
+       - name: damage
+         type: uint16_t
  - name: source_types
    columns:
     - name: source_bullet_types
@@ -58,10 +67,17 @@ sheets:
          type: uint8_t
 
 maps:
- - type: collision_source_types
+ - type: collision_source_radius
    sheets:
     - source: bullet_types
       target: source_types
       columns:
        - source: radius_q8
          target: radius_q8
+ - type: collision_source_damage
+   sheets:
+    - source: bullet_types
+      target: source_types
+      columns:
+       - source: damage
+         target: damage

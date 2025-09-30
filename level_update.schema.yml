@@ -22,7 +22,7 @@ variables:
     - name: state
       type: uint32_t
 
-ref:
+context:
  - name: enemy_bullets_update_bin
    type: bullets_update
  - name: enemy_instances_bin

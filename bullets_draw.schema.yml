@@ -2,7 +2,7 @@ meta:
  name: bullets_draw
  size: uint16_t
 
-ref:
+context:
  - name: bullets_bin
    type: bullets
  - name: bullets_update_bin

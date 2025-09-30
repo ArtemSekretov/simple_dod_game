@@ -1,0 +1,43 @@
+meta:
+ name: collision_damage
+ size: uint16_t
+
+constants:
+ - name: max_damage_count
+   value: 64
+
+context:
+ - name: a_collision_grid_bin
+   type: collision_grid
+ - name: a_collision_source_instances_bin
+   type: collision_source_instances
+ - name: a_collision_source_radius_bin
+   type: collision_source_radius
+ - name: a_collision_source_damage_bin
+   type: collision_source_damage
+ - name: b_collision_grid_bin
+   type: collision_grid
+ - name: b_collision_source_instances_bin
+   type: collision_source_instances
+ - name: b_collision_source_radius_bin
+   type: collision_source_radius
+ - name: b_collision_source_damage_bin
+   type: collision_source_damage
+
+sheets:
+ - name: damage
+   capacity: max_damage_count
+   columns:
+    - name: position
+      sources: 
+       - name: position
+         type: float
+         count: 2
+    - name: value
+      sources: 
+       - name: value
+         type: uint16_t
+    - name: time
+      sources: 
+       - name: time
+         type: float

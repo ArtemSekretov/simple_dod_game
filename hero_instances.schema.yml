@@ -4,7 +4,8 @@ meta:
  import:
   - bullet_source_instances
   - collision_source_instances
-  - collision_source_types
+  - collision_source_radius
+  - collision_source_damage
 
 constants:
  - name: max_instances
@@ -40,6 +41,14 @@ sheets:
       sources: 
        - name: radius_q4
          type: uint8_t
+    - name: health
+      sources: 
+       - name: health
+         type: uint16_t
+    - name: damage
+      sources: 
+       - name: damage
+         type: uint16_t
 
 maps:
  - type: bullet_source_instances
@@ -68,14 +77,21 @@ maps:
          target: source_type_index
        - source: positions
          target: positions
- - type: collision_source_types
+ - type: collision_source_radius
    sheets:
     - source: hero_types
       target: source_types
       columns:
        - source: radius_q4
          target: radius_q4
+ - type: collision_source_damage
+   sheets:
+    - source: hero_types
+      target: source_types
+      columns:
+       - source: damage
+         target: damage
 
-ref:
+context:
  - name: game_state_bin
    type: game_state

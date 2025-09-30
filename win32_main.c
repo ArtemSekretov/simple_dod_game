@@ -43,7 +43,9 @@
 
 #include "collision_grid.h"
 #include "collision_source_instances.h"
-#include "collision_source_types.h"
+#include "collision_source_radius.h"
+#include "collision_source_damage.h"
+#include "collision_damage.h"
 
 #include "enemy_instances_update.c"
 #include "enemy_instances_draw.c"
@@ -56,6 +58,7 @@
 #include "level_update.c"
 #include "wave_update.c"
 #include "collision_grid_update.c"
+#include "collision_damage_update.c"
 
 #define AssertHR(hr) Assert(SUCCEEDED(hr))
 
@@ -351,18 +354,15 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     MapFileData enemy_instances_collision_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
     CollisionGrid *enemy_instances_collision_grip       = (CollisionGrid *)enemy_instances_collision_grip_map_data.data;
 
-    BulletSourceInstances *enemy_bullet_source_instances = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
-    BulletSourceInstances *hero_bullet_source_instances  = HeroInstancesBulletSourceInstancesMapPrt(hero_instances);
-
-    PlayClock *enemy_play_clock = WaveUpdatePlayClockMapPrt(wave_update_data);
-    PlayClock *hero_play_clock  = LevelUpdatePlayClockMapPrt(level_update_data);
+    MapFileData enemy_instances_vs_hero_bullets_collision_damage_map_data = CreateMapFile("collision_damage.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionDamage *enemy_instances_vs_hero_bullets_collision_damage     = (CollisionDamage *)enemy_instances_vs_hero_bullets_collision_damage_map_data.data;
 
     BulletsUpdateContext enemy_bullets_update_context;
     enemy_bullets_update_context.Root                     = enemy_bullets_update_data;
     enemy_bullets_update_context.BulletsBin               = enemy_bullets;
-    enemy_bullets_update_context.BulletSourceInstancesBin = enemy_bullet_source_instances;
+    enemy_bullets_update_context.BulletSourceInstancesBin = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
     enemy_bullets_update_context.GameStateBin             = game_state;
-    enemy_bullets_update_context.PlayClockBin             = enemy_play_clock;
+    enemy_bullets_update_context.PlayClockBin             = WaveUpdatePlayClockMapPrt(wave_update_data);
 
     BulletsDrawContext enemy_bullets_draw_context;
     enemy_bullets_draw_context.BulletsBin       = enemy_bullets;
@@ -372,9 +372,9 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     BulletsUpdateContext hero_bullets_update_context;
     hero_bullets_update_context.Root                     = hero_bullets_update_data;
     hero_bullets_update_context.BulletsBin               = hero_bullets;
-    hero_bullets_update_context.BulletSourceInstancesBin = hero_bullet_source_instances;
+    hero_bullets_update_context.BulletSourceInstancesBin = HeroInstancesBulletSourceInstancesMapPrt(hero_instances);
     hero_bullets_update_context.GameStateBin             = game_state;
-    hero_bullets_update_context.PlayClockBin             = hero_play_clock;
+    hero_bullets_update_context.PlayClockBin             = LevelUpdatePlayClockMapPrt(level_update_data);
 
     BulletsDrawContext hero_bullets_draw_context;
     hero_bullets_draw_context.BulletsBin       = hero_bullets;
@@ -415,22 +415,36 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     CollisionGridContext hero_bullets_collision_grip_context;
     hero_bullets_collision_grip_context.Root = hero_bullets_collision_grip;
     hero_bullets_collision_grip_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(hero_bullets_update_data);
-    hero_bullets_collision_grip_context.CollisionSourceTypesBin = BulletsCollisionSourceTypesMapPrt(hero_bullets);
+    hero_bullets_collision_grip_context.CollisionSourceRadiusBin = BulletsCollisionSourceRadiusMapPrt(hero_bullets);
 
     CollisionGridContext enemy_bullets_collision_grip_context;
     enemy_bullets_collision_grip_context.Root = enemy_bullets_collision_grip;
     enemy_bullets_collision_grip_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(enemy_bullets_update_data);
-    enemy_bullets_collision_grip_context.CollisionSourceTypesBin = BulletsCollisionSourceTypesMapPrt(enemy_bullets);
+    enemy_bullets_collision_grip_context.CollisionSourceRadiusBin = BulletsCollisionSourceRadiusMapPrt(enemy_bullets);
 
     CollisionGridContext hero_instances_collision_grip_context;
     hero_instances_collision_grip_context.Root = hero_instances_collision_grip;
     hero_instances_collision_grip_context.CollisionSourceInstancesBin = HeroInstancesCollisionSourceInstancesMapPrt(hero_instances);
-    hero_instances_collision_grip_context.CollisionSourceTypesBin = HeroInstancesCollisionSourceTypesMapPrt(hero_instances);
+    hero_instances_collision_grip_context.CollisionSourceRadiusBin = HeroInstancesCollisionSourceRadiusMapPrt(hero_instances);
 
     CollisionGridContext enemy_instances_collision_grip_context;
     enemy_instances_collision_grip_context.Root = enemy_instances_collision_grip;
     enemy_instances_collision_grip_context.CollisionSourceInstancesBin = EnemyInstancesCollisionSourceInstancesMapPrt(enemy_instances);
-    enemy_instances_collision_grip_context.CollisionSourceTypesBin = EnemyInstancesCollisionSourceTypesMapPrt(enemy_instances);
+    enemy_instances_collision_grip_context.CollisionSourceRadiusBin = EnemyInstancesCollisionSourceRadiusMapPrt(enemy_instances);
+
+    CollisionDamageContext enemy_instances_vs_hero_bullets_collision_damage_context;
+    enemy_instances_vs_hero_bullets_collision_damage_context.Root = enemy_instances_vs_hero_bullets_collision_damage;
+    
+    enemy_instances_vs_hero_bullets_collision_damage_context.ACollisionGridBin = enemy_instances_collision_grip;
+    enemy_instances_vs_hero_bullets_collision_damage_context.ACollisionSourceInstancesBin = enemy_instances_collision_grip_context.CollisionSourceInstancesBin;
+    enemy_instances_vs_hero_bullets_collision_damage_context.ACollisionSourceRadiusBin = enemy_instances_collision_grip_context.CollisionSourceRadiusBin;
+    enemy_instances_vs_hero_bullets_collision_damage_context.ACollisionSourceDamageBin = EnemyInstancesCollisionSourceDamageMapPrt(enemy_instances);
+
+    enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionGridBin = hero_bullets_collision_grip;
+    enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceInstancesBin = hero_bullets_collision_grip_context.CollisionSourceInstancesBin;
+    enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceRadiusBin = hero_bullets_collision_grip_context.CollisionSourceRadiusBin;
+    enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceDamageBin = BulletsCollisionSourceDamageMapPrt(hero_bullets);
+
 
     f32 *time_delta_ptr          = GameStateTimeDeltaPrt(game_state);
     f64 *time_ptr                = GameStateTimePrt(game_state);
@@ -531,6 +545,8 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             collision_grid_update(&hero_instances_collision_grip_context);
             collision_grid_update(&enemy_instances_collision_grip_context);
 
+            collision_damage_update(&enemy_instances_vs_hero_bullets_collision_damage_context);
+
             #ifndef NDEBUG
             collision_grid_print_draw(&enemy_instances_collision_grip_context);
             #endif
@@ -565,4 +581,5 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     CloseMapFile(&enemy_bullets_collision_grip_map_data);
     CloseMapFile(&hero_instances_collision_grip_map_data);
     CloseMapFile(&enemy_instances_collision_grip_map_data);
+    CloseMapFile(&enemy_instances_vs_hero_bullets_collision_damage_map_data);
 }

@@ -2,7 +2,7 @@ meta:
  name: enemy_instances_draw
  size: uint16_t
 
-ref:
+context:
  - name: enemy_instances_bin
    type: enemy_instances
  - name: frame_data_bin

@@ -114,7 +114,7 @@ function buildCHeader(schema)
             });
         }	   
         
-        if(schema.hasOwnProperty('ref'))
+        if(schema.hasOwnProperty('context'))
         {
             const contextStructName = `${rootStructName}Context`
 
@@ -128,14 +128,14 @@ function buildCHeader(schema)
                 contextStruct.fields.push(`${rootStructName} *Root`);
             }
 
-            contextStruct.fields.push( ...schema.ref.map(ref => {
+            contextStruct.fields.push( ...schema.context.map(ref => {
                 const refName = undersoreToPascal(ref.name);
                 const refType = undersoreToPascal(ref.type);
 
                 return `${refType} *${refName}`;
             }));
 
-            exportTypes.refStructs.push( ...schema.ref.map(ref => {
+            exportTypes.refStructs.push( ...schema.context.map(ref => {
                 const refType = undersoreToPascal(ref.type);
 
                 return refType;

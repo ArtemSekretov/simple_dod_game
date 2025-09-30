@@ -58,11 +58,16 @@ where /q node && (
         start /B node export_c_header.js play_clock.schema.yml generated/play_clock.h >CON 2>CON
 
         start /B node export_c_header.js collision_source_instances.schema.yml generated/collision_source_instances.h >CON 2>CON
-        start /B node export_c_header.js collision_source_types.schema.yml generated/collision_source_types.h >CON 2>CON
+        start /B node export_c_header.js collision_source_radius.schema.yml generated/collision_source_radius.h >CON 2>CON
+        start /B node export_c_header.js collision_source_damage.schema.yml generated/collision_source_damage.h >CON 2>CON
 
         start /B node export_c_header.js collision_grid.schema.yml generated/collision_grid.h >CON 2>CON
         start /B node export_runtime_binary.js collision_grid.schema.yml build/collision_grid.bin >CON 2>CON
         start /B node export_imhex_pattern.js collision_grid.schema.yml generated/collision_grid.hexpat >CON 2>CON
+
+        start /B node export_c_header.js collision_damage.schema.yml generated/collision_damage.h >CON 2>CON
+        start /B node export_runtime_binary.js collision_damage.schema.yml build/collision_damage.bin >CON 2>CON
+        start /B node export_imhex_pattern.js collision_damage.schema.yml generated/collision_damage.hexpat >CON 2>CON
 
     ) | pause
 

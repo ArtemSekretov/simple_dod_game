@@ -20,8 +20,8 @@ variables:
       type: uint8_t
       count: (row_count * col_count)
 
-ref:
+context:
  - name: collision_source_instances_bin
    type: collision_source_instances
- - name: collision_source_types_bin
-   type: collision_source_types
+ - name: collision_source_radius_bin
+   type: collision_source_radius

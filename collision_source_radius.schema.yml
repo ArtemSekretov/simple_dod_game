@@ -1,5 +1,5 @@
 meta:
- name: collision_source_types
+ name: collision_source_radius
  size: uint16_t
 
 sheets:

@@ -448,7 +448,7 @@ function findSheetByName(sheets, sheetName)
     }
     else
     {
-        console.log(`Unable find sheet ${sheetName} mapping`);
+        Log(`Unable find sheet ${sheetName} mapping`);
     }
 
     return sheet;
@@ -473,4 +473,9 @@ function lowerFirstCharacter(text)
 {
 	const result = text.charAt(0).toLowerCase() + text.slice(1);
 	return result;
+}
+
+function Log(text)
+{
+    console.log(`${text} | ${schemaFile}`)
 }
