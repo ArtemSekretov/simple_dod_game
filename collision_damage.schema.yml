@@ -23,9 +23,27 @@ context:
    type: collision_source_radius
  - name: b_collision_source_damage_bin
    type: collision_source_damage
+ - name: level_update_bin
+   type: level_update
 
 sheets:
- - name: damage
+ - name: a_damage
+   capacity: max_damage_count
+   columns:
+    - name: position
+      sources: 
+       - name: position
+         type: float
+         count: 2
+    - name: value
+      sources: 
+       - name: value
+         type: uint16_t
+    - name: time
+      sources: 
+       - name: time
+         type: float
+ - name: b_damage
    capacity: max_damage_count
    columns:
     - name: position

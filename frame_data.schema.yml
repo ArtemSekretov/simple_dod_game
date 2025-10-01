@@ -5,8 +5,6 @@ meta:
 constants:
  - name: max_object_data_capacity
    value: 512
- - name: spatial_grid_resolution
-   value: 32
 
 variables:
  - name: screen_size
@@ -25,10 +23,6 @@ variables:
       type: float
     - name: height
       type: float
- - name: frame_object_count
-   types:
-    - name: frame_object_count
-      type: uint32_t
 
 sheets:
  - name: frame_data

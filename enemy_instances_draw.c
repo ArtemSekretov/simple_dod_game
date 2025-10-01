@@ -10,7 +10,6 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
     u16 *frame_data_count_ptr   = FrameDataFrameDataCountPrt(frame_data);
-    u32 *frame_object_count_ptr = FrameDataFrameObjectCountPrt(frame_data);
 
     EnemyInstancesEnemyTypes *enemy_sheet = EnemyInstancesEnemyTypesPrt(enemy_instances);
 
@@ -40,7 +39,7 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
 
         v2 enemy_instance_position = enemy_instances_positions[wave_instance_index];
 
-        u16 frame_data_count = *frame_data_count_ptr;
+        u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
         FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
 
         object_data->PositionAndScale[0] = enemy_instance_position.x;
@@ -51,7 +50,6 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
         object_data->Color[1] = 1.0f;
         object_data->Color[2] = 1.0f;
 
-        *frame_data_count_ptr = (frame_data_count + 1) % kFrameDataMaxObjectDataCapacity;
-        (*frame_object_count_ptr)++;
+        (*frame_data_count_ptr)++;
     }
 }

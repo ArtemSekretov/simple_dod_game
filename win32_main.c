@@ -176,7 +176,6 @@ void
 begin_frame(FrameData *frame_data, f32 game_aspect, s32 screen_width, s32 screen_height)
 {
     u16 *frame_data_count_prt   = FrameDataFrameDataCountPrt(frame_data);
-    u32 *frame_object_count_ptr = FrameDataFrameObjectCountPrt(frame_data);
 
     FrameDataViewport *viewport_prt      = FrameDataViewportPrt(frame_data);
     FrameDataScreenSize *screen_size_prt = FrameDataScreenSizePrt(frame_data);
@@ -184,7 +183,6 @@ begin_frame(FrameData *frame_data, f32 game_aspect, s32 screen_width, s32 screen
     screen_size_prt->Width  = screen_width;
     screen_size_prt->Height = screen_height;
     *frame_data_count_prt   = 0;
-    *frame_object_count_ptr = 0;
 
     f32 window_aspect = (f32)screen_size_prt->Width / screen_size_prt->Height;
 
@@ -246,6 +244,62 @@ collision_grid_print_draw(CollisionGridContext *context)
     }
 }
 #endif
+
+static void
+collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
+{
+    CollisionDamage *collision_damage_bin = context->Root;
+    
+    u16 a_damage_count = (*CollisionDamageADamageCountPrt(collision_damage_bin)) % kCollisionDamageMaxDamageCount;
+    u16 b_damage_count = (*CollisionDamageBDamageCountPrt(collision_damage_bin)) % kCollisionDamageMaxDamageCount;
+
+    CollisionDamageADamage *collision_damage_a_damage_sheet = CollisionDamageADamagePrt(collision_damage_bin);
+    v2 *a_damage_position_prt = (v2*)CollisionDamageADamagePositionPrt(collision_damage_bin, collision_damage_a_damage_sheet);
+    CollisionDamageBDamage *collision_damage_b_damage_sheet = CollisionDamageBDamagePrt(collision_damage_bin);
+    v2 *b_damage_position_prt = (v2*)CollisionDamageBDamagePositionPrt(collision_damage_bin, collision_damage_b_damage_sheet);
+
+    FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
+    FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
+
+    u16 *frame_data_count_ptr   = FrameDataFrameDataCountPrt(frame_data);
+
+    for (u16 a_damage_index = 0; a_damage_index < a_damage_count; a_damage_index++)
+    {
+        v2 damage_position = a_damage_position_prt[a_damage_index];
+
+        u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
+        FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
+
+        object_data->PositionAndScale[0] = damage_position.x;
+        object_data->PositionAndScale[1] = damage_position.y;
+        object_data->PositionAndScale[2] = 0.1f;
+
+        object_data->Color[0] = 1.0f;
+        object_data->Color[1] = 0.0f;
+        object_data->Color[2] = 1.0f;
+
+        (*frame_data_count_ptr)++;
+    }
+
+    for (u16 b_damage_index = 0; b_damage_index < b_damage_count; b_damage_index++)
+    {
+        v2 damage_position = b_damage_position_prt[b_damage_index];
+
+        u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
+        FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
+
+        object_data->PositionAndScale[0] = damage_position.x;
+        object_data->PositionAndScale[1] = damage_position.y;
+        object_data->PositionAndScale[2] = 0.1f;
+
+        object_data->Color[0] = 1.0f;
+        object_data->Color[1] = 1.0f;
+        object_data->Color[2] = 1.0f;
+
+        (*frame_data_count_ptr)++;
+    }
+
+}
 
 int WINAPI 
 WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
@@ -444,6 +498,7 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceInstancesBin = hero_bullets_collision_grip_context.CollisionSourceInstancesBin;
     enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceRadiusBin = hero_bullets_collision_grip_context.CollisionSourceRadiusBin;
     enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceDamageBin = BulletsCollisionSourceDamageMapPrt(hero_bullets);
+    enemy_instances_vs_hero_bullets_collision_damage_context.LevelUpdateBin = level_update_data;
 
 
     f32 *time_delta_ptr          = GameStateTimeDeltaPrt(game_state);
@@ -555,6 +610,8 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             hero_instances_draw(&hero_instances_draw_context);
             bullets_draw(&enemy_bullets_draw_context);
             bullets_draw(&hero_bullets_draw_context);
+
+            collision_damage_draw(&enemy_instances_vs_hero_bullets_collision_damage_context, frame_data);
 
             *time_ptr += *time_delta_ptr;
             *play_time_ptr += *time_delta_ptr;

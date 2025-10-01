@@ -8,7 +8,6 @@ hero_instances_draw(HeroInstancesDrawContext *context)
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
     u16 *frame_data_count_ptr   = FrameDataFrameDataCountPrt(frame_data);
-    u32 *frame_object_count_ptr = FrameDataFrameObjectCountPrt(frame_data);
 
     u64 hero_instances_live  = *HeroInstancesInstancesLivePrt(hero_instances);
     u16 hero_instances_count = *HeroInstancesHeroInstancesCountPrt(hero_instances);
@@ -34,7 +33,7 @@ hero_instances_draw(HeroInstancesDrawContext *context)
 
         v2 hero_instance_position = hero_instances_positions[wave_instance_index];
 
-        u16 frame_data_count = *frame_data_count_ptr;
+        u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
         FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
 
         object_data->PositionAndScale[0] = hero_instance_position.x;
@@ -45,7 +44,6 @@ hero_instances_draw(HeroInstancesDrawContext *context)
         object_data->Color[1] = 1.0f;
         object_data->Color[2] = 0.0f;
 
-        *frame_data_count_ptr = (frame_data_count + 1) % kFrameDataMaxObjectDataCapacity;
-        (*frame_object_count_ptr)++;
+        (*frame_data_count_ptr)++;
     }
 }

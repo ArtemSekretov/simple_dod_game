@@ -71,6 +71,9 @@ function buildCHeader(schema)
                 fields.push(`${schema.meta.size} ${mapType}MapOffset`);
 
             	exportTypes.functions.push({
+                    returnType: `${mapType}`,
+                    name: `*${map.type}_map_prt`,
+                    call: `${rootStructName}${mapType}MapPrt(${schema.meta.name}_bin)`,
 				    declaration: `${mapType} *${rootStructName}${mapType}MapPrt(${rootStructName} *root)`,
 				    body: `return (root->${mapType}MapOffset) ? (${mapType} *)((uintptr_t)root + root->${mapType}MapOffset) : NULL;`
 			    });
@@ -89,6 +92,9 @@ function buildCHeader(schema)
 
             sheets.forEach( sheet => {
             	exportTypes.functions.push({
+                    returnType: `${schema.meta.size}`,
+                    name: `*${sheet.name}_count_prt`,
+                    call: `${rootStructName}${undersoreToPascal(sheet.name)}CountPrt(${schema.meta.name}_bin)`,
 				    declaration: `${schema.meta.size} *${rootStructName}${undersoreToPascal(sheet.name)}CountPrt(${rootStructName} *root)`,
 				    body: `return (root->${undersoreToPascal(sheet.name)}CountOffset) ? (${schema.meta.size} *)((uintptr_t)root + root->${undersoreToPascal(sheet.name)}CountOffset) : NULL;`
 			    });
@@ -155,6 +161,9 @@ function buildCHeader(schema)
             const variableType = exportComplexTypes(`${rootStructName}${undersoreToPascal(variable.name)}`, types, exportTypes);
 
             exportTypes.functions.push({
+                returnType: `${variableType.type}`,
+                name: `*${variable.name}_prt`,
+                call: `${rootStructName}${variableName}Prt(${schema.meta.name}_bin)`,
 				declaration: `${variableType.type} *${rootStructName}${variableName}Prt(${rootStructName} *root)`,
 				body: `return (root->${variableName}Offset) ? (${variableType.type} *)((uintptr_t)root + root->${variableName}Offset) : NULL;`
 			});
@@ -175,6 +184,9 @@ function buildCHeader(schema)
 			});
 			
 			exportTypes.functions.push({
+                returnType: `${sheetStructName}`,
+                name: `*${schema.meta.name}_${sheet.name}_sheet`,
+                call: `${sheetStructName}Prt(${schema.meta.name}_bin)`,
 				declaration: `${sheetStructName} *${sheetStructName}Prt(${rootStructName} *root)`,
 				body: `return (root->${undersoreToPascal(sheetName)}Offset) ? (${sheetStructName} *)((uintptr_t)root + root->${undersoreToPascal(sheetName)}Offset) : NULL;`
 			});
@@ -194,6 +206,9 @@ function buildCHeader(schema)
             const columnType = exportComplexTypes(columnStructName, sources, exportTypes);
 
 			exportTypes.functions.push({
+                returnType: `${columnType.type}`,
+                name: `*${sheetName}_${column.name}_prt`,
+                call: `${columnStructName}Prt(${schema.meta.name}_bin, ${schema.meta.name}_${sheetName}_sheet)`,
 				declaration: `${columnType.type} *${columnStructName}Prt(${rootStructName} *root, ${sheetStructName} *sheet)`,
 				body: `return (sheet->${undersoreToPascal(column.name)}Offset) ? (${columnType.type} *)((uintptr_t)root + sheet->${undersoreToPascal(column.name)}Offset) : NULL;`
 			});
@@ -339,19 +354,59 @@ function buildCHeader(schema)
             text += '\n';
         }
 
-		exportTypes.functions.forEach((fun) => {
-			text += `static inline`
-			text += '\n';
-			text += fun.declaration;
-			text += '\n';
-			text += '{';
-			text += '\n';
-			text += `  ${fun.body}`;
-			text += '\n';
-			text += '}'
-			text += '\n';
-		});
+        if(exportTypes.functions.length > 0)
+        {
+            exportTypes.functions.forEach((fun) => {
+                text += `static inline`
+                text += '\n';
+                text += fun.declaration;
+                text += '\n';
+                text += '{';
+                text += '\n';
+                text += `  ${fun.body}`;
+                text += '\n';
+                text += '}'
+                text += '\n';
+            });
 		
+            text += '\n';
+
+            text += '/* functions\n';
+            exportTypes.functions.forEach((fun) => {
+                text += `${fun.returnType} ${fun.name} = ${fun.call};`
+                text += '\n';
+            });
+            text += '*/\n';
+        }
+
+        if(schema.hasOwnProperty('context'))
+        {
+            text += '/* context\n';
+            const rootStructName = undersoreToPascal(schema.meta.name);
+            const contextStructName = `${rootStructName}Context`
+
+            const hasSheets    = schema.hasOwnProperty('sheets');
+            const hasVariables = schema.hasOwnProperty('variables');
+            const hasMaps      = schema.hasOwnProperty('maps');
+
+		    const hasRootStruct = hasSheets || hasVariables || hasMaps;
+
+            if(hasRootStruct)
+            {
+                text += `${rootStructName} *${schema.meta.name}_bin = context->Root;`;
+                text += '\n';
+            }
+
+            schema.context.forEach(ref => {
+                const refName = undersoreToPascal(ref.name);
+                const refType = undersoreToPascal(ref.type);
+
+                text += `${refType} *${ref.name} = context->${refName};`;
+                text += '\n';
+            });
+            text += '*/\n';
+        }
+
 		return text;
 	}
 }

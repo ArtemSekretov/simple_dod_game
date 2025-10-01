@@ -1758,7 +1758,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         FrameDataFrameData* frame_data_sheet = FrameDataFrameDataPrt(frame_data);
         FrameDataFrameDataObjectData* object_data = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
-        u32 frame_object_count = *FrameDataFrameObjectCountPrt(frame_data);
+        u32 frame_object_count = *FrameDataFrameDataCountPrt(frame_data);
 
         u32 object_count_this_frame = min(frame_object_count, kFrameDataMaxObjectDataCapacity);
 
