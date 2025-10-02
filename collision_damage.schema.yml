@@ -43,6 +43,10 @@ sheets:
       sources: 
        - name: time
          type: float
+    - name: source_instance_index
+      sources: 
+       - name: source_instance_index
+         type: uint8_t
  - name: b_damage
    capacity: max_damage_count
    columns:
@@ -59,3 +63,7 @@ sheets:
       sources: 
        - name: time
          type: float
+    - name: source_instance_index
+      sources: 
+       - name: source_instance_index
+         type: uint8_t
