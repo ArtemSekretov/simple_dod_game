@@ -16,6 +16,10 @@ variables:
    types:
     - name: instances_live
       type: uint64_t
+ - name: instances_reset
+   types:
+    - name: instances_reset
+      type: uint64_t
 
 sheets:
  - name: hero_instances
@@ -69,6 +73,9 @@ maps:
        - source: positions
          target: positions
  - type: collision_source_instances
+   variables:
+    - source: instances_reset
+      target: source_instances_reset
    sheets:
     - source: hero_instances
       target: source_instances

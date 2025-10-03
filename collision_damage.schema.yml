@@ -3,8 +3,10 @@ meta:
  size: uint16_t
 
 constants:
- - name: max_damage_count
+ - name: max_damage_event_count
    value: 64
+ - name: max_source_instances_count
+   value: 256
 
 context:
  - name: a_collision_grid_bin
@@ -27,43 +29,47 @@ context:
    type: level_update
 
 sheets:
- - name: a_damage
-   capacity: max_damage_count
+ - name: damage_events
+   capacity: max_damage_event_count
    columns:
-    - name: position
+    - name: a_position
       sources: 
-       - name: position
+       - name: a_position
          type: float
          count: 2
-    - name: value
+    - name: b_position
       sources: 
-       - name: value
+       - name: b_position
+         type: float
+         count: 2
+    - name: a_value
+      sources: 
+       - name: a_value
          type: uint16_t
+    - name: b_value
+      sources: 
+       - name: b_value
+         type: uint16_t
+    - name: a_source_instance_index
+      sources: 
+       - name: a_source_instance_index
+         type: uint8_t
+    - name: b_source_instance_index
+      sources: 
+       - name: b_source_instance_index
+         type: uint8_t
     - name: time
       sources: 
        - name: time
          type: float
-    - name: source_instance_index
-      sources: 
-       - name: source_instance_index
-         type: uint8_t
- - name: b_damage
-   capacity: max_damage_count
+ - name: accumulated_damage
+   capacity: max_source_instances_count
    columns:
-    - name: position
+    - name: a_value
       sources: 
-       - name: position
-         type: float
-         count: 2
-    - name: value
-      sources: 
-       - name: value
+       - name: a_value
          type: uint16_t
-    - name: time
+    - name: b_value
       sources: 
-       - name: time
-         type: float
-    - name: source_instance_index
-      sources: 
-       - name: source_instance_index
-         type: uint8_t
+       - name: b_value
+         type: uint16_t

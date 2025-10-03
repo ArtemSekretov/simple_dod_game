@@ -14,9 +14,9 @@ bullets_draw(BulletsDrawContext *context)
     BulletsBulletTypes *bullet_types_sheet = BulletsBulletTypesPrt(bullets);
 
     u8 *bullet_types_radius_q8  = BulletsBulletTypesRadiusQ8Prt(bullets, bullet_types_sheet);
-    u32 wave_spawn_count        = *BulletsUpdateWaveSpawnCountPrt(bullets_update);
+    u32 spawn_count        = *BulletsUpdateSpawnCountPrt(bullets_update);
 
-    s32 draw_count = min(kBulletsUpdateSourceBulletsMaxInstanceCount, wave_spawn_count);
+    s32 draw_count = min(kBulletsUpdateSourceBulletsMaxInstanceCount, spawn_count);
     
     BulletsUpdateBulletPositions *bullet_update_positions_sheet = BulletsUpdateBulletPositionsPrt(bullets_update);
     v2 *bullets_positions                                       = (v2 *)BulletsUpdateBulletPositionsCurrentPositionPrt(bullets_update, bullet_update_positions_sheet);

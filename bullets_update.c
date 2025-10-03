@@ -42,7 +42,8 @@ bullets_spawn(BulletsUpdateContext *context)
     u16 bullet_source_positions_count = *BulletSourceInstancesPositionsCountPrt(bullet_source_instances);
     
     u16 *bullet_positions_count_ptr = BulletsUpdateBulletPositionsCountPrt(bullets_update);
-    u32 *wave_spawn_count_ptr       = BulletsUpdateWaveSpawnCountPrt(bullets_update);
+    u32 *spawn_count_ptr       = BulletsUpdateSpawnCountPrt(bullets_update);
+    BulletsUpdateInstancesReset *instances_reset_prt = BulletsUpdateInstancesResetPrt(bullets_update);
 
     for (u8 wave_instance_index = 0; wave_instance_index < bullet_source_positions_count; wave_instance_index++)
     {
@@ -117,14 +118,19 @@ bullets_spawn(BulletsUpdateContext *context)
                 continue;
             }
 
-            u16 bullet_positions_count = *bullet_positions_count_ptr;
+            u16 bullet_instance_index = *bullet_positions_count_ptr;
 
-            bullets_update_positions[bullet_positions_count] = spawn_position;
-            bullets_update_end_positions[bullet_positions_count] = end_position;
-            bullets_update_type_index[bullet_positions_count] = bullet_type_index;
+            u16 bullet_instance_word_index = bullet_instance_index / 64;
+            u16 bullet_instance_bit_index = bullet_instance_index - (bullet_instance_word_index * 64);
 
-            *bullet_positions_count_ptr = (bullet_positions_count + 1) % kBulletsUpdateSourceBulletsMaxInstanceCount;
-            (*wave_spawn_count_ptr)++;
+            instances_reset_prt->InstancesReset[bullet_instance_word_index] |= 1ULL << bullet_instance_bit_index;
+
+            bullets_update_positions[bullet_instance_index] = spawn_position;
+            bullets_update_end_positions[bullet_instance_index] = end_position;
+            bullets_update_type_index[bullet_instance_index] = bullet_type_index;
+
+            *bullet_positions_count_ptr = (bullet_instance_index + 1) % kBulletsUpdateSourceBulletsMaxInstanceCount;
+            (*spawn_count_ptr)++;
             bullets_spawn_count->SpawnCount[i]++;
         }
     }
@@ -148,15 +154,22 @@ bullets_move(BulletsUpdateContext *context)
 
     u8 *bullet_types_radius_q8         = BulletsBulletTypesRadiusQ8Prt(bullets, bullet_types_sheet);
     u8 *bullet_types_movement_speed_q4 = BulletsBulletTypesMovementSpeedQ4Prt(bullets, bullet_types_sheet);
-    u32 wave_spawn_count               = *BulletsUpdateWaveSpawnCountPrt(bullets_update);
+    u32 spawn_count                    = *BulletsUpdateSpawnCountPrt(bullets_update);
 
-    s32 update_count = min(kBulletsUpdateSourceBulletsMaxInstanceCount, wave_spawn_count);
+    BulletsUpdateInstancesReset *instances_reset_prt = BulletsUpdateInstancesResetPrt(bullets_update);
+
+    u32 update_count = min(kBulletsUpdateSourceBulletsMaxInstanceCount, spawn_count);
     
-    for (s32 i = 0; i < update_count; i++)
+    for (u32 bullet_instance_index = 0; bullet_instance_index < update_count; bullet_instance_index++)
     {
-        v2 bullet_position     = bullets_positions[i];
-        v2 bullet_end_position = bullets_end_positions[i];
-        u8 bullet_type_index   = bullets_type_index[i];
+        u32 bullet_instance_word_index = bullet_instance_index / 64;
+        u32 bullet_instance_bit_index = bullet_instance_index - (bullet_instance_word_index * 64);
+
+        instances_reset_prt->InstancesReset[bullet_instance_word_index] &= ~(1ULL << bullet_instance_bit_index);
+
+        v2 bullet_position     = bullets_positions[bullet_instance_index];
+        v2 bullet_end_position = bullets_end_positions[bullet_instance_index];
+        u8 bullet_type_index   = bullets_type_index[bullet_instance_index];
 
         u8 bullet_radius_q8 = bullet_types_radius_q8[bullet_type_index];
         f32 bullet_radius   = ((f32)bullet_radius_q8) * kQ8ToFloat;
@@ -181,7 +194,7 @@ bullets_move(BulletsUpdateContext *context)
         v2 move_v        = v2_scale(dv, source_bullet_frame_move_dist / dv_length);
         v2 move_position = v2_add(bullet_position, move_v);
 
-        bullets_positions[i] = move_position;
+        bullets_positions[bullet_instance_index] = move_position;
     }
 }
 
@@ -197,15 +210,15 @@ bullets_update(BulletsUpdateContext *context)
     BulletsUpdateSourceBulletsSpawnCount *bullets_update_spawn_count = BulletsUpdateSourceBulletsSpawnCountPrt(bullets_update, bullets_update_sheet);
 
     u16 *bullet_positions_count_ptr = BulletsUpdateBulletPositionsCountPrt(bullets_update);
-    u32 *wave_spawn_count_ptr       = BulletsUpdateWaveSpawnCountPrt(bullets_update);
+    u32 *spawn_count_ptr       = BulletsUpdateSpawnCountPrt(bullets_update);
     
     if (play_clock_state & kPlayClockStateReset)
     {
         memset(bullets_update_spawn_count, 0, sizeof(BulletsUpdateSourceBulletsSpawnCount) * kBulletsUpdateMaxInstancesPerWave);
-        *wave_spawn_count_ptr = 0;
+        *spawn_count_ptr = 0;
         *bullet_positions_count_ptr = 0;
     }
 
-    bullets_spawn(context);
     bullets_move(context);
+    bullets_spawn(context);
 }

@@ -45,6 +45,10 @@ variables:
    types:
     - name: instances_live
       type: uint64_t
+ - name: instances_reset
+   types:
+    - name: instances_reset
+      type: uint64_t
  - name: wave_state
    types:
     - name: wave_state
@@ -157,6 +161,9 @@ maps:
          target: positions
  - type: enemy_instances_wave
  - type: collision_source_instances
+   variables:
+    - source: instances_reset
+      target: source_instances_reset
    sheets:
     - target: source_instances
       columns:

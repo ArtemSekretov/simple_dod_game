@@ -39,6 +39,7 @@ enemy_instances_spawn(EnemyInstancesContext *context)
 
     u16 *enemy_positions_count_prt = EnemyInstancesEnemyPositionsCountPrt(enemy_instances);
     u64 *instances_live_ptr        = EnemyInstancesInstancesLivePrt(enemy_instances);
+    u64 *instances_reset_prt       = EnemyInstancesInstancesResetPrt(enemy_instances);
 
     u16 enemy_instances_wave_count = *EnemyInstancesWaveEnemyInstancesCountPrt(enemy_instances_wave);
 
@@ -62,6 +63,7 @@ enemy_instances_spawn(EnemyInstancesContext *context)
         enemy_instances_positions[wave_instance_index] = spawn_point;
         enemy_instances_way_point_index[wave_instance_index] = 0;
         *instances_live_ptr |= 1ULL << wave_instance_index;
+        *instances_reset_prt |= 1ULL << wave_instance_index;
 
         (*enemy_positions_count_prt)++;
     }
@@ -102,6 +104,8 @@ enemy_instances_move(EnemyInstancesContext *context)
 
     u16 enemy_positions_count = *EnemyInstancesEnemyPositionsCountPrt(enemy_instances);
     u64 *instances_live_ptr   = EnemyInstancesInstancesLivePrt(enemy_instances);
+    u64 *instances_reset_prt  = EnemyInstancesInstancesResetPrt(enemy_instances);
+
 
     for (u8 wave_instance_index = 0; wave_instance_index < enemy_positions_count; wave_instance_index++)
     {
@@ -109,6 +113,8 @@ enemy_instances_move(EnemyInstancesContext *context)
         {
             continue;
         }
+
+        *instances_reset_prt &= ~(1ULL << wave_instance_index);
 
         u8 enemy_index = enemy_instances_enemy_index[wave_instance_index];
 
@@ -245,8 +251,8 @@ enemy_instances_update(EnemyInstancesContext *context)
         return;
     }
 
-    enemy_instances_spawn(context);
     enemy_instances_move(context);
+    enemy_instances_spawn(context);
 
     b32 is_wave_spawned_all = (*enemy_positions_count_prt) == wave_instance->EnemyInstancesCount;
     if (is_wave_spawned_all)

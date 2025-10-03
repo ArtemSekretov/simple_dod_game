@@ -243,6 +243,75 @@ collision_grid_print_draw(CollisionGridContext *context)
         printf("\n");
     }
 }
+
+static void
+collision_damage_print_draw(CollisionDamageContext *context)
+{
+    CollisionDamage *collision_damage_bin = context->Root;
+
+    CollisionDamageDamageEvents *collision_damage_damage_events_sheet = CollisionDamageDamageEventsPrt(collision_damage_bin);
+    f32 *damage_events_time_prt = CollisionDamageDamageEventsTimePrt(collision_damage_bin, collision_damage_damage_events_sheet);
+    u8 *damage_events_a_source_instance_index_prt = CollisionDamageDamageEventsASourceInstanceIndexPrt(collision_damage_bin, collision_damage_damage_events_sheet);
+    u8 *damage_events_b_source_instance_index_prt = CollisionDamageDamageEventsBSourceInstanceIndexPrt(collision_damage_bin, collision_damage_damage_events_sheet);
+
+    CollisionDamageAccumulatedDamage *collision_damage_accumulated_damage_sheet = CollisionDamageAccumulatedDamagePrt(collision_damage_bin);
+    u16 *accumulated_damage_a_value_prt = CollisionDamageAccumulatedDamageAValuePrt(collision_damage_bin, collision_damage_accumulated_damage_sheet);
+    u16 *accumulated_damage_b_value_prt = CollisionDamageAccumulatedDamageBValuePrt(collision_damage_bin, collision_damage_accumulated_damage_sheet);
+
+    u16 *a_damage_value_prt = CollisionDamageDamageEventsAValuePrt(collision_damage_bin, collision_damage_damage_events_sheet);
+    u16 *b_damage_value_prt = CollisionDamageDamageEventsBValuePrt(collision_damage_bin, collision_damage_damage_events_sheet);
+
+    printf("\033[0;0H");
+    
+    for (s32 event_index = 0; event_index < kCollisionDamageMaxDamageEventCount / 2; event_index++)
+    {
+        s32 a_col_index = event_index;
+        s32 b_col_index = event_index + kCollisionDamageMaxDamageEventCount / 2;
+
+        printf("\033[1;35m");
+
+        printf("%5.2f ", damage_events_time_prt[a_col_index]);
+
+        printf("\033[37m");
+
+        u16 a_col_a_source_index = damage_events_a_source_instance_index_prt[a_col_index];
+        u16 a_col_b_source_index = damage_events_b_source_instance_index_prt[a_col_index];
+
+        printf("%02x %02x", a_col_a_source_index, a_col_b_source_index);
+
+        printf(" ");
+
+        printf("%04x %04x", a_damage_value_prt[a_col_index], b_damage_value_prt[a_col_index]);
+
+        //printf(" ");
+        
+        //printf("%04x %04x", accumulated_damage_a_value_prt[a_col_a_source_index], accumulated_damage_b_value_prt[a_col_b_source_index]);
+
+        printf("  ");
+
+        printf("\033[1;35m");
+
+        printf("%5.2f ", damage_events_time_prt[b_col_index]);
+
+        printf("\033[37m");
+
+        u16 b_col_a_source_index = damage_events_a_source_instance_index_prt[b_col_index];
+        u16 b_col_b_source_index = damage_events_b_source_instance_index_prt[b_col_index];
+
+        printf("%02x %02x", b_col_a_source_index, b_col_b_source_index);
+
+        printf(" ");
+
+        //printf("%04x %04x", a_damage_value_prt[b_col_index], b_damage_value_prt[b_col_index]);
+
+        //printf(" ");
+
+        printf("%04x %04x", accumulated_damage_a_value_prt[b_col_a_source_index], accumulated_damage_b_value_prt[b_col_b_source_index]);
+
+        printf("\n");
+    }
+
+}
 #endif
 
 static void
@@ -250,55 +319,50 @@ collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
 {
     CollisionDamage *collision_damage_bin = context->Root;
     
-    u16 a_damage_count = (*CollisionDamageADamageCountPrt(collision_damage_bin)) % kCollisionDamageMaxDamageCount;
-    u16 b_damage_count = (*CollisionDamageBDamageCountPrt(collision_damage_bin)) % kCollisionDamageMaxDamageCount;
+    u16 damage_events_count = min((*CollisionDamageDamageEventsCountPrt(collision_damage_bin)), kCollisionDamageMaxDamageEventCount);
 
-    CollisionDamageADamage *collision_damage_a_damage_sheet = CollisionDamageADamagePrt(collision_damage_bin);
-    v2 *a_damage_position_prt = (v2*)CollisionDamageADamagePositionPrt(collision_damage_bin, collision_damage_a_damage_sheet);
-    CollisionDamageBDamage *collision_damage_b_damage_sheet = CollisionDamageBDamagePrt(collision_damage_bin);
-    v2 *b_damage_position_prt = (v2*)CollisionDamageBDamagePositionPrt(collision_damage_bin, collision_damage_b_damage_sheet);
+    CollisionDamageDamageEvents *collision_damage_damage_events_sheet = CollisionDamageDamageEventsPrt(collision_damage_bin);
+    v2 *a_damage_position_prt = (v2*)CollisionDamageDamageEventsAPositionPrt(collision_damage_bin, collision_damage_damage_events_sheet);
+    v2 *b_damage_position_prt = (v2*)CollisionDamageDamageEventsBPositionPrt(collision_damage_bin, collision_damage_damage_events_sheet);
 
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
     u16 *frame_data_count_ptr   = FrameDataFrameDataCountPrt(frame_data);
 
-    for (u16 a_damage_index = 0; a_damage_index < a_damage_count; a_damage_index++)
+    for (u16 damage_index = 0; damage_index < damage_events_count; damage_index++)
     {
-        v2 damage_position = a_damage_position_prt[a_damage_index];
+        v2 a_damage_position = a_damage_position_prt[damage_index];
+        v2 b_damage_position = b_damage_position_prt[damage_index];
 
-        u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
-        FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
+        {
+            u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
+            FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
 
-        object_data->PositionAndScale[0] = damage_position.x;
-        object_data->PositionAndScale[1] = damage_position.y;
-        object_data->PositionAndScale[2] = 0.1f;
+            object_data->PositionAndScale[0] = a_damage_position.x;
+            object_data->PositionAndScale[1] = a_damage_position.y;
+            object_data->PositionAndScale[2] = 0.1f;
 
-        object_data->Color[0] = 1.0f;
-        object_data->Color[1] = 0.0f;
-        object_data->Color[2] = 1.0f;
+            object_data->Color[0] = 1.0f;
+            object_data->Color[1] = 0.0f;
+            object_data->Color[2] = 1.0f;
+        }
+        (*frame_data_count_ptr)++;
 
+        {
+            u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
+            FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
+
+            object_data->PositionAndScale[0] = b_damage_position.x;
+            object_data->PositionAndScale[1] = b_damage_position.y;
+            object_data->PositionAndScale[2] = 0.1f;
+
+            object_data->Color[0] = 1.0f;
+            object_data->Color[1] = 1.0f;
+            object_data->Color[2] = 1.0f;
+        }
         (*frame_data_count_ptr)++;
     }
-
-    for (u16 b_damage_index = 0; b_damage_index < b_damage_count; b_damage_index++)
-    {
-        v2 damage_position = b_damage_position_prt[b_damage_index];
-
-        u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
-        FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
-
-        object_data->PositionAndScale[0] = damage_position.x;
-        object_data->PositionAndScale[1] = damage_position.y;
-        object_data->PositionAndScale[2] = 0.1f;
-
-        object_data->Color[0] = 1.0f;
-        object_data->Color[1] = 1.0f;
-        object_data->Color[2] = 1.0f;
-
-        (*frame_data_count_ptr)++;
-    }
-
 }
 
 int WINAPI 
@@ -396,17 +460,17 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     MapFileData hero_bullets_update_map_data = CreateMapFile("hero_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
     BulletsUpdate *hero_bullets_update_data  = (BulletsUpdate *)hero_bullets_update_map_data.data;
 
-    MapFileData hero_bullets_collision_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
-    CollisionGrid *hero_bullets_collision_grip       = (CollisionGrid *)hero_bullets_collision_grip_map_data.data;
+    MapFileData hero_bullets_collision_grid_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *hero_bullets_collision_grid       = (CollisionGrid *)hero_bullets_collision_grid_map_data.data;
 
-    MapFileData enemy_bullets_collision_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
-    CollisionGrid *enemy_bullets_collision_grip       = (CollisionGrid *)enemy_bullets_collision_grip_map_data.data;
+    MapFileData enemy_bullets_collision_grid_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *enemy_bullets_collision_grid       = (CollisionGrid *)enemy_bullets_collision_grid_map_data.data;
 
-    MapFileData hero_instances_collision_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
-    CollisionGrid *hero_instances_collision_grip       = (CollisionGrid *)hero_instances_collision_grip_map_data.data;
+    MapFileData hero_instances_collision_grid_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *hero_instances_collision_grid       = (CollisionGrid *)hero_instances_collision_grid_map_data.data;
 
-    MapFileData enemy_instances_collision_grip_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
-    CollisionGrid *enemy_instances_collision_grip       = (CollisionGrid *)enemy_instances_collision_grip_map_data.data;
+    MapFileData enemy_instances_collision_grid_map_data = CreateMapFile("collision_grid.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionGrid *enemy_instances_collision_grid       = (CollisionGrid *)enemy_instances_collision_grid_map_data.data;
 
     MapFileData enemy_instances_vs_hero_bullets_collision_damage_map_data = CreateMapFile("collision_damage.bin", MapFilePermitions_ReadWriteCopy);
     CollisionDamage *enemy_instances_vs_hero_bullets_collision_damage     = (CollisionDamage *)enemy_instances_vs_hero_bullets_collision_damage_map_data.data;
@@ -466,37 +530,37 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     hero_instances_draw_context.HeroInstancesBin = hero_instances;
     hero_instances_draw_context.FrameDataBin     = frame_data;
 
-    CollisionGridContext hero_bullets_collision_grip_context;
-    hero_bullets_collision_grip_context.Root = hero_bullets_collision_grip;
-    hero_bullets_collision_grip_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(hero_bullets_update_data);
-    hero_bullets_collision_grip_context.CollisionSourceRadiusBin = BulletsCollisionSourceRadiusMapPrt(hero_bullets);
+    CollisionGridContext hero_bullets_collision_grid_context;
+    hero_bullets_collision_grid_context.Root = hero_bullets_collision_grid;
+    hero_bullets_collision_grid_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(hero_bullets_update_data);
+    hero_bullets_collision_grid_context.CollisionSourceRadiusBin = BulletsCollisionSourceRadiusMapPrt(hero_bullets);
 
-    CollisionGridContext enemy_bullets_collision_grip_context;
-    enemy_bullets_collision_grip_context.Root = enemy_bullets_collision_grip;
-    enemy_bullets_collision_grip_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(enemy_bullets_update_data);
-    enemy_bullets_collision_grip_context.CollisionSourceRadiusBin = BulletsCollisionSourceRadiusMapPrt(enemy_bullets);
+    CollisionGridContext enemy_bullets_collision_grid_context;
+    enemy_bullets_collision_grid_context.Root = enemy_bullets_collision_grid;
+    enemy_bullets_collision_grid_context.CollisionSourceInstancesBin = BulletsUpdateCollisionSourceInstancesMapPrt(enemy_bullets_update_data);
+    enemy_bullets_collision_grid_context.CollisionSourceRadiusBin = BulletsCollisionSourceRadiusMapPrt(enemy_bullets);
 
-    CollisionGridContext hero_instances_collision_grip_context;
-    hero_instances_collision_grip_context.Root = hero_instances_collision_grip;
-    hero_instances_collision_grip_context.CollisionSourceInstancesBin = HeroInstancesCollisionSourceInstancesMapPrt(hero_instances);
-    hero_instances_collision_grip_context.CollisionSourceRadiusBin = HeroInstancesCollisionSourceRadiusMapPrt(hero_instances);
+    CollisionGridContext hero_instances_collision_grid_context;
+    hero_instances_collision_grid_context.Root = hero_instances_collision_grid;
+    hero_instances_collision_grid_context.CollisionSourceInstancesBin = HeroInstancesCollisionSourceInstancesMapPrt(hero_instances);
+    hero_instances_collision_grid_context.CollisionSourceRadiusBin = HeroInstancesCollisionSourceRadiusMapPrt(hero_instances);
 
-    CollisionGridContext enemy_instances_collision_grip_context;
-    enemy_instances_collision_grip_context.Root = enemy_instances_collision_grip;
-    enemy_instances_collision_grip_context.CollisionSourceInstancesBin = EnemyInstancesCollisionSourceInstancesMapPrt(enemy_instances);
-    enemy_instances_collision_grip_context.CollisionSourceRadiusBin = EnemyInstancesCollisionSourceRadiusMapPrt(enemy_instances);
+    CollisionGridContext enemy_instances_collision_grid_context;
+    enemy_instances_collision_grid_context.Root = enemy_instances_collision_grid;
+    enemy_instances_collision_grid_context.CollisionSourceInstancesBin = EnemyInstancesCollisionSourceInstancesMapPrt(enemy_instances);
+    enemy_instances_collision_grid_context.CollisionSourceRadiusBin = EnemyInstancesCollisionSourceRadiusMapPrt(enemy_instances);
 
     CollisionDamageContext enemy_instances_vs_hero_bullets_collision_damage_context;
     enemy_instances_vs_hero_bullets_collision_damage_context.Root = enemy_instances_vs_hero_bullets_collision_damage;
     
-    enemy_instances_vs_hero_bullets_collision_damage_context.ACollisionGridBin = enemy_instances_collision_grip;
-    enemy_instances_vs_hero_bullets_collision_damage_context.ACollisionSourceInstancesBin = enemy_instances_collision_grip_context.CollisionSourceInstancesBin;
-    enemy_instances_vs_hero_bullets_collision_damage_context.ACollisionSourceRadiusBin = enemy_instances_collision_grip_context.CollisionSourceRadiusBin;
+    enemy_instances_vs_hero_bullets_collision_damage_context.ACollisionGridBin = enemy_instances_collision_grid;
+    enemy_instances_vs_hero_bullets_collision_damage_context.ACollisionSourceInstancesBin = enemy_instances_collision_grid_context.CollisionSourceInstancesBin;
+    enemy_instances_vs_hero_bullets_collision_damage_context.ACollisionSourceRadiusBin = enemy_instances_collision_grid_context.CollisionSourceRadiusBin;
     enemy_instances_vs_hero_bullets_collision_damage_context.ACollisionSourceDamageBin = EnemyInstancesCollisionSourceDamageMapPrt(enemy_instances);
 
-    enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionGridBin = hero_bullets_collision_grip;
-    enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceInstancesBin = hero_bullets_collision_grip_context.CollisionSourceInstancesBin;
-    enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceRadiusBin = hero_bullets_collision_grip_context.CollisionSourceRadiusBin;
+    enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionGridBin = hero_bullets_collision_grid;
+    enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceInstancesBin = hero_bullets_collision_grid_context.CollisionSourceInstancesBin;
+    enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceRadiusBin = hero_bullets_collision_grid_context.CollisionSourceRadiusBin;
     enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceDamageBin = BulletsCollisionSourceDamageMapPrt(hero_bullets);
     enemy_instances_vs_hero_bullets_collision_damage_context.LevelUpdateBin = level_update_data;
 
@@ -590,20 +654,22 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 
             level_update(&level_update_context);
             wave_update(&wave_update_context);
+
             enemy_instances_update(&enemy_instances_context);
             hero_instances_update(&hero_instances_context);
             bullets_update(&enemy_bullets_update_context);
             bullets_update(&hero_bullets_update_context);
 
-            collision_grid_update(&hero_bullets_collision_grip_context);
-            collision_grid_update(&enemy_bullets_collision_grip_context);
-            collision_grid_update(&hero_instances_collision_grip_context);
-            collision_grid_update(&enemy_instances_collision_grip_context);
+            collision_grid_update(&hero_bullets_collision_grid_context);
+            collision_grid_update(&enemy_bullets_collision_grid_context);
+            collision_grid_update(&hero_instances_collision_grid_context);
+            collision_grid_update(&enemy_instances_collision_grid_context);
 
             collision_damage_update(&enemy_instances_vs_hero_bullets_collision_damage_context);
 
             #ifndef NDEBUG
-            collision_grid_print_draw(&enemy_instances_collision_grip_context);
+            collision_damage_print_draw(&enemy_instances_vs_hero_bullets_collision_damage_context);
+            //collision_grid_print_draw(&hero_bullets_collision_grid_context);
             #endif
 
             enemy_instances_draw(&enemy_instances_draw_context);
@@ -634,9 +700,9 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 	CloseMapFile(&game_state_map_data);
 	CloseMapFile(&wave_update_map_data);
 	CloseMapFile(&level_update_map_data);
-    CloseMapFile(&hero_bullets_collision_grip_map_data);
-    CloseMapFile(&enemy_bullets_collision_grip_map_data);
-    CloseMapFile(&hero_instances_collision_grip_map_data);
-    CloseMapFile(&enemy_instances_collision_grip_map_data);
+    CloseMapFile(&hero_bullets_collision_grid_map_data);
+    CloseMapFile(&enemy_bullets_collision_grid_map_data);
+    CloseMapFile(&hero_instances_collision_grid_map_data);
+    CloseMapFile(&enemy_instances_collision_grid_map_data);
     CloseMapFile(&enemy_instances_vs_hero_bullets_collision_damage_map_data);
 }

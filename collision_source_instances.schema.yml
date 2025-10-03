@@ -7,6 +7,10 @@ variables:
    types:
     - name: source_instances_enabled
       type: uint64_t
+ - name: source_instances_reset
+   types:
+    - name: source_instances_reset
+      type: uint64_t
 
 sheets:
  - name: source_instances

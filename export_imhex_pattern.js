@@ -190,22 +190,49 @@ function buildImHexPattern(schema)
                     
                     mapFields.push(`${imHexMetaSize} ${undersoreToPascal(targetValue.name)}Offset`);
                     
+                    let variableContext = targetContext;
+                    let variableTypeDef = targetValue.types;
+
                     if(hasMapValues)
                     {
                         const mapValueIndex = map.variables.findIndex( v => v.target == targetValue.name);
                         if(mapValueIndex != -1)
                         {
                             const mapValue = map.variables[mapValueIndex];
+
                             if(!mapValue.hasOwnProperty("source"))
                             {
                                 Log(`source value for ${targetValue} in map ${mapSegmentName} not specify`);                                
                             }
+                            else
+                            {
+                                const sourceVariable = mapValue.source;
+
+                                const hasVariables = schema.hasOwnProperty('variables');
+                                if(hasVariables)
+                                {
+                                    const sourceVariables = schema.variables;
+                                    const sourceValueIndex = sourceVariables.findIndex( v => v.name == sourceVariable);
+                                    if(sourceValueIndex != -1)
+                                    {
+                                        const sourceVariable = sourceVariables[sourceValueIndex];
+                                        variableContext = vmContext;
+                                        variableTypeDef = sourceVariable.types;
+                                    }
+                                    else
+                                    {
+                                        Log(`source variable ${sourceVariable} is not define is schema`);
+                                    }
+                                }
+                                else
+                                {
+                                    Log(`source variable ${sourceVariable} is not define is schema`);
+                                }
+                            }
                         }
                     }
 
-                    const types = targetValue.types;
-            
-                    const variableType = exportComplexTypes(targetContext, undersoreToPascal(targetValue.name), types, false, exportTypes);
+                    const variableType = exportComplexTypes(variableContext, undersoreToPascal(targetValue.name), variableTypeDef, false, exportTypes);
 
                     if(variableType.count > 1)
                     {

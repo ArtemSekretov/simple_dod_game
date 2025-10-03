@@ -67,9 +67,11 @@ collision_grid_update(CollisionGridContext *context)
         {
             s32 row_index = (kCollisionGridRowCount - 1) - y;
             u8 row_instance_index = collision_grid_row_count->GridRowCount[row_index];
-            collision_grid_row_count->GridRowCount[row_index]++;
-
-            collision_grid_rows->GridRows[(row_index * kCollisionGridColCount) + row_instance_index] = (u8)instance_index;
+            //if (row_instance_index < kCollisionGridColCount)
+            {
+                collision_grid_row_count->GridRowCount[row_index]++;
+                collision_grid_rows->GridRows[(row_index * kCollisionGridColCount) + row_instance_index] = (u8)instance_index;
+            }
         }
     }
 }

@@ -12,17 +12,15 @@ collision_damage_update(CollisionDamageContext *context)
     CollisionSourceDamage *b_collision_source_damage_bin = context->BCollisionSourceDamageBin;
     LevelUpdate *level_update_bin = context->LevelUpdateBin;
 
-    u16 *a_damage_count_prt = CollisionDamageADamageCountPrt(collision_damage_bin);
-    CollisionDamageADamage *collision_damage_a_damage_sheet = CollisionDamageADamagePrt(collision_damage_bin);
-    v2 *a_damage_position_prt = (v2*)CollisionDamageADamagePositionPrt(collision_damage_bin, collision_damage_a_damage_sheet);
-    u16 *a_damage_value_prt = CollisionDamageADamageValuePrt(collision_damage_bin, collision_damage_a_damage_sheet);
-    float *a_damage_time_prt = CollisionDamageADamageTimePrt(collision_damage_bin, collision_damage_a_damage_sheet);
-    
-    u16 *b_damage_count_prt = CollisionDamageBDamageCountPrt(collision_damage_bin);
-    CollisionDamageBDamage *collision_damage_b_damage_sheet = CollisionDamageBDamagePrt(collision_damage_bin);
-    v2 *b_damage_position_prt = (v2*)CollisionDamageBDamagePositionPrt(collision_damage_bin, collision_damage_b_damage_sheet);
-    u16 *b_damage_value_prt = CollisionDamageBDamageValuePrt(collision_damage_bin, collision_damage_b_damage_sheet);
-    float *b_damage_time_prt = CollisionDamageBDamageTimePrt(collision_damage_bin, collision_damage_b_damage_sheet);
+    u16 *damage_events_count_prt = CollisionDamageDamageEventsCountPrt(collision_damage_bin);
+    CollisionDamageDamageEvents *collision_damage_damage_events_sheet = CollisionDamageDamageEventsPrt(collision_damage_bin);
+    v2 *a_damage_position_prt = (v2*)CollisionDamageDamageEventsAPositionPrt(collision_damage_bin, collision_damage_damage_events_sheet);
+    v2 *b_damage_position_prt = (v2*)CollisionDamageDamageEventsBPositionPrt(collision_damage_bin, collision_damage_damage_events_sheet);
+    u16 *a_damage_value_prt = CollisionDamageDamageEventsAValuePrt(collision_damage_bin, collision_damage_damage_events_sheet);
+    u16 *b_damage_value_prt = CollisionDamageDamageEventsBValuePrt(collision_damage_bin, collision_damage_damage_events_sheet);
+    float *damage_time_prt = CollisionDamageDamageEventsTimePrt(collision_damage_bin, collision_damage_damage_events_sheet);
+    u8 *a_damage_source_instance_index_prt = CollisionDamageDamageEventsASourceInstanceIndexPrt(collision_damage_bin, collision_damage_damage_events_sheet);
+    u8 *b_damage_source_instance_index_prt = CollisionDamageDamageEventsBSourceInstanceIndexPrt(collision_damage_bin, collision_damage_damage_events_sheet);
 
     CollisionSourceInstancesSourceInstances *a_collision_source_instances_source_instances_sheet = CollisionSourceInstancesSourceInstancesPrt(a_collision_source_instances_bin);
     u8 *a_source_instances_source_type_index_prt = CollisionSourceInstancesSourceInstancesSourceTypeIndexPrt(a_collision_source_instances_bin, a_collision_source_instances_source_instances_sheet);
@@ -58,10 +56,43 @@ collision_damage_update(CollisionDamageContext *context)
     CollisionSourceDamageSourceTypes *b_collision_source_damage_source_types_sheet = CollisionSourceDamageSourceTypesPrt(b_collision_source_damage_bin);
     u16 *b_source_types_damage_prt = CollisionSourceDamageSourceTypesDamagePrt(b_collision_source_damage_bin, b_collision_source_damage_source_types_sheet);
 
-    u8 *a_damage_source_instance_index_prt = CollisionDamageADamageSourceInstanceIndexPrt(collision_damage_bin, collision_damage_a_damage_sheet);
-    u8 *b_damage_source_instance_index_prt = CollisionDamageBDamageSourceInstanceIndexPrt(collision_damage_bin, collision_damage_b_damage_sheet);
-
     f32 damage_time = *LevelUpdateTimePrt(level_update_bin);
+
+    u16 a_source_instances_count = *CollisionSourceInstancesSourceInstancesCountPrt(a_collision_source_instances_bin);
+    u16 b_source_instances_count = *CollisionSourceInstancesSourceInstancesCountPrt(b_collision_source_instances_bin);
+
+    u64 *a_source_instances_reset_prt = CollisionSourceInstancesSourceInstancesResetPrt(a_collision_source_instances_bin);
+    u64 *b_source_instances_reset_prt = CollisionSourceInstancesSourceInstancesResetPrt(b_collision_source_instances_bin);
+
+    CollisionDamageAccumulatedDamage *collision_damage_accumulated_damage_sheet = CollisionDamageAccumulatedDamagePrt(collision_damage_bin);
+    u16 *accumulated_damage_a_value_prt = CollisionDamageAccumulatedDamageAValuePrt(collision_damage_bin, collision_damage_accumulated_damage_sheet);
+    u16 *accumulated_damage_b_value_prt = CollisionDamageAccumulatedDamageBValuePrt(collision_damage_bin, collision_damage_accumulated_damage_sheet);
+
+    for (u16 source_instance_index = 0; source_instance_index < a_source_instances_count; source_instance_index++)
+    {
+        u16 instance_word_index = source_instance_index / 64;
+        u16 instance_bit_index = source_instance_index - (instance_word_index * 64);
+        
+        b32 is_instance_reset = (a_source_instances_reset_prt[instance_word_index] & (1ULL << instance_bit_index)) != 0;
+
+        if (is_instance_reset)
+        {
+            accumulated_damage_a_value_prt[source_instance_index] = 0;
+        }
+    }
+
+    for (u16 source_instance_index = 0; source_instance_index < b_source_instances_count; source_instance_index++)
+    {
+        u16 instance_word_index = source_instance_index / 64;
+        u16 instance_bit_index = source_instance_index - (instance_word_index * 64);
+        
+        b32 is_instance_reset = (b_source_instances_reset_prt[instance_word_index] & (1ULL << instance_bit_index)) != 0;
+
+        if (is_instance_reset)
+        {
+            accumulated_damage_b_value_prt[source_instance_index] = 0;
+        }
+    }
 
     // up to 256(64 * 4) instances two buffers 
     u64 a_instances_processed[4 * 2] = { 0 };
@@ -145,23 +176,23 @@ collision_damage_update(CollisionDamageContext *context)
                         v2 a_damage_position = v2_add(a_source_instances_position, v_a_damage);
                         v2 b_damage_position = v2_sub(b_source_instances_position, v_b_damage);
 
-                        u16 a_damage_index = (*a_damage_count_prt) % kCollisionDamageMaxDamageCount;
-                        u16 b_damage_index = (*b_damage_count_prt) % kCollisionDamageMaxDamageCount;
+                        u16 damage_index = (*damage_events_count_prt) % kCollisionDamageMaxDamageEventCount;
 
-                        a_damage_value_prt[a_damage_index] = b_source_damage;
-                        b_damage_value_prt[b_damage_index] = a_source_damage;
+                        a_damage_value_prt[damage_index] = b_source_damage;
+                        b_damage_value_prt[damage_index] = a_source_damage;
 
-                        a_damage_time_prt[a_damage_index] = damage_time;
-                        b_damage_time_prt[b_damage_index] = damage_time;
+                        damage_time_prt[damage_index] = damage_time;
 
-                        a_damage_position_prt[a_damage_index] = a_damage_position;
-                        b_damage_position_prt[b_damage_index] = b_damage_position;
+                        a_damage_position_prt[damage_index] = a_damage_position;
+                        b_damage_position_prt[damage_index] = b_damage_position;
 
-                        a_damage_source_instance_index_prt[a_damage_index] = a_source_instance_index;
-                        b_damage_source_instance_index_prt[b_damage_index] = b_source_instance_index;
+                        a_damage_source_instance_index_prt[damage_index] = a_source_instance_index;
+                        b_damage_source_instance_index_prt[damage_index] = b_source_instance_index;
 
-                        (*a_damage_count_prt)++;
-                        (*b_damage_count_prt)++;
+                        accumulated_damage_a_value_prt[a_source_instance_index] += b_source_damage;
+                        accumulated_damage_b_value_prt[b_source_instance_index] += a_source_damage;
+
+                        (*damage_events_count_prt)++;
                     }
                 }
             }
