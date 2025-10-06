@@ -76,6 +76,8 @@ maps:
    variables:
     - source: instances_reset
       target: source_instances_reset
+    - source: instances_live
+      target: source_instances_enabled
    sheets:
     - source: hero_instances
       target: source_instances

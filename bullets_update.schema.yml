@@ -17,6 +17,11 @@ variables:
    types:
     - name: spawn_count
       type: uint32_t
+ - name: instances_live
+   types:
+    - name: instances_live
+      type: uint64_t
+      count: (source_bullets_max_instance_count / 64)
  - name: instances_reset
    types:
     - name: instances_reset
@@ -59,12 +64,16 @@ context:
    type: game_state
  - name: play_clock_bin
    type: play_clock
+ - name: collision_instances_damage_bin
+   type: collision_instances_damage
 
 maps:
  - type: collision_source_instances
    variables:
     - source: instances_reset
       target: source_instances_reset
+    - source: instances_live
+      target: source_instances_enabled
    sheets:
     - source: bullet_positions
       target: source_instances

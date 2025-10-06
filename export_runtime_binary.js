@@ -190,15 +190,21 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 
         function exportMap(data, map, exportDataSegments)
         {
-            const mapSegmentName = map.type;
+            const mapSegmentType = map.type;
+            let mapSegmentName = map.type;
+
+            if(map.hasOwnProperty('name'))
+            {
+                mapSegmentName = map.name;
+            }
             
-            if(!importedSchemas.hasOwnProperty(mapSegmentName))
+            if(!importedSchemas.hasOwnProperty(mapSegmentType))
             {
                 Log(`missing import for map type ${mapSegmentName}`);
                 return;
             }
 
-            const targetSchema = importedSchemas[mapSegmentName];
+            const targetSchema = importedSchemas[mapSegmentType];
 
             const targetHasSheets = targetSchema.hasOwnProperty('sheets');
             const targetHasValues = targetSchema.hasOwnProperty('variables');

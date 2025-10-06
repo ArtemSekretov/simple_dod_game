@@ -132,16 +132,22 @@ function buildImHexPattern(schema)
         {   
             const imHexMetaSize = getImHexType(schema.meta.size);
 
-            const mapSegmentName = map.type;
+            const mapSegmentType = map.type;
+            let mapSegmentName = map.type;
 
-            if(!importedSchemas.hasOwnProperty(mapSegmentName))
+            if(map.hasOwnProperty('name'))
+            {
+                mapSegmentName = map.name;
+            }
+
+            if(!importedSchemas.hasOwnProperty(mapSegmentType))
             {
                 Log(`missing import for map type ${mapSegmentName}`);
                 return;
             }
 
-            const targetSchema = importedSchemas[mapSegmentName].schema;
-            const targetContext = importedSchemas[mapSegmentName].context;
+            const targetSchema = importedSchemas[mapSegmentType].schema;
+            const targetContext = importedSchemas[mapSegmentType].context;
 
             const mapOffset = `${lowerFirstCharacter(rootStructName)}.${undersoreToPascal(mapSegmentName)}Offset`;
             
@@ -167,17 +173,17 @@ function buildImHexPattern(schema)
                         `${imHexMetaSize} ${undersoreToPascal(targetSheet.name)}Count @ ${imHexMetaSize}(${undersoreToPascal(targetSheet.name)}CountOffset + addressof(this))`,
                         `${imHexMetaSize} ${undersoreToPascal(targetSheet.name)}Offset`])
                     
-                    let sourceSheet = null;
+                    let mapSourceSheet = null;
                     if(hasMapSheets)
                     {
                         const mapSheetIndex = map.sheets.findIndex( s => s.target == targetSheet.name);
                         if(mapSheetIndex != -1)
                         {
-                            sourceSheet = map.sheets[mapSheetIndex];
+                            mapSourceSheet = map.sheets[mapSheetIndex];
                         }
                     }
 
-                    exportMapSheet(targetContext, mapFields, sourceSheet, targetSheet, rootStructName, mapStructName, mapOffset, exportTypes);
+                    exportMapSheet(targetContext, mapFields, mapSourceSheet, targetSheet, rootStructName, mapStructName, mapOffset, exportTypes);
 
                 });                
             }
@@ -251,8 +257,15 @@ function buildImHexPattern(schema)
             });
         }
         
-        function exportMapSheet(targetContext, mapFields, sourceSheets, targetSheet, rootStructName, mapStructName, mapOffset, exportTypes)
+        function exportMapSheet(targetContext, mapFields, mapSourceSheet, targetSheet, rootStructName, mapStructName, mapOffset, exportTypes)
         {
+            let rowCapacity = 0;
+
+            if(targetSheet.hasOwnProperty('capacity'))
+            {
+                rowCapacity = resolveExpression(targetContext, targetSheet.capacity)|0;
+            }
+
             const mapSheetStructName = `${mapStructName}${undersoreToPascal(targetSheet.name)}`;
             
             const targetColumns = targetSheet.columns;
@@ -265,17 +278,86 @@ function buildImHexPattern(schema)
                 fields.push(`${getImHexType(schema.meta.size)} ${undersoreToPascal(targetColumn.name)}Offset`);
                 
                 const sheetStructName = `${rootStructName}${undersoreToPascal(targetSheet.name)}`;
-                    
-                let rowCapacity = 0;
+                                    
+                let columnSources = targetColumn.sources;
+                let columnContext = targetContext;
 
-                if(targetSheet.hasOwnProperty('capacity'))
+                if(mapSourceSheet)
                 {
-                    rowCapacity = resolveExpression(targetContext, targetSheet.capacity)|0;
+                    const mapSourceSheetColumns = mapSourceSheet.columns;
+                    let sourceSheetName = mapSourceSheet.source;
+
+                    const mapSourceSheetColumnIndex = mapSourceSheetColumns.findIndex( v => v.target == targetColumn.name);
+                    if(mapSourceSheetColumnIndex != -1)
+                    {
+                        const mapSourceSheetColumn = mapSourceSheetColumns[mapSourceSheetColumnIndex];
+
+                        let sourceSheet = null;
+
+                        if(mapSourceSheetColumn.hasOwnProperty('sheet'))
+                        {
+                            sourceSheetName = mapSourceSheetColumn.sheet;
+                        }
+
+                        const hasSourceSheets = schema.hasOwnProperty('sheets');
+                        if(hasSourceSheets)
+                        {
+                            const sourceSheets = schema.sheets;
+                    
+                            const sourceSheetIndex = sourceSheets.findIndex( v => v.name == sourceSheetName);
+                            if(sourceSheetIndex != -1)
+                            {
+                                sourceSheet = sourceSheets[sourceSheetIndex];
+                        
+                                if(sourceSheet.hasOwnProperty('capacity'))
+                                {
+                                    rowCapacity = resolveExpression(vmContext, sourceSheet.capacity)|0;
+                                }
+                            }
+                            else
+                            {
+                                Log(`source sheet ${sourceSheetName} is not define is schema`);
+                            }
+                        }
+                        else
+                        {
+                            Log(`source sheet ${sourceSheetName} is not define is schema`);
+                        }
+                        
+                        if(mapSourceSheetColumn.hasOwnProperty('source'))
+                        {
+                            const sourceSheetColumnName = mapSourceSheetColumn.source;
+                            if(sourceSheet)
+                            {
+                                const sourceColumns = sourceSheet.columns;
+
+                                const sourceSheetColumnIndex = sourceColumns.findIndex( v => v.name == sourceSheetColumnName);
+                                if(sourceSheetColumnIndex != -1)
+                                {
+                                    const sourceSheetColumn = sourceColumns[sourceSheetColumnIndex];
+                                    
+                                    columnSources = sourceSheetColumn.sources;
+                                    columnContext = vmContext;
+                                }
+                                else
+                                {
+                                    Log(`source sheet ${sourceSheetName} is not define is schema`);
+                                }
+                            }
+                            else
+                            {
+                                Log(`source sheet not found`);                                
+                            }
+                        }
+                        else
+                        {
+                            Log(`source column for ${targetColumn.name} in map ${mapSheetStructName} not specify`);
+                        }
+                    }
                 }
-                
-                const sources = targetColumn.sources;
+
                 const columnStructName = `${sheetStructName}${undersoreToPascal(targetColumn.name)}`;
-                const columnType = exportComplexTypes(targetContext, columnStructName, sources, true, exportTypes);
+                const columnType = exportComplexTypes(columnContext, columnStructName, columnSources, true, exportTypes);
 
                 fields.push(`if(${undersoreToPascal(targetColumn.name)}Offset > 0) ${columnType.type} ${undersoreToPascal(targetColumn.name)}[GetCapacity(${rowCapacity}, parent.${undersoreToPascal(targetSheet.name)}Count)] @ ${imHexMetaSize}(${undersoreToPascal(targetColumn.name)}Offset + addressof(parent))`);
             });

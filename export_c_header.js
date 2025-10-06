@@ -68,14 +68,23 @@ function buildCHeader(schema)
 
             maps.forEach( map => {
                 const mapType = undersoreToPascal(map.type);
-                fields.push(`${schema.meta.size} ${mapType}MapOffset`);
+                
+                let mapNameInPascal = mapType;
+                let mapName = map.type;
+                if(map.hasOwnProperty('name'))
+                {
+                    mapNameInPascal = undersoreToPascal(map.name);
+                    mapName = map.name;
+                }
+
+                fields.push(`${schema.meta.size} ${mapNameInPascal}MapOffset`);
 
             	exportTypes.functions.push({
                     returnType: `${mapType}`,
-                    name: `*${map.type}_map_prt`,
-                    call: `${rootStructName}${mapType}MapPrt(${schema.meta.name}_bin)`,
-				    declaration: `${mapType} *${rootStructName}${mapType}MapPrt(${rootStructName} *root)`,
-				    body: `return (root->${mapType}MapOffset) ? (${mapType} *)((uintptr_t)root + root->${mapType}MapOffset) : NULL;`
+                    name: `*${mapName}_map_prt`,
+                    call: `${rootStructName}${mapNameInPascal}MapPrt(${schema.meta.name}_bin)`,
+				    declaration: `${mapType} *${rootStructName}${mapNameInPascal}MapPrt(${rootStructName} *root)`,
+				    body: `return (root->${mapNameInPascal}MapOffset) ? (${mapType} *)((uintptr_t)root + root->${mapNameInPascal}MapOffset) : NULL;`
 			    });
                 
                 exportTypes.refStructs.push(mapType);

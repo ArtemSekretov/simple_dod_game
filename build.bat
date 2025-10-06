@@ -60,6 +60,7 @@ where /q node && (
         start /B node export_c_header.js collision_source_instances.schema.yml generated/collision_source_instances.h >CON 2>CON
         start /B node export_c_header.js collision_source_radius.schema.yml generated/collision_source_radius.h >CON 2>CON
         start /B node export_c_header.js collision_source_damage.schema.yml generated/collision_source_damage.h >CON 2>CON
+        start /B node export_c_header.js collision_instances_damage.schema.yml generated/collision_instances_damage.h >CON 2>CON
 
         start /B node export_c_header.js collision_grid.schema.yml generated/collision_grid.h >CON 2>CON
         start /B node export_runtime_binary.js collision_grid.schema.yml build/collision_grid.bin >CON 2>CON

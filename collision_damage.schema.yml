@@ -1,6 +1,9 @@
 meta:
  name: collision_damage
  size: uint16_t
+ import:
+  - collision_instances_damage
+
 
 constants:
  - name: max_damage_event_count
@@ -73,3 +76,22 @@ sheets:
       sources: 
        - name: b_value
          type: uint16_t
+
+
+maps:
+ - name: a_collision_instances_damage
+   type: collision_instances_damage
+   sheets:
+    - source: accumulated_damage
+      target: instances
+      columns:
+       - source: a_value
+         target: damage
+ - name: b_collision_instances_damage
+   type: collision_instances_damage
+   sheets:
+    - source: accumulated_damage
+      target: instances
+      columns:
+       - source: b_value
+         target: damage

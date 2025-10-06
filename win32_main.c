@@ -43,6 +43,7 @@
 
 #include "collision_grid.h"
 #include "collision_source_instances.h"
+#include "collision_instances_damage.h"
 #include "collision_source_radius.h"
 #include "collision_source_damage.h"
 #include "collision_damage.h"
@@ -488,11 +489,12 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     enemy_bullets_draw_context.FrameDataBin     = frame_data;
 
     BulletsUpdateContext hero_bullets_update_context;
-    hero_bullets_update_context.Root                     = hero_bullets_update_data;
-    hero_bullets_update_context.BulletsBin               = hero_bullets;
-    hero_bullets_update_context.BulletSourceInstancesBin = HeroInstancesBulletSourceInstancesMapPrt(hero_instances);
-    hero_bullets_update_context.GameStateBin             = game_state;
-    hero_bullets_update_context.PlayClockBin             = LevelUpdatePlayClockMapPrt(level_update_data);
+    hero_bullets_update_context.Root                        = hero_bullets_update_data;
+    hero_bullets_update_context.BulletsBin                  = hero_bullets;
+    hero_bullets_update_context.BulletSourceInstancesBin    = HeroInstancesBulletSourceInstancesMapPrt(hero_instances);
+    hero_bullets_update_context.GameStateBin                = game_state;
+    hero_bullets_update_context.PlayClockBin                = LevelUpdatePlayClockMapPrt(level_update_data);
+    hero_bullets_update_context.CollisionInstancesDamageBin = CollisionDamageBCollisionInstancesDamageMapPrt(enemy_instances_vs_hero_bullets_collision_damage);
 
     BulletsDrawContext hero_bullets_draw_context;
     hero_bullets_draw_context.BulletsBin       = hero_bullets;
@@ -657,7 +659,8 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 
             enemy_instances_update(&enemy_instances_context);
             hero_instances_update(&hero_instances_context);
-            bullets_update(&enemy_bullets_update_context);
+
+            //bullets_update(&enemy_bullets_update_context);
             bullets_update(&hero_bullets_update_context);
 
             collision_grid_update(&hero_bullets_collision_grid_context);
@@ -668,8 +671,8 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             collision_damage_update(&enemy_instances_vs_hero_bullets_collision_damage_context);
 
             #ifndef NDEBUG
-            collision_damage_print_draw(&enemy_instances_vs_hero_bullets_collision_damage_context);
-            //collision_grid_print_draw(&hero_bullets_collision_grid_context);
+            //collision_damage_print_draw(&enemy_instances_vs_hero_bullets_collision_damage_context);
+            collision_grid_print_draw(&hero_bullets_collision_grid_context);
             #endif
 
             enemy_instances_draw(&enemy_instances_draw_context);

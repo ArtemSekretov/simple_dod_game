@@ -220,10 +220,7 @@ enemy_instances_update(EnemyInstancesContext *context)
         enemy_instances_wave->EnemyInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_instances_wave));
         enemy_bullets_source_instances->SourceInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_bullets_source_instances));
         
-        u64 *instances_live_ptr = EnemyInstancesInstancesLivePrt(enemy_instances);
-
         collision_source_instances->SourceInstancesCountOffset = (u16)(((uintptr_t)enemy_positions_count_prt) - ((uintptr_t)collision_source_instances));
-        collision_source_instances->SourceInstancesEnabledOffset = (u16)(((uintptr_t)instances_live_ptr) - ((uintptr_t)collision_source_instances));
 
         CollisionSourceInstancesSourceInstances *collision_source_instances_source = CollisionSourceInstancesSourceInstancesPrt(collision_source_instances);
         collision_source_instances_source->SourceTypeIndexOffset = (u16)(((uintptr_t)&enemy_instances_enemy_index[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)collision_source_instances));

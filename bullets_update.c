@@ -44,6 +44,7 @@ bullets_spawn(BulletsUpdateContext *context)
     u16 *bullet_positions_count_ptr = BulletsUpdateBulletPositionsCountPrt(bullets_update);
     u32 *spawn_count_ptr       = BulletsUpdateSpawnCountPrt(bullets_update);
     BulletsUpdateInstancesReset *instances_reset_prt = BulletsUpdateInstancesResetPrt(bullets_update);
+    BulletsUpdateInstancesLive *instances_live_prt = BulletsUpdateInstancesLivePrt(bullets_update);
 
     for (u8 wave_instance_index = 0; wave_instance_index < bullet_source_positions_count; wave_instance_index++)
     {
@@ -124,6 +125,7 @@ bullets_spawn(BulletsUpdateContext *context)
             u16 bullet_instance_bit_index = bullet_instance_index - (bullet_instance_word_index * 64);
 
             instances_reset_prt->InstancesReset[bullet_instance_word_index] |= 1ULL << bullet_instance_bit_index;
+            instances_live_prt->InstancesLive[bullet_instance_word_index] |= 1ULL << bullet_instance_bit_index;
 
             bullets_update_positions[bullet_instance_index] = spawn_position;
             bullets_update_end_positions[bullet_instance_index] = end_position;
@@ -142,6 +144,7 @@ bullets_move(BulletsUpdateContext *context)
     Bullets* bullets              = context->BulletsBin;
     BulletsUpdate *bullets_update = context->Root;
     GameState *game_state         = context->GameStateBin;
+    CollisionInstancesDamage *collision_instances_damage_bin = context->CollisionInstancesDamageBin;
 
     f32 time_delta = *GameStateTimeDeltaPrt(game_state);
 
@@ -154,9 +157,14 @@ bullets_move(BulletsUpdateContext *context)
 
     u8 *bullet_types_radius_q8         = BulletsBulletTypesRadiusQ8Prt(bullets, bullet_types_sheet);
     u8 *bullet_types_movement_speed_q4 = BulletsBulletTypesMovementSpeedQ4Prt(bullets, bullet_types_sheet);
+    u16 *bullet_types_health_prt       = BulletsBulletTypesHealthPrt(bullets, bullet_types_sheet);
     u32 spawn_count                    = *BulletsUpdateSpawnCountPrt(bullets_update);
 
     BulletsUpdateInstancesReset *instances_reset_prt = BulletsUpdateInstancesResetPrt(bullets_update);
+    BulletsUpdateInstancesLive *instances_live_prt = BulletsUpdateInstancesLivePrt(bullets_update);
+
+    CollisionInstancesDamageInstances *collision_instances_damage_instances_sheet = CollisionInstancesDamageInstancesPrt(collision_instances_damage_bin);
+    u16 *instances_damage_prt = CollisionInstancesDamageInstancesDamagePrt(collision_instances_damage_bin, collision_instances_damage_instances_sheet);
 
     u32 update_count = min(kBulletsUpdateSourceBulletsMaxInstanceCount, spawn_count);
     
@@ -165,25 +173,42 @@ bullets_move(BulletsUpdateContext *context)
         u32 bullet_instance_word_index = bullet_instance_index / 64;
         u32 bullet_instance_bit_index = bullet_instance_index - (bullet_instance_word_index * 64);
 
-        instances_reset_prt->InstancesReset[bullet_instance_word_index] &= ~(1ULL << bullet_instance_bit_index);
-
-        v2 bullet_position     = bullets_positions[bullet_instance_index];
-        v2 bullet_end_position = bullets_end_positions[bullet_instance_index];
-        u8 bullet_type_index   = bullets_type_index[bullet_instance_index];
-
-        u8 bullet_radius_q8 = bullet_types_radius_q8[bullet_type_index];
-        f32 bullet_radius   = ((f32)bullet_radius_q8) * kQ8ToFloat;
-
-        u8 bullet_movement_speed_q4 = bullet_types_movement_speed_q4[bullet_type_index];
-        f32 bullet_movement_speed   = ((f32)bullet_movement_speed_q4) * kQ4ToFloat;
-
-        if ((fabsf(bullet_position.x) - bullet_radius) > kPlayAreaHalfWidth)
+        if ((instances_live_prt->InstancesLive[bullet_instance_word_index] & (1ULL << bullet_instance_bit_index)) == 0)
         {
             continue;
         }
 
-        if ((fabsf(bullet_position.y) - bullet_radius) > kPlayAreaHalfHeight)
+        instances_reset_prt->InstancesReset[bullet_instance_word_index] &= ~(1ULL << bullet_instance_bit_index);
+
+        v2 bullet_position = bullets_positions[bullet_instance_index];
+        v2 bullet_end_position = bullets_end_positions[bullet_instance_index];
+        u8 bullet_type_index = bullets_type_index[bullet_instance_index];
+
+        u8 bullet_radius_q8 = bullet_types_radius_q8[bullet_type_index];
+        f32 bullet_radius = ((f32)bullet_radius_q8) * kQ8ToFloat;
+
+        u8 bullet_movement_speed_q4 = bullet_types_movement_speed_q4[bullet_type_index];
+        f32 bullet_movement_speed = ((f32)bullet_movement_speed_q4) * kQ4ToFloat;
+
+        b32 is_offscreen_left = (fabsf(bullet_position.x) + bullet_radius) < -kPlayAreaHalfWidth;
+        b32 is_offscreen_right = (fabsf(bullet_position.x) - bullet_radius) > kPlayAreaHalfWidth;
+        b32 is_offscreen_bottom = (fabsf(bullet_position.y) + bullet_radius) < -kPlayAreaHalfHeight;
+        b32 is_offscreen_top = (fabsf(bullet_position.y) - bullet_radius) > kPlayAreaHalfHeight;
+
+        b32 is_offscreen = is_offscreen_left || is_offscreen_right || is_offscreen_bottom || is_offscreen_top;
+
+        if (is_offscreen)
         {
+            instances_live_prt->InstancesLive[bullet_instance_word_index] &= ~(1ULL << bullet_instance_bit_index);
+            continue;
+        }
+
+        u16 health = bullet_types_health_prt[bullet_type_index];
+        u16 damage = instances_damage_prt[bullet_instance_index];
+
+        if (damage > health)
+        {
+            instances_live_prt->InstancesLive[bullet_instance_word_index] &= ~(1ULL << bullet_instance_bit_index);
             continue;
         }
 
