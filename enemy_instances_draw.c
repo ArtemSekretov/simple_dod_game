@@ -9,7 +9,8 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
-    u16 *frame_data_count_ptr   = FrameDataFrameDataCountPrt(frame_data);
+    u16 *frame_data_count_ptr = FrameDataFrameDataCountPrt(frame_data);
+    u16 frame_data_capacity   = *FrameDataFrameDataCapacityPrt(frame_data);
 
     EnemyInstancesEnemyTypes *enemy_sheet = EnemyInstancesEnemyTypesPrt(enemy_instances);
 
@@ -22,7 +23,11 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
     EnemyInstancesEnemyPositions *enemy_instances_positions_sheet = EnemyInstancesEnemyPositionsPrt(enemy_instances);
     v2 *enemy_instances_positions                                 = (v2 *)EnemyInstancesEnemyPositionsPositionsPrt(enemy_instances, enemy_instances_positions_sheet);
 
-    u16 enemy_positions_count = *EnemyInstancesEnemyPositionsCountPrt(enemy_instances);
+    u16 enemy_positions_count    = *EnemyInstancesEnemyPositionsCountPrt(enemy_instances);
+    u16 enemy_positions_capacity = *EnemyInstancesEnemyPositionsCapacityPrt(enemy_instances);
+
+    enemy_positions_count = min(enemy_positions_count, enemy_positions_capacity);
+
     u64 enemy_instances_live  = *EnemyInstancesInstancesLivePrt(enemy_instances);
 
     for (u8 wave_instance_index = 0; wave_instance_index < enemy_positions_count; wave_instance_index++)
@@ -39,7 +44,7 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
 
         v2 enemy_instance_position = enemy_instances_positions[wave_instance_index];
 
-        u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
+        u16 frame_data_count = (*frame_data_count_ptr) % frame_data_capacity;
         FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
 
         object_data->PositionAndScale[0] = enemy_instance_position.x;

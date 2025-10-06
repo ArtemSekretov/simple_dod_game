@@ -5,8 +5,11 @@ collision_grid_update(CollisionGridContext *context)
     CollisionSourceInstances *collision_source_instances_bin = context->CollisionSourceInstancesBin;
     CollisionSourceRadius *collision_source_radius_bin = context->CollisionSourceRadiusBin;
 
-    u16 collision_source_instances_count = *CollisionSourceInstancesSourceInstancesCountPrt(collision_source_instances_bin);
+    u16 collision_source_instances_count    = *CollisionSourceInstancesSourceInstancesCountPrt(collision_source_instances_bin);
+    u16 collision_source_instances_capacity = *CollisionSourceInstancesSourceInstancesCapacityPrt(collision_source_instances_bin);
     u64* collision_source_instances_enabled = CollisionSourceInstancesSourceInstancesEnabledPrt(collision_source_instances_bin);
+
+    collision_source_instances_count = min(collision_source_instances_count, collision_source_instances_capacity);
 
     CollisionSourceInstancesSourceInstances *collision_source_instances_sheet = CollisionSourceInstancesSourceInstancesPrt(collision_source_instances_bin);
     u8 *collision_source_types = CollisionSourceInstancesSourceInstancesSourceTypeIndexPrt(collision_source_instances_bin, collision_source_instances_sheet);

@@ -96,6 +96,7 @@ function buildCHeader(schema)
 		    const sheets = schema.sheets;
             fields.push( ...sheets.flatMap((sheet) => 
 				[`${schema.meta.size} ${undersoreToPascal(sheet.name)}CountOffset`,
+                 `${schema.meta.size} ${undersoreToPascal(sheet.name)}CapacityOffset`,
 				 `${schema.meta.size} ${undersoreToPascal(sheet.name)}Offset`]) 
             );
 
@@ -106,6 +107,13 @@ function buildCHeader(schema)
                     call: `${rootStructName}${undersoreToPascal(sheet.name)}CountPrt(${schema.meta.name}_bin)`,
 				    declaration: `${schema.meta.size} *${rootStructName}${undersoreToPascal(sheet.name)}CountPrt(${rootStructName} *root)`,
 				    body: `return (root->${undersoreToPascal(sheet.name)}CountOffset) ? (${schema.meta.size} *)((uintptr_t)root + root->${undersoreToPascal(sheet.name)}CountOffset) : NULL;`
+			    });
+                exportTypes.functions.push({
+                    returnType: `${schema.meta.size}`,
+                    name: `*${sheet.name}_capacity_prt`,
+                    call: `${rootStructName}${undersoreToPascal(sheet.name)}CapacityPrt(${schema.meta.name}_bin)`,
+				    declaration: `${schema.meta.size} *${rootStructName}${undersoreToPascal(sheet.name)}CapacityPrt(${rootStructName} *root)`,
+				    body: `return (root->${undersoreToPascal(sheet.name)}CapacityOffset) ? (${schema.meta.size} *)((uintptr_t)root + root->${undersoreToPascal(sheet.name)}CapacityOffset) : NULL;`
 			    });
                 exportSheet(sheet, rootStructName, exportTypes);		
             });

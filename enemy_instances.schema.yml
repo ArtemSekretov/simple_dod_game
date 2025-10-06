@@ -168,9 +168,9 @@ maps:
       target: source_instances_enabled
    sheets:
     - target: source_instances
+      source: enemy_positions
       columns:
-       - sheet: enemy_positions
-         source: positions
+       - source: positions
          target: positions
  - type: collision_source_radius
    sheets:

@@ -24,7 +24,7 @@ enemy_instances_spawn(EnemyInstancesContext *context)
 
     f32 wave_time = *WaveUpdateTimePrt(wave_update);
 
-    EnemyInstancesSpawnPoints *spawn_points_sheet       = EnemyInstancesSpawnPointsPrt(enemy_instances);
+    EnemyInstancesSpawnPoints *spawn_points_sheet = EnemyInstancesSpawnPointsPrt(enemy_instances);
 
     EnemyInstancesWaveEnemyInstances *enemy_instances_wave_sheet = EnemyInstancesWaveEnemyInstancesPrt(enemy_instances_wave);
 
@@ -41,7 +41,10 @@ enemy_instances_spawn(EnemyInstancesContext *context)
     u64 *instances_live_ptr        = EnemyInstancesInstancesLivePrt(enemy_instances);
     u64 *instances_reset_prt       = EnemyInstancesInstancesResetPrt(enemy_instances);
 
-    u16 enemy_instances_wave_count = *EnemyInstancesWaveEnemyInstancesCountPrt(enemy_instances_wave);
+    u16 enemy_instances_wave_count    = *EnemyInstancesWaveEnemyInstancesCountPrt(enemy_instances_wave);
+    u16 enemy_instances_wave_capacity = *EnemyInstancesWaveEnemyInstancesCapacityPrt(enemy_instances_wave);
+
+    enemy_instances_wave_count = min(enemy_instances_wave_count, enemy_instances_wave_capacity);
 
     while ((*enemy_positions_count_prt) < enemy_instances_wave_count)
     {
@@ -102,10 +105,12 @@ enemy_instances_move(EnemyInstancesContext *context)
     uint8_t *enemy_instances_way_point_index                      = EnemyInstancesEnemyPositionsWayPointIndexPrt(enemy_instances, enemy_instances_positions_sheet);
     v2 *enemy_instances_positions                                 = (v2 *)EnemyInstancesEnemyPositionsPositionsPrt(enemy_instances, enemy_instances_positions_sheet);
 
-    u16 enemy_positions_count = *EnemyInstancesEnemyPositionsCountPrt(enemy_instances);
+    u16 enemy_positions_count    = *EnemyInstancesEnemyPositionsCountPrt(enemy_instances);
+    u16 enemy_positions_capacity = *EnemyInstancesEnemyPositionsCapacityPrt(enemy_instances);
     u64 *instances_live_ptr   = EnemyInstancesInstancesLivePrt(enemy_instances);
     u64 *instances_reset_prt  = EnemyInstancesInstancesResetPrt(enemy_instances);
 
+    enemy_positions_count = min(enemy_positions_count, enemy_positions_capacity);
 
     for (u8 wave_instance_index = 0; wave_instance_index < enemy_positions_count; wave_instance_index++)
     {
@@ -217,11 +222,11 @@ enemy_instances_update(EnemyInstancesContext *context)
         u8 *enemy_instances_flat_spawn_point_index = EnemyInstancesEnemyInstancesFlatSpawnPointIndexPrt(enemy_instances, enemy_instances_sheet);
         s8 *enemy_instance_way_point_path_index    = EnemyInstancesEnemyInstancesWayPointPathIndexPrt(enemy_instances, enemy_instances_sheet);
 
-        enemy_instances_wave->EnemyInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_instances_wave));
-        enemy_bullets_source_instances->SourceInstancesCountOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_bullets_source_instances));
+        enemy_instances_wave->EnemyInstancesCountOffset    = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_instances_wave));
+        enemy_instances_wave->EnemyInstancesCapacityOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_instances_wave));
+        enemy_bullets_source_instances->SourceInstancesCountOffset   = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_bullets_source_instances));
+        enemy_bullets_source_instances->SourceInstancesCapacityOffset = (u16)(((uintptr_t)&wave_instance->EnemyInstancesCount) - ((uintptr_t)enemy_bullets_source_instances));
         
-        collision_source_instances->SourceInstancesCountOffset = (u16)(((uintptr_t)enemy_positions_count_prt) - ((uintptr_t)collision_source_instances));
-
         CollisionSourceInstancesSourceInstances *collision_source_instances_source = CollisionSourceInstancesSourceInstancesPrt(collision_source_instances);
         collision_source_instances_source->SourceTypeIndexOffset = (u16)(((uintptr_t)&enemy_instances_enemy_index[wave_instance->EnemyInstancesStartIndex]) - ((uintptr_t)collision_source_instances));
 

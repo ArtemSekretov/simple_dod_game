@@ -39,10 +39,11 @@ bullets_spawn(BulletsUpdateContext *context)
     f32 bullet_end_length = 5.0f * max(kPlayAreaWidth, kPlayAreaHeight);
 
     u64 bullet_source_instances_live  = *BulletSourceInstancesInstancesLivePrt(bullet_source_instances);
-    u16 bullet_source_positions_count = *BulletSourceInstancesPositionsCountPrt(bullet_source_instances);
+    u16 bullet_source_positions_count = min(*BulletSourceInstancesPositionsCountPrt(bullet_source_instances), *BulletSourceInstancesPositionsCapacityPrt(bullet_source_instances));
     
     u16 *bullet_positions_count_ptr = BulletsUpdateBulletPositionsCountPrt(bullets_update);
-    u32 *spawn_count_ptr       = BulletsUpdateSpawnCountPrt(bullets_update);
+    u16 bullet_positions_capacity   = *BulletsUpdateBulletPositionsCapacityPrt(bullets_update);
+
     BulletsUpdateInstancesReset *instances_reset_prt = BulletsUpdateInstancesResetPrt(bullets_update);
     BulletsUpdateInstancesLive *instances_live_prt = BulletsUpdateInstancesLivePrt(bullets_update);
 
@@ -119,7 +120,7 @@ bullets_spawn(BulletsUpdateContext *context)
                 continue;
             }
 
-            u16 bullet_instance_index = *bullet_positions_count_ptr;
+            u16 bullet_instance_index = (*bullet_positions_count_ptr) % bullet_positions_capacity;
 
             u16 bullet_instance_word_index = bullet_instance_index / 64;
             u16 bullet_instance_bit_index = bullet_instance_index - (bullet_instance_word_index * 64);
@@ -131,8 +132,8 @@ bullets_spawn(BulletsUpdateContext *context)
             bullets_update_end_positions[bullet_instance_index] = end_position;
             bullets_update_type_index[bullet_instance_index] = bullet_type_index;
 
-            *bullet_positions_count_ptr = (bullet_instance_index + 1) % kBulletsUpdateSourceBulletsMaxInstanceCount;
-            (*spawn_count_ptr)++;
+            (*bullet_positions_count_ptr)++;
+            
             bullets_spawn_count->SpawnCount[i]++;
         }
     }
@@ -158,7 +159,11 @@ bullets_move(BulletsUpdateContext *context)
     u8 *bullet_types_radius_q8         = BulletsBulletTypesRadiusQ8Prt(bullets, bullet_types_sheet);
     u8 *bullet_types_movement_speed_q4 = BulletsBulletTypesMovementSpeedQ4Prt(bullets, bullet_types_sheet);
     u16 *bullet_types_health_prt       = BulletsBulletTypesHealthPrt(bullets, bullet_types_sheet);
-    u32 spawn_count                    = *BulletsUpdateSpawnCountPrt(bullets_update);
+
+    u16 bullet_positions_count         = *BulletsUpdateBulletPositionsCountPrt(bullets_update);
+    u16 bullet_positions_capacity      = *BulletsUpdateBulletPositionsCapacityPrt(bullets_update);
+
+    u16 update_count = min(bullet_positions_count, bullet_positions_capacity);
 
     BulletsUpdateInstancesReset *instances_reset_prt = BulletsUpdateInstancesResetPrt(bullets_update);
     BulletsUpdateInstancesLive *instances_live_prt = BulletsUpdateInstancesLivePrt(bullets_update);
@@ -166,8 +171,6 @@ bullets_move(BulletsUpdateContext *context)
     CollisionInstancesDamageInstances *collision_instances_damage_instances_sheet = CollisionInstancesDamageInstancesPrt(collision_instances_damage_bin);
     u16 *instances_damage_prt = CollisionInstancesDamageInstancesDamagePrt(collision_instances_damage_bin, collision_instances_damage_instances_sheet);
 
-    u32 update_count = min(kBulletsUpdateSourceBulletsMaxInstanceCount, spawn_count);
-    
     for (u32 bullet_instance_index = 0; bullet_instance_index < update_count; bullet_instance_index++)
     {
         u32 bullet_instance_word_index = bullet_instance_index / 64;
@@ -235,12 +238,10 @@ bullets_update(BulletsUpdateContext *context)
     BulletsUpdateSourceBulletsSpawnCount *bullets_update_spawn_count = BulletsUpdateSourceBulletsSpawnCountPrt(bullets_update, bullets_update_sheet);
 
     u16 *bullet_positions_count_ptr = BulletsUpdateBulletPositionsCountPrt(bullets_update);
-    u32 *spawn_count_ptr       = BulletsUpdateSpawnCountPrt(bullets_update);
     
     if (play_clock_state & kPlayClockStateReset)
     {
         memset(bullets_update_spawn_count, 0, sizeof(BulletsUpdateSourceBulletsSpawnCount) * kBulletsUpdateMaxInstancesPerWave);
-        *spawn_count_ptr = 0;
         *bullet_positions_count_ptr = 0;
     }
 

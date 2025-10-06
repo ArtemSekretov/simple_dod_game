@@ -292,6 +292,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
             const targetCountOffsetSegmentName = `${targetSheetNameSegmentName}Count`;
 
             let sourceCountOffsetSegmentName = "";
+            let sourceCapacityOffsetSegmentName = "";
             let sourceSheetNameSegmentName = "";
 
             if(sourceSheet)
@@ -300,17 +301,18 @@ function buildRuntimeBinary(schema, sourceWorkbook)
                 {
                     sourceSheetNameSegmentName   = sourceSheet.source;
                     sourceCountOffsetSegmentName = `${sourceSheetNameSegmentName}Count`;
+                    sourceCapacityOffsetSegmentName = `${sourceSheetNameSegmentName}Capacity`;
                 }
             }
             relocationTable.push({
                 offset: data.length,
-                names: [sourceCountOffsetSegmentName, targetSheetNameSegmentName],
+                names: [sourceCountOffsetSegmentName, sourceCapacityOffsetSegmentName, targetSheetNameSegmentName],
                 size: schema.meta.size,
                 relativeSegment: mapSegmentName
             });
 
             // put space in data this will be patch by relocation table
-			data.push( ...bytesAsSize([0, 0], schema.meta.size) );
+			data.push( ...bytesAsSize([0, 0, 0], schema.meta.size) );
 
             const targetColumns = targetSheet.columns;
 
@@ -371,6 +373,7 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 		{
 			const sheetSegmentName  = sheet.name;
             const countOffsetSegmentName = `${sheetSegmentName}Count`;
+            const capacityOffsetSegmentName = `${sheetSegmentName}Capacity`;
 
 			let rowCount          = 0;
 			let rowCapacity       = 0;
@@ -410,19 +413,25 @@ function buildRuntimeBinary(schema, sourceWorkbook)
 			
             relocationTable.push({
                 offset: data.length,
-                names: [countOffsetSegmentName, sheetSegmentName],
+                names: [countOffsetSegmentName, capacityOffsetSegmentName, sheetSegmentName],
                 size: schema.meta.size
             });
 
             // put space in data this will be patch by relocation table
-			data.push( ...bytesAsSize([0, 0], schema.meta.size) );
+			data.push( ...bytesAsSize([0, 0, 0], schema.meta.size) );
 						
             exportDataSegments.push( {
                 name: countOffsetSegmentName,
                 getBytes: (data, exportDataSegments) => {
                     data.push( ...bytesAsSize([rowCount], schema.meta.size));
                 }
-            });                
+            });
+            exportDataSegments.push( {
+                name: capacityOffsetSegmentName,
+                getBytes: (data, exportDataSegments) => {
+                    data.push( ...bytesAsSize([rowCapacity], schema.meta.size));
+                }
+            });   
             
             const columns = sheet.columns;
 				

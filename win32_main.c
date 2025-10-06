@@ -205,40 +205,78 @@ begin_frame(FrameData *frame_data, f32 game_aspect, s32 screen_width, s32 screen
 
 #ifndef NDEBUG
 static void
-collision_grid_print_draw(CollisionGridContext *context)
+collision_grid_print_draw(CollisionGridContext *context_a, CollisionGridContext *context_b)
 {
-    CollisionGrid *collision_grid = context->Root;
+    CollisionGrid *a_collision_grid = context_a->Root;
 
-    CollisionGridGridRowCount *collision_grid_row_count = CollisionGridGridRowCountPrt(collision_grid);
-    CollisionGridGridRows *collision_grid_rows = CollisionGridGridRowsPrt(collision_grid);
+    CollisionGridGridRowCount *a_collision_grid_row_count = CollisionGridGridRowCountPrt(a_collision_grid);
+    CollisionGridGridRows *a_collision_grid_rows = CollisionGridGridRowsPrt(a_collision_grid);
+
+    CollisionGrid *b_collision_grid = context_b->Root;
+
+    CollisionGridGridRowCount *b_collision_grid_row_count = CollisionGridGridRowCountPrt(b_collision_grid);
+    CollisionGridGridRows *b_collision_grid_rows = CollisionGridGridRowsPrt(b_collision_grid);
     
     printf("\033[0;0H");
 
     for (s32 row_index = 0; row_index < kCollisionGridRowCount; row_index++)
     {
-        u8 count = collision_grid_row_count->GridRowCount[row_index];
-        if (count > kCollisionGridColCount)
-        {
-            printf("\033[1;31m");
-        }
-        else
-        {
-            printf("\033[34m");
-        }
-        printf("%02x ", count);
+        printf("%02d ", row_index);
 
-        printf("\033[32m");
-        s32 col_index = 0;
-        for (; col_index < count; col_index++)
         {
-            u8 source_index = collision_grid_rows->GridRows[(row_index * kCollisionGridColCount) + col_index];
-            printf("%02x ", source_index);
+            u8 count = a_collision_grid_row_count->GridRowCount[row_index];
+            if (count > kCollisionGridColCount)
+            {
+                printf("\033[1;31m");
+            }
+            else
+            {
+                printf("\033[34m");
+            }
+            printf("%02x ", count);
+
+            printf("\033[32m");
+            s32 col_index = 0;
+            for (; col_index < count; col_index++)
+            {
+                u8 source_index = a_collision_grid_rows->GridRows[(row_index * kCollisionGridColCount) + col_index];
+                printf("%02x ", source_index);
+            }
+            printf("\033[37m");
+            for (; col_index < kCollisionGridColCount; col_index++)
+            {
+                u8 source_index = a_collision_grid_rows->GridRows[(row_index * kCollisionGridColCount) + col_index];
+                printf("%02x ", source_index);
+            }
         }
-        printf("\033[37m");
-        for (; col_index < kCollisionGridColCount; col_index++)
+
+        printf("  ");
+
         {
-            u8 source_index = collision_grid_rows->GridRows[(row_index * kCollisionGridColCount) + col_index];
-            printf("%02x ", source_index);
+            u8 count = b_collision_grid_row_count->GridRowCount[row_index];
+            if (count > kCollisionGridColCount)
+            {
+                printf("\033[1;31m");
+            }
+            else
+            {
+                printf("\033[34m");
+            }
+            printf("%02x ", count);
+
+            printf("\033[32m");
+            s32 col_index = 0;
+            for (; col_index < count; col_index++)
+            {
+                u8 source_index = b_collision_grid_rows->GridRows[(row_index * kCollisionGridColCount) + col_index];
+                printf("%02x ", source_index);
+            }
+            printf("\033[37m");
+            for (; col_index < kCollisionGridColCount; col_index++)
+            {
+                u8 source_index = b_collision_grid_rows->GridRows[(row_index * kCollisionGridColCount) + col_index];
+                printf("%02x ", source_index);
+            }
         }
 
         printf("\n");
@@ -320,7 +358,10 @@ collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
 {
     CollisionDamage *collision_damage_bin = context->Root;
     
-    u16 damage_events_count = min((*CollisionDamageDamageEventsCountPrt(collision_damage_bin)), kCollisionDamageMaxDamageEventCount);
+    u16 damage_events_count = *CollisionDamageDamageEventsCountPrt(collision_damage_bin);
+    u16 damage_events_capacity = *CollisionDamageDamageEventsCapacityPrt(collision_damage_bin);
+
+    damage_events_count = min(damage_events_count, damage_events_capacity);
 
     CollisionDamageDamageEvents *collision_damage_damage_events_sheet = CollisionDamageDamageEventsPrt(collision_damage_bin);
     v2 *a_damage_position_prt = (v2*)CollisionDamageDamageEventsAPositionPrt(collision_damage_bin, collision_damage_damage_events_sheet);
@@ -329,7 +370,8 @@ collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
-    u16 *frame_data_count_ptr   = FrameDataFrameDataCountPrt(frame_data);
+    u16 *frame_data_count_ptr = FrameDataFrameDataCountPrt(frame_data);
+    u16 frame_data_capacity   = *FrameDataFrameDataCapacityPrt(frame_data);
 
     for (u16 damage_index = 0; damage_index < damage_events_count; damage_index++)
     {
@@ -337,7 +379,7 @@ collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
         v2 b_damage_position = b_damage_position_prt[damage_index];
 
         {
-            u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
+            u16 frame_data_count = (*frame_data_count_ptr) % frame_data_capacity;
             FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
 
             object_data->PositionAndScale[0] = a_damage_position.x;
@@ -351,7 +393,7 @@ collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
         (*frame_data_count_ptr)++;
 
         {
-            u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
+            u16 frame_data_count = (*frame_data_count_ptr) % frame_data_capacity;
             FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
 
             object_data->PositionAndScale[0] = b_damage_position.x;
@@ -672,7 +714,7 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 
             #ifndef NDEBUG
             //collision_damage_print_draw(&enemy_instances_vs_hero_bullets_collision_damage_context);
-            collision_grid_print_draw(&hero_bullets_collision_grid_context);
+            collision_grid_print_draw(&enemy_instances_collision_grid_context, &hero_bullets_collision_grid_context);
             #endif
 
             enemy_instances_draw(&enemy_instances_draw_context);
@@ -680,7 +722,7 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             bullets_draw(&enemy_bullets_draw_context);
             bullets_draw(&hero_bullets_draw_context);
 
-            collision_damage_draw(&enemy_instances_vs_hero_bullets_collision_damage_context, frame_data);
+            //collision_damage_draw(&enemy_instances_vs_hero_bullets_collision_damage_context, frame_data);
 
             *time_ptr += *time_delta_ptr;
             *play_time_ptr += *time_delta_ptr;

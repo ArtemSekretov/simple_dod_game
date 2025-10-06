@@ -13,6 +13,7 @@ collision_damage_update(CollisionDamageContext *context)
     LevelUpdate *level_update_bin = context->LevelUpdateBin;
 
     u16 *damage_events_count_prt = CollisionDamageDamageEventsCountPrt(collision_damage_bin);
+    u16 damage_events_capacity   = *CollisionDamageDamageEventsCapacityPrt(collision_damage_bin);
     CollisionDamageDamageEvents *collision_damage_damage_events_sheet = CollisionDamageDamageEventsPrt(collision_damage_bin);
     v2 *a_damage_position_prt = (v2*)CollisionDamageDamageEventsAPositionPrt(collision_damage_bin, collision_damage_damage_events_sheet);
     v2 *b_damage_position_prt = (v2*)CollisionDamageDamageEventsBPositionPrt(collision_damage_bin, collision_damage_damage_events_sheet);
@@ -60,6 +61,11 @@ collision_damage_update(CollisionDamageContext *context)
 
     u16 a_source_instances_count = *CollisionSourceInstancesSourceInstancesCountPrt(a_collision_source_instances_bin);
     u16 b_source_instances_count = *CollisionSourceInstancesSourceInstancesCountPrt(b_collision_source_instances_bin);
+    u16 a_source_instances_capacity = *CollisionSourceInstancesSourceInstancesCapacityPrt(a_collision_source_instances_bin);
+    u16 b_source_instances_capacity = *CollisionSourceInstancesSourceInstancesCapacityPrt(b_collision_source_instances_bin);
+
+    a_source_instances_count = min(a_source_instances_count, a_source_instances_capacity);
+    b_source_instances_count = min(b_source_instances_count, b_source_instances_capacity);
 
     u64 *a_source_instances_reset_prt = CollisionSourceInstancesSourceInstancesResetPrt(a_collision_source_instances_bin);
     u64 *b_source_instances_reset_prt = CollisionSourceInstancesSourceInstancesResetPrt(b_collision_source_instances_bin);
@@ -140,7 +146,7 @@ collision_damage_update(CollisionDamageContext *context)
             u16 a_instance_word_index = a_source_instance_index / 64;
             u16 a_instance_bit_index = a_source_instance_index - (a_instance_word_index * 64);
 
-            b32 is_a_processed = a_prev_instances_processed[a_instance_word_index] & (1ULL << a_instance_bit_index);
+            b32 is_a_processed = (a_prev_instances_processed[a_instance_word_index] & (1ULL << a_instance_bit_index)) != 0;
 
             a_next_instances_processed[a_instance_word_index] |= (1ULL << a_instance_bit_index);
 
@@ -158,7 +164,7 @@ collision_damage_update(CollisionDamageContext *context)
                 u16 b_instance_word_index = b_source_instance_index / 64;
                 u16 b_instance_bit_index = b_source_instance_index - (b_instance_word_index * 64);
 
-                b32 is_b_processed = b_prev_instances_processed[b_instance_word_index] & (1ULL << b_instance_bit_index);
+                b32 is_b_processed = (b_prev_instances_processed[b_instance_word_index] & (1ULL << b_instance_bit_index)) != 0;
 
                 b_next_instances_processed[b_instance_word_index] |= (1ULL << b_instance_bit_index);
 
@@ -176,7 +182,7 @@ collision_damage_update(CollisionDamageContext *context)
                         v2 a_damage_position = v2_add(a_source_instances_position, v_a_damage);
                         v2 b_damage_position = v2_sub(b_source_instances_position, v_b_damage);
 
-                        u16 damage_index = (*damage_events_count_prt) % kCollisionDamageMaxDamageEventCount;
+                        u16 damage_index = (*damage_events_count_prt) % damage_events_capacity;
 
                         a_damage_value_prt[damage_index] = b_source_damage;
                         b_damage_value_prt[damage_index] = a_source_damage;

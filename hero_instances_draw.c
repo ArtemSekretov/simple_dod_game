@@ -7,10 +7,14 @@ hero_instances_draw(HeroInstancesDrawContext *context)
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
 
-    u16 *frame_data_count_ptr   = FrameDataFrameDataCountPrt(frame_data);
+    u16 *frame_data_count_ptr = FrameDataFrameDataCountPrt(frame_data);
+    u16 frame_data_capacity   = *FrameDataFrameDataCapacityPrt(frame_data);
 
     u64 hero_instances_live  = *HeroInstancesInstancesLivePrt(hero_instances);
-    u16 hero_instances_count = *HeroInstancesHeroInstancesCountPrt(hero_instances);
+    u16 hero_instances_count    = *HeroInstancesHeroInstancesCountPrt(hero_instances);
+    u16 hero_instances_capacity = *HeroInstancesHeroInstancesCapacityPrt(hero_instances);
+
+    hero_instances_count = min(hero_instances_count, hero_instances_capacity);
 
     HeroInstancesHeroInstances *hero_instances_sheet = HeroInstancesHeroInstancesPrt(hero_instances);
     v2 *hero_instances_positions                     = (v2 *)HeroInstancesHeroInstancesPositionsPrt(hero_instances, hero_instances_sheet);
@@ -33,7 +37,7 @@ hero_instances_draw(HeroInstancesDrawContext *context)
 
         v2 hero_instance_position = hero_instances_positions[wave_instance_index];
 
-        u16 frame_data_count = (*frame_data_count_ptr) % kFrameDataMaxObjectDataCapacity;
+        u16 frame_data_count = (*frame_data_count_ptr) % frame_data_capacity;
         FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
 
         object_data->PositionAndScale[0] = hero_instance_position.x;

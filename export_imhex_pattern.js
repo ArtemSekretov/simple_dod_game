@@ -170,7 +170,9 @@ function buildImHexPattern(schema)
       
                 targetSheets.forEach( targetSheet => {
                     mapFields.push(...[`${imHexMetaSize} ${undersoreToPascal(targetSheet.name)}CountOffset`,
-                        `${imHexMetaSize} ${undersoreToPascal(targetSheet.name)}Count @ ${imHexMetaSize}(${undersoreToPascal(targetSheet.name)}CountOffset + addressof(this))`,
+                        `if(${undersoreToPascal(targetSheet.name)}CountOffset > 0) ${imHexMetaSize} ${undersoreToPascal(targetSheet.name)}Count @ ${imHexMetaSize}(${undersoreToPascal(targetSheet.name)}CountOffset + addressof(this))`,
+                        `${imHexMetaSize} ${undersoreToPascal(targetSheet.name)}CapacityOffset`,
+                        `${imHexMetaSize} ${undersoreToPascal(targetSheet.name)}Capacity @ ${imHexMetaSize}(${undersoreToPascal(targetSheet.name)}CapacityOffset + addressof(this))`,
                         `${imHexMetaSize} ${undersoreToPascal(targetSheet.name)}Offset`])
                     
                     let mapSourceSheet = null;
@@ -259,13 +261,6 @@ function buildImHexPattern(schema)
         
         function exportMapSheet(targetContext, mapFields, mapSourceSheet, targetSheet, rootStructName, mapStructName, mapOffset, exportTypes)
         {
-            let rowCapacity = 0;
-
-            if(targetSheet.hasOwnProperty('capacity'))
-            {
-                rowCapacity = resolveExpression(targetContext, targetSheet.capacity)|0;
-            }
-
             const mapSheetStructName = `${mapStructName}${undersoreToPascal(targetSheet.name)}`;
             
             const targetColumns = targetSheet.columns;
@@ -308,11 +303,6 @@ function buildImHexPattern(schema)
                             if(sourceSheetIndex != -1)
                             {
                                 sourceSheet = sourceSheets[sourceSheetIndex];
-                        
-                                if(sourceSheet.hasOwnProperty('capacity'))
-                                {
-                                    rowCapacity = resolveExpression(vmContext, sourceSheet.capacity)|0;
-                                }
                             }
                             else
                             {
@@ -359,7 +349,7 @@ function buildImHexPattern(schema)
                 const columnStructName = `${sheetStructName}${undersoreToPascal(targetColumn.name)}`;
                 const columnType = exportComplexTypes(columnContext, columnStructName, columnSources, true, exportTypes);
 
-                fields.push(`if(${undersoreToPascal(targetColumn.name)}Offset > 0) ${columnType.type} ${undersoreToPascal(targetColumn.name)}[GetCapacity(${rowCapacity}, parent.${undersoreToPascal(targetSheet.name)}Count)] @ ${imHexMetaSize}(${undersoreToPascal(targetColumn.name)}Offset + addressof(parent))`);
+                fields.push(`if(${undersoreToPascal(targetColumn.name)}Offset > 0) ${columnType.type} ${undersoreToPascal(targetColumn.name)}[parent.${undersoreToPascal(targetSheet.name)}Capacity] @ ${imHexMetaSize}(${undersoreToPascal(targetColumn.name)}Offset + addressof(parent))`);
             });
 
             exportTypes.structs.push({
@@ -377,23 +367,18 @@ function buildImHexPattern(schema)
 			const columns = sheet.columns;
 			
 			const sheetName = sheet.name;
-			
-            let rowCapacity = 0;
-
-			if(sheet.hasOwnProperty('capacity'))
-			{
-				rowCapacity = resolveExpression(vmContext, sheet.capacity)|0;
-			}
-			
+						
             fields.push( ...[`${imHexMetaSize} ${undersoreToPascal(sheet.name)}CountOffset`,
-                 `${imHexMetaSize} ${undersoreToPascal(sheet.name)}Count @ ${undersoreToPascal(sheet.name)}CountOffset`,
+                 `if(${undersoreToPascal(sheet.name)}CountOffset > 0) ${imHexMetaSize} ${undersoreToPascal(sheet.name)}Count @ ${undersoreToPascal(sheet.name)}CountOffset`,
+                 `${imHexMetaSize} ${undersoreToPascal(sheet.name)}CapacityOffset`,
+                 `${imHexMetaSize} ${undersoreToPascal(sheet.name)}Capacity @ ${undersoreToPascal(sheet.name)}CapacityOffset`,
 				 `${imHexMetaSize} ${undersoreToPascal(sheet.name)}Offset`,
                  `if(${undersoreToPascal(sheet.name)}Offset > 0) ${sheetStructName} ${undersoreToPascal(sheet.name)} @ ${undersoreToPascal(sheet.name)}Offset`]);
 			
             const sheetFields = [];
 
 			columns.forEach( column => {
-				exportColumn(sheetFields, column, rootStructName, rowCapacity, sheetName, exportTypes);
+				exportColumn(sheetFields, column, rootStructName, sheetName, exportTypes);
 			});
 
 			exportTypes.structs.push({
@@ -402,7 +387,7 @@ function buildImHexPattern(schema)
 			});
 		}
 		
-		function exportColumn(fields, column, rootStructName, rowCapacity, sheetName, exportTypes)
+		function exportColumn(fields, column, rootStructName, sheetName, exportTypes)
 		{
 			const sources = column.sources;
 			
@@ -412,7 +397,7 @@ function buildImHexPattern(schema)
             const columnType = exportComplexTypes(vmContext, columnStructName, sources, true, exportTypes);
 
             fields.push(`${imHexMetaSize} ${undersoreToPascal(column.name)}Offset`);
-            fields.push(`if(${undersoreToPascal(column.name)}Offset > 0) ${columnType.type} ${undersoreToPascal(column.name)}[GetCapacity(${rowCapacity}, parent.${undersoreToPascal(sheetName)}Count)] @ ${undersoreToPascal(column.name)}Offset`);
+            fields.push(`if(${undersoreToPascal(column.name)}Offset > 0) ${columnType.type} ${undersoreToPascal(column.name)}[parent.${undersoreToPascal(sheetName)}Capacity] @ ${undersoreToPascal(column.name)}Offset`);
 		}
 	}
 	
@@ -488,17 +473,8 @@ function buildImHexPattern(schema)
 	{
         const imHexMetaSize = getImHexType(schema.meta.size);
 
-		let text = `fn GetCapacity(${imHexMetaSize} capacity, ${imHexMetaSize} count)\n`;
-		text += '{\n';
-		text += `  ${imHexMetaSize} result = capacity;\n`;
-		text += '  if(result == 0) {\n';
-		text += '    result = count;\n';
-		text += '  }\n';
-		text += '  return result;\n';
-		text += '};\n';
+		let text = '\n'
 		
-        text += '\n';
-
 		exportTypes.structs.forEach((struct) => {
 			text += `using ${struct.name};\n`
 		});

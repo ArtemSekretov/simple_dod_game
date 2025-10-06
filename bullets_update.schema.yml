@@ -13,10 +13,6 @@ constants:
    value: 64
 
 variables:
- - name: spawn_count
-   types:
-    - name: spawn_count
-      type: uint32_t
  - name: instances_live
    types:
     - name: instances_live
