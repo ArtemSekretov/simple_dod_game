@@ -3,9 +3,9 @@ meta:
  size: uint16_t
 
 constants:
- - name: state_reset
+ - name: reset
    value: 1
- - name: state_pause
+ - name: play_enable
    value: 2
 
 variables:

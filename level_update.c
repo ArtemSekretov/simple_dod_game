@@ -14,7 +14,7 @@ level_update(LevelUpdateContext *context)
 
     u32 enemy_instances_wave_state = *EnemyInstancesWaveStatePrt(enemy_instances);
 
-    if (game_state_state & kGameStateStateReset)
+    if (game_state_state & kGameStateReset)
     {
         *level_index_ptr = 0;
         *level_time_ptr  = 0.0f;

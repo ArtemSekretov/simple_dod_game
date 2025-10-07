@@ -19,7 +19,7 @@ collision_damage_update(CollisionDamageContext *context)
     v2 *b_damage_position_prt = (v2*)CollisionDamageDamageEventsBPositionPrt(collision_damage_bin, collision_damage_damage_events_sheet);
     u16 *a_damage_value_prt = CollisionDamageDamageEventsAValuePrt(collision_damage_bin, collision_damage_damage_events_sheet);
     u16 *b_damage_value_prt = CollisionDamageDamageEventsBValuePrt(collision_damage_bin, collision_damage_damage_events_sheet);
-    float *damage_time_prt = CollisionDamageDamageEventsTimePrt(collision_damage_bin, collision_damage_damage_events_sheet);
+    f32 *damage_time_prt = CollisionDamageDamageEventsTimePrt(collision_damage_bin, collision_damage_damage_events_sheet);
     u8 *a_damage_source_instance_index_prt = CollisionDamageDamageEventsASourceInstanceIndexPrt(collision_damage_bin, collision_damage_damage_events_sheet);
     u8 *b_damage_source_instance_index_prt = CollisionDamageDamageEventsBSourceInstanceIndexPrt(collision_damage_bin, collision_damage_damage_events_sheet);
 

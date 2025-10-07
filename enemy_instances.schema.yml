@@ -147,6 +147,8 @@ context:
    type: wave_update
  - name: level_update_bin
    type: level_update
+ - name: collision_instances_damage_bin
+   type: collision_instances_damage
 
 maps:
  - type: bullet_source_instances

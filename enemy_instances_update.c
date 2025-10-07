@@ -79,6 +79,7 @@ enemy_instances_move(EnemyInstancesContext *context)
     GameState *game_state                    = context->GameStateBin;
     WaveUpdate *wave_update                  = context->WaveUpdateBin;
     EnemyInstancesWave *enemy_instances_wave = EnemyInstancesEnemyInstancesWaveMapPrt(enemy_instances);
+    CollisionInstancesDamage *collision_instances_damage_bin = context->CollisionInstancesDamageBin;
 
     f32 time_delta   = *GameStateTimeDeltaPrt(game_state);
     u8 player_grid_x = *GameStatePlayerGridXPrt(game_state);
@@ -110,6 +111,11 @@ enemy_instances_move(EnemyInstancesContext *context)
     u64 *instances_live_ptr   = EnemyInstancesInstancesLivePrt(enemy_instances);
     u64 *instances_reset_prt  = EnemyInstancesInstancesResetPrt(enemy_instances);
 
+    u16 *enemy_types_health_prt = EnemyInstancesEnemyTypesHealthPrt(enemy_instances, enemy_sheet);
+
+    CollisionInstancesDamageInstances *collision_instances_damage_instances_sheet = CollisionInstancesDamageInstancesPrt(collision_instances_damage_bin);
+    u16 *instances_damage_prt = CollisionInstancesDamageInstancesDamagePrt(collision_instances_damage_bin, collision_instances_damage_instances_sheet);
+
     enemy_positions_count = min(enemy_positions_count, enemy_positions_capacity);
 
     for (u8 wave_instance_index = 0; wave_instance_index < enemy_positions_count; wave_instance_index++)
@@ -122,6 +128,15 @@ enemy_instances_move(EnemyInstancesContext *context)
         *instances_reset_prt &= ~(1ULL << wave_instance_index);
 
         u8 enemy_index = enemy_instances_enemy_index[wave_instance_index];
+
+        u16 health = enemy_types_health_prt[enemy_index];
+        u16 damage = instances_damage_prt[wave_instance_index];
+
+        if (damage > health)
+        {
+            *instances_live_ptr &= ~(1ULL << wave_instance_index);
+            continue;
+        }
 
         u16 start_time_q4 = enemy_instances_start_time_q4[wave_instance_index];
         f32 start_time = ((f32)start_time_q4) * kQ4ToFloat;

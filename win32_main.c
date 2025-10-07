@@ -357,15 +357,19 @@ static void
 collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
 {
     CollisionDamage *collision_damage_bin = context->Root;
-    
+    LevelUpdate *level_update_bin = context->LevelUpdateBin;
+
+    CollisionDamageDamageEvents *collision_damage_damage_events_sheet = CollisionDamageDamageEventsPrt(collision_damage_bin);
+
     u16 damage_events_count = *CollisionDamageDamageEventsCountPrt(collision_damage_bin);
     u16 damage_events_capacity = *CollisionDamageDamageEventsCapacityPrt(collision_damage_bin);
 
     damage_events_count = min(damage_events_count, damage_events_capacity);
 
-    CollisionDamageDamageEvents *collision_damage_damage_events_sheet = CollisionDamageDamageEventsPrt(collision_damage_bin);
     v2 *a_damage_position_prt = (v2*)CollisionDamageDamageEventsAPositionPrt(collision_damage_bin, collision_damage_damage_events_sheet);
     v2 *b_damage_position_prt = (v2*)CollisionDamageDamageEventsBPositionPrt(collision_damage_bin, collision_damage_damage_events_sheet);
+
+    f32 *damage_time_prt = CollisionDamageDamageEventsTimePrt(collision_damage_bin, collision_damage_damage_events_sheet);
 
     FrameDataFrameData *frame_data_sheet = FrameDataFrameDataPrt(frame_data);
     FrameDataFrameDataObjectData *object_data_column = FrameDataFrameDataObjectDataPrt(frame_data, frame_data_sheet);
@@ -373,38 +377,48 @@ collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
     u16 *frame_data_count_ptr = FrameDataFrameDataCountPrt(frame_data);
     u16 frame_data_capacity   = *FrameDataFrameDataCapacityPrt(frame_data);
 
+    f32 level_time = *LevelUpdateTimePrt(level_update_bin);
+
     for (u16 damage_index = 0; damage_index < damage_events_count; damage_index++)
     {
-        v2 a_damage_position = a_damage_position_prt[damage_index];
-        v2 b_damage_position = b_damage_position_prt[damage_index];
+        f32 damage_time = damage_time_prt[damage_index];
 
+        f32 delta = fabsf(level_time - damage_time);
+
+        if (delta < 0.25f)
         {
-            u16 frame_data_count = (*frame_data_count_ptr) % frame_data_capacity;
-            FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
+            {
+                v2 damage_position = a_damage_position_prt[damage_index];
+                u16 frame_data_count = (*frame_data_count_ptr) % frame_data_capacity;
+                FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
 
-            object_data->PositionAndScale[0] = a_damage_position.x;
-            object_data->PositionAndScale[1] = a_damage_position.y;
-            object_data->PositionAndScale[2] = 0.1f;
+                object_data->PositionAndScale[0] = damage_position.x;
+                object_data->PositionAndScale[1] = damage_position.y;
+                object_data->PositionAndScale[2] = 0.1f;
 
-            object_data->Color[0] = 1.0f;
-            object_data->Color[1] = 0.0f;
-            object_data->Color[2] = 1.0f;
+                object_data->Color[0] = 1.0f;
+                object_data->Color[1] = 0.0f;
+                object_data->Color[2] = 1.0f;
+
+                (*frame_data_count_ptr)++;
+            }
+
+            {
+                v2 damage_position = b_damage_position_prt[damage_index];
+                u16 frame_data_count = (*frame_data_count_ptr) % frame_data_capacity;
+                FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
+
+                object_data->PositionAndScale[0] = damage_position.x;
+                object_data->PositionAndScale[1] = damage_position.y;
+                object_data->PositionAndScale[2] = 0.1f;
+
+                object_data->Color[0] = 1.0f;
+                object_data->Color[1] = 1.0f;
+                object_data->Color[2] = 1.0f;
+
+                (*frame_data_count_ptr)++;
+            }
         }
-        (*frame_data_count_ptr)++;
-
-        {
-            u16 frame_data_count = (*frame_data_count_ptr) % frame_data_capacity;
-            FrameDataFrameDataObjectData *object_data = object_data_column + frame_data_count;
-
-            object_data->PositionAndScale[0] = b_damage_position.x;
-            object_data->PositionAndScale[1] = b_damage_position.y;
-            object_data->PositionAndScale[2] = 0.1f;
-
-            object_data->Color[0] = 1.0f;
-            object_data->Color[1] = 1.0f;
-            object_data->Color[2] = 1.0f;
-        }
-        (*frame_data_count_ptr)++;
     }
 }
 
@@ -518,12 +532,16 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     MapFileData enemy_instances_vs_hero_bullets_collision_damage_map_data = CreateMapFile("collision_damage.bin", MapFilePermitions_ReadWriteCopy);
     CollisionDamage *enemy_instances_vs_hero_bullets_collision_damage     = (CollisionDamage *)enemy_instances_vs_hero_bullets_collision_damage_map_data.data;
 
+    MapFileData hero_instances_vs_enemy_bullets_collision_damage_map_data = CreateMapFile("collision_damage.bin", MapFilePermitions_ReadWriteCopy);
+    CollisionDamage *hero_instances_vs_enemy_bullets_collision_damage     = (CollisionDamage *)hero_instances_vs_enemy_bullets_collision_damage_map_data.data;
+
     BulletsUpdateContext enemy_bullets_update_context;
-    enemy_bullets_update_context.Root                     = enemy_bullets_update_data;
-    enemy_bullets_update_context.BulletsBin               = enemy_bullets;
-    enemy_bullets_update_context.BulletSourceInstancesBin = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
-    enemy_bullets_update_context.GameStateBin             = game_state;
-    enemy_bullets_update_context.PlayClockBin             = WaveUpdatePlayClockMapPrt(wave_update_data);
+    enemy_bullets_update_context.Root                        = enemy_bullets_update_data;
+    enemy_bullets_update_context.BulletsBin                  = enemy_bullets;
+    enemy_bullets_update_context.BulletSourceInstancesBin    = EnemyInstancesBulletSourceInstancesMapPrt(enemy_instances);
+    enemy_bullets_update_context.GameStateBin                = game_state;
+    enemy_bullets_update_context.PlayClockBin                = WaveUpdatePlayClockMapPrt(wave_update_data);
+    enemy_bullets_update_context.CollisionInstancesDamageBin = CollisionDamageBCollisionInstancesDamageMapPrt(hero_instances_vs_enemy_bullets_collision_damage);
 
     BulletsDrawContext enemy_bullets_draw_context;
     enemy_bullets_draw_context.BulletsBin       = enemy_bullets;
@@ -548,6 +566,7 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     enemy_instances_context.GameStateBin   = game_state;
     enemy_instances_context.WaveUpdateBin  = wave_update_data;
     enemy_instances_context.LevelUpdateBin = level_update_data;
+    enemy_instances_context.CollisionInstancesDamageBin = CollisionDamageACollisionInstancesDamageMapPrt(enemy_instances_vs_hero_bullets_collision_damage);
 
     EnemyInstancesDrawContext enemy_instances_draw_context;
     enemy_instances_draw_context.EnemyInstancesBin = enemy_instances;
@@ -569,6 +588,7 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     HeroInstancesContext hero_instances_context;
     hero_instances_context.Root         = hero_instances;
     hero_instances_context.GameStateBin = game_state;
+    hero_instances_context.CollisionInstancesDamageBin = CollisionDamageACollisionInstancesDamageMapPrt(hero_instances_vs_enemy_bullets_collision_damage);
 
     HeroInstancesDrawContext hero_instances_draw_context;
     hero_instances_draw_context.HeroInstancesBin = hero_instances;
@@ -608,6 +628,19 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     enemy_instances_vs_hero_bullets_collision_damage_context.BCollisionSourceDamageBin = BulletsCollisionSourceDamageMapPrt(hero_bullets);
     enemy_instances_vs_hero_bullets_collision_damage_context.LevelUpdateBin = level_update_data;
 
+    CollisionDamageContext hero_instances_vs_enemy_bullets_collision_damage_context;
+    hero_instances_vs_enemy_bullets_collision_damage_context.Root = hero_instances_vs_enemy_bullets_collision_damage;
+    
+    hero_instances_vs_enemy_bullets_collision_damage_context.ACollisionGridBin = hero_instances_collision_grid;
+    hero_instances_vs_enemy_bullets_collision_damage_context.ACollisionSourceInstancesBin = hero_instances_collision_grid_context.CollisionSourceInstancesBin;
+    hero_instances_vs_enemy_bullets_collision_damage_context.ACollisionSourceRadiusBin = hero_instances_collision_grid_context.CollisionSourceRadiusBin;
+    hero_instances_vs_enemy_bullets_collision_damage_context.ACollisionSourceDamageBin = HeroInstancesCollisionSourceDamageMapPrt(hero_instances);
+
+    hero_instances_vs_enemy_bullets_collision_damage_context.BCollisionGridBin = enemy_bullets_collision_grid;
+    hero_instances_vs_enemy_bullets_collision_damage_context.BCollisionSourceInstancesBin = enemy_bullets_collision_grid_context.CollisionSourceInstancesBin;
+    hero_instances_vs_enemy_bullets_collision_damage_context.BCollisionSourceRadiusBin = enemy_bullets_collision_grid_context.CollisionSourceRadiusBin;
+    hero_instances_vs_enemy_bullets_collision_damage_context.BCollisionSourceDamageBin = BulletsCollisionSourceDamageMapPrt(enemy_bullets);
+    hero_instances_vs_enemy_bullets_collision_damage_context.LevelUpdateBin = level_update_data;
 
     f32 *time_delta_ptr          = GameStateTimeDeltaPrt(game_state);
     f64 *time_ptr                = GameStateTimePrt(game_state);
@@ -616,13 +649,15 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     u32 *state_ptr               = GameStateStatePrt(game_state);
     v2 *world_mouse_position_ptr = (v2 *)GameStateWorldMousePositionPrt(game_state);
 
+    u64 *hero_instances_live_ptr = HeroInstancesInstancesLivePrt(hero_instances);
+
     f32 game_aspect = game_area.x / game_area.y;
 
     LARGE_INTEGER freq, c1;
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&c1);
 
-    *state_ptr |= kGameStateStateReset;
+    *state_ptr |= kGameStateReset|kGameStatePlayEnable;
 
     for (;;)
     {
@@ -648,11 +683,18 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
                 b32 IsDown = ((msg.lParam & (1UL << 31)) == 0);
                 if (WasDown != IsDown)
                 {
-                    if(VKCode == 'P')
+                    if(VKCode == ' ')
                     {
                         //if(IsDown)
                         {
-                            *state_ptr ^= kGameStateStatePause;
+                            if ((*hero_instances_live_ptr) == 0)
+                            {
+                                *state_ptr |= kGameStateReset|kGameStatePlayEnable;
+                            }
+                            else
+                            {
+                                *state_ptr ^= kGameStatePlayEnable;
+                            }
                         }
                     }
                 }
@@ -678,43 +720,46 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             *time_delta_ptr = (f32)((f64)(c2.QuadPart - c1.QuadPart) / freq.QuadPart);
 			c1 = c2;
 
-            if ((*state_ptr) & kGameStateStatePause)
+            if ((*state_ptr) & kGameStatePlayEnable)
             {
-                *time_delta_ptr = 0.0f;
+                POINT mouseP;
+                GetCursorPos(&mouseP);
+                ScreenToClient(window, &mouseP);
+                f32 mouseX = (f32)mouseP.x;
+                f32 mouseY = (f32)((height - 1) - mouseP.y);
+
+                FrameDataViewport viewport = *FrameDataViewportPrt(frame_data);
+
+                f32 clip_space_mouseX = clamp_binormal_map_to_range(viewport.X, mouseX, viewport.X + viewport.Width);
+                f32 clip_space_mouseY = clamp_binormal_map_to_range(viewport.Y, mouseY, viewport.Y + viewport.Height);
+
+                *world_mouse_position_ptr = transform(matrix.inverse, V2(clip_space_mouseX, clip_space_mouseY));
+
+                *play_time_ptr += *time_delta_ptr;
+
+                level_update(&level_update_context);
+                wave_update(&wave_update_context);
+
+                enemy_instances_update(&enemy_instances_context);
+                hero_instances_update(&hero_instances_context);
+
+                bullets_update(&enemy_bullets_update_context);
+                bullets_update(&hero_bullets_update_context);
+
+                collision_grid_update(&hero_bullets_collision_grid_context);
+                collision_grid_update(&enemy_bullets_collision_grid_context);
+                collision_grid_update(&hero_instances_collision_grid_context);
+                collision_grid_update(&enemy_instances_collision_grid_context);
+
+                collision_damage_update(&enemy_instances_vs_hero_bullets_collision_damage_context);
+                collision_damage_update(&hero_instances_vs_enemy_bullets_collision_damage_context);
+
+                *state_ptr &= ~kGameStateReset;
             }
-
-            POINT mouseP;
-            GetCursorPos(&mouseP);
-            ScreenToClient(window, &mouseP);
-            f32 mouseX = (f32)mouseP.x;
-            f32 mouseY = (f32)((height - 1) - mouseP.y);
-
-            FrameDataViewport viewport = *FrameDataViewportPrt(frame_data);
-
-            f32 clip_space_mouseX = clamp_binormal_map_to_range(viewport.X, mouseX, viewport.X + viewport.Width);
-            f32 clip_space_mouseY = clamp_binormal_map_to_range(viewport.Y, mouseY, viewport.Y + viewport.Height);
-
-            *world_mouse_position_ptr = transform(matrix.inverse, V2(clip_space_mouseX, clip_space_mouseY));
-
-            level_update(&level_update_context);
-            wave_update(&wave_update_context);
-
-            enemy_instances_update(&enemy_instances_context);
-            hero_instances_update(&hero_instances_context);
-
-            //bullets_update(&enemy_bullets_update_context);
-            bullets_update(&hero_bullets_update_context);
-
-            collision_grid_update(&hero_bullets_collision_grid_context);
-            collision_grid_update(&enemy_bullets_collision_grid_context);
-            collision_grid_update(&hero_instances_collision_grid_context);
-            collision_grid_update(&enemy_instances_collision_grid_context);
-
-            collision_damage_update(&enemy_instances_vs_hero_bullets_collision_damage_context);
 
             #ifndef NDEBUG
             //collision_damage_print_draw(&enemy_instances_vs_hero_bullets_collision_damage_context);
-            collision_grid_print_draw(&enemy_instances_collision_grid_context, &hero_bullets_collision_grid_context);
+            //collision_grid_print_draw(&enemy_instances_collision_grid_context, &hero_bullets_collision_grid_context);
             #endif
 
             enemy_instances_draw(&enemy_instances_draw_context);
@@ -722,12 +767,11 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             bullets_draw(&enemy_bullets_draw_context);
             bullets_draw(&hero_bullets_draw_context);
 
-            //collision_damage_draw(&enemy_instances_vs_hero_bullets_collision_damage_context, frame_data);
+            collision_damage_draw(&enemy_instances_vs_hero_bullets_collision_damage_context, frame_data);
+            collision_damage_draw(&hero_instances_vs_enemy_bullets_collision_damage_context, frame_data);
 
             *time_ptr += *time_delta_ptr;
-            *play_time_ptr += *time_delta_ptr;
             (*frame_count_ptr)++;
-            *state_ptr &= ~kGameStateStateReset;
 
             //printf("%f\n", *time_delta_ptr);
 		}
@@ -750,4 +794,5 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     CloseMapFile(&hero_instances_collision_grid_map_data);
     CloseMapFile(&enemy_instances_collision_grid_map_data);
     CloseMapFile(&enemy_instances_vs_hero_bullets_collision_damage_map_data);
+    CloseMapFile(&hero_instances_vs_enemy_bullets_collision_damage_map_data);
 }

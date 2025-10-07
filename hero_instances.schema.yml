@@ -104,3 +104,5 @@ maps:
 context:
  - name: game_state_bin
    type: game_state
+ - name: collision_instances_damage_bin
+   type: collision_instances_damage
