@@ -147,7 +147,7 @@ enemy_instances_move(EnemyInstancesContext *context)
         f32 frame_move_dist = movement_speed * time_delta;
 
         s8 way_point_path_id = enemy_instance_way_point_path_index[wave_instance_index];
-        u8 way_point_path_index = ((u8)abs(way_point_path_id)) + (player_grid_x & (way_point_path_id < 0));
+        u8 way_point_path_index = ((u8)abs(way_point_path_id)) + (player_grid_x * (way_point_path_id < 0));
 
         EnemyInstancesWayPointPathsIndexWayPointPaths way_point_path_index_way_point = way_point_paths_index[way_point_path_index];
         

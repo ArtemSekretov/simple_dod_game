@@ -104,6 +104,9 @@ struct DirectX11State
     ID3D11Buffer *jump_flood_constant_buffer;
     u8 jump_flood_passes;
 
+    ID3D11Buffer *vbuffer;
+    ID3D11Buffer *transform_constant_buffer;
+
     ID3D11Buffer *render_size_constant_buffer;
 
     RenderPipelineDescription main_pipeline;
@@ -1512,9 +1515,12 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
     state->seed_jump_flood_pipeline = seed_jump_flood_pipeline;
     state->jump_flood_pipeline = jump_flood_pipeline;
 
+    state->vbuffer = vbuffer;
+    state->transform_constant_buffer = transform_constant_buffer;
     state->jump_flood_constant_buffer = jump_flood_constant_buffer;
     state->render_size_constant_buffer = render_size_constant_buffer;
     state->objects_constant_buffer  = object_buffer;
+
     state->radiance_constant_buffer_count = 0;
 
     state->linear_clamp_sampler = linear_clamp_sampler;
@@ -1525,6 +1531,71 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
     state->blend_state = blend_state;
     state->no_blend_state = no_blend_state;
     state->depth_state = depth_state;
+}
+
+static void
+DestroyPipeline(RenderPipelineDescription *pipeline)
+{
+    ID3D11Device_Release(pipeline->vshader);
+    ID3D11Device_Release(pipeline->pshader);
+    ID3D11Device_Release(pipeline->layout);
+}
+
+static void
+DestroyDirectX11(DirectX11State *directx_state)
+{
+    ID3D11DeviceContext_ClearState(directx_state->context);
+    ID3D11RenderTargetView_Release(directx_state->backbuffer_rt_view);
+
+    ID3D11RenderTargetView_Release(directx_state->radiance_current_rt_view);
+    ID3D11ShaderResourceView_Release(directx_state->radiance_current_view);
+
+    ID3D11RenderTargetView_Release(directx_state->radiance_previous_rt_view);
+    ID3D11ShaderResourceView_Release(directx_state->radiance_previous_view);
+
+    ID3D11RenderTargetView_Release(directx_state->sdf_rt_view);
+    ID3D11ShaderResourceView_Release(directx_state->sdf_view);
+			
+    ID3D11RenderTargetView_Release(directx_state->game_rt_view);
+    ID3D11ShaderResourceView_Release(directx_state->game_view);
+
+    ID3D11RenderTargetView_Release(directx_state->jf_rt_view);
+    ID3D11ShaderResourceView_Release(directx_state->jf_view);
+
+    ID3D11DepthStencilView_Release(directx_state->ds_view);
+
+    DestroyPipeline(&directx_state->main_pipeline);
+    DestroyPipeline(&directx_state->sdf_pipeline);
+    DestroyPipeline(&directx_state->radiance_pipeline);
+    DestroyPipeline(&directx_state->final_blit_pipeline);
+    DestroyPipeline(&directx_state->seed_jump_flood_pipeline);
+    DestroyPipeline(&directx_state->jump_flood_pipeline);
+
+    ID3D11Device_Release(directx_state->vbuffer);
+    ID3D11Device_Release(directx_state->transform_constant_buffer);
+    ID3D11Device_Release(directx_state->jump_flood_constant_buffer);
+    ID3D11Device_Release(directx_state->render_size_constant_buffer);
+    ID3D11Device_Release(directx_state->objects_constant_buffer);
+
+    for (u8 i = 0; i < ArrayCount(directx_state->radiance_constant_buffer); i++)
+    {
+        ID3D11Device_Release(directx_state->radiance_constant_buffer[i]);
+    }
+
+    ID3D11Device_Release(directx_state->linear_clamp_sampler);
+    ID3D11Device_Release(directx_state->linear_wrap_sampler);
+    ID3D11Device_Release(directx_state->point_sampler);
+
+    ID3D11Device_Release(directx_state->rasterizer_state);
+    ID3D11Device_Release(directx_state->blend_state);
+    ID3D11Device_Release(directx_state->no_blend_state);
+    ID3D11Device_Release(directx_state->depth_state);
+
+    IDXGISwapChain1_ResizeBuffers(directx_state->swap_chain, 0, directx_state->current_screen_width, directx_state->current_screen_height, DXGI_FORMAT_UNKNOWN, 0);
+    ID3D11Device_Release(directx_state->swap_chain);
+    ID3D11Device_Release(directx_state->context);
+    
+    ID3D11Device_Release(directx_state->device);
 }
 
 static void

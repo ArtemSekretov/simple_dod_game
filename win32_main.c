@@ -795,4 +795,6 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
     CloseMapFile(&enemy_instances_collision_grid_map_data);
     CloseMapFile(&enemy_instances_vs_hero_bullets_collision_damage_map_data);
     CloseMapFile(&hero_instances_vs_enemy_bullets_collision_damage_map_data);
+
+    DestroyDirectX11(&directx_state);
 }

@@ -21,6 +21,8 @@ hero_instances_update(HeroInstancesContext *context)
     HeroInstancesHeroInstances *hero_instances_sheet = HeroInstancesHeroInstancesPrt(hero_instances);
     v2 *hero_instances_positions = (v2 *)HeroInstancesHeroInstancesPositionsPrt(hero_instances, hero_instances_sheet);
 
+    u8 *player_grid_x_prt = GameStatePlayerGridXPrt(game_state);
+
     u8 hero_instance_index = 0;
     u8 hero_type_index = 0;
 
@@ -42,6 +44,9 @@ hero_instances_update(HeroInstancesContext *context)
     {
         *hero_instances_live_ptr &= ~(1ULL << hero_instance_index);
     }
+
+    s32 grid_x = clamp_s32(0, (s32)((0.5f + ((world_mouse_position.x) / kPlayAreaWidth)) * kEnemyInstancesSpawnGridResolution), kEnemyInstancesSpawnGridResolution - 1);
+    *player_grid_x_prt = (u8)grid_x;
 
     hero_instances_positions[hero_instance_index] = world_mouse_position;
 }

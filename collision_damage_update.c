@@ -174,7 +174,7 @@ collision_damage_update(CollisionDamageContext *context)
                 if (v_ab_length < (a_instance_radius + b_instance_radius))
                 {
                     b32 is_pair_processed = is_a_processed && is_b_processed;
-                    if (is_pair_processed)
+                    if (!is_pair_processed)
                     {
                         v2 v_a_damage = v2_scale(v_ab, a_instance_radius / v_ab_length);
                         v2 v_b_damage = v2_scale(v_ab, b_instance_radius / v_ab_length);
