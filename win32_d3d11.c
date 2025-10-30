@@ -1975,7 +1975,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
                     ID3D11DeviceContext_PSSetShaderResources(directx_state->context, t, 1, nullSRV);
                 }
 
-                jump_flood_swap_index = (jump_flood_swap_index + 1) % ArrayCount(jump_flood_render_target_swap);
+                jump_flood_swap_index ^= 1;
             }
         }
         #endif
@@ -2052,7 +2052,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
                 }
             }
 
-            radiance_swap_index = (radiance_swap_index + 1) % ArrayCount(radiance_render_target_swap);
+            radiance_swap_index ^= 1;
         }
         #endif
 
