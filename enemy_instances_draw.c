@@ -51,9 +51,7 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
         object_data->PositionAndScale[1] = enemy_instance_position.y;
         object_data->PositionAndScale[2] = radius;
 
-        object_data->Color[0] = 0.0f;
-        object_data->Color[1] = 1.0f;
-        object_data->Color[2] = 1.0f;
+        object_data->MaterialIndex = 3;
 
         (*frame_data_count_ptr)++;
     }

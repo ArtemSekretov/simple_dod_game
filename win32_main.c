@@ -28,6 +28,7 @@
 
 #include "play_area.h"
 #include "frame_data.h"
+#include "materials.h"
 
 #include "enemy_instances.h"
 #include "enemy_instances_wave.h"
@@ -396,9 +397,7 @@ collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
                 object_data->PositionAndScale[1] = damage_position.y;
                 object_data->PositionAndScale[2] = 0.1f;
 
-                object_data->Color[0] = 1.0f;
-                object_data->Color[1] = 0.0f;
-                object_data->Color[2] = 1.0f;
+                object_data->MaterialIndex = 5;
 
                 (*frame_data_count_ptr)++;
             }
@@ -412,9 +411,7 @@ collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
                 object_data->PositionAndScale[1] = damage_position.y;
                 object_data->PositionAndScale[2] = 0.1f;
 
-                object_data->Color[0] = 1.0f;
-                object_data->Color[1] = 1.0f;
-                object_data->Color[2] = 1.0f;
+                object_data->MaterialIndex = 5;
 
                 (*frame_data_count_ptr)++;
             }
@@ -481,9 +478,6 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 
     m4x4_inv matrix = orthographic_projection(left, right, bottom, top, near_clip_plane, far_clip_plane);
 
-    DirectX11State directx_state = { 0 };
-	InitDirectX11(&directx_state, window, matrix.forward);
-
     // show the window
     ShowWindow(window, SW_SHOWDEFAULT);
 
@@ -510,6 +504,9 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 
     MapFileData frame_data_map_data = CreateMapFile("frame_data.bin", MapFilePermitions_ReadWriteCopy);
     FrameData *frame_data           = (FrameData *)frame_data_map_data.data;
+
+    MapFileData materials_data = CreateMapFile("materials.bin", MapFilePermitions_Read);
+	Materials *materials       = (Materials *)materials_data.data;
 
     MapFileData enemy_bullets_update_map_data = CreateMapFile("enemy_bullets_update.bin", MapFilePermitions_ReadWriteCopy);
     BulletsUpdate *enemy_bullets_update_data  = (BulletsUpdate *)enemy_bullets_update_map_data.data;
@@ -653,6 +650,9 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 
     f32 game_aspect = game_area.x / game_area.y;
 
+    DirectX11State directx_state = { 0 };
+	InitDirectX11(&directx_state, window, matrix.forward, materials);
+
     LARGE_INTEGER freq, c1;
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&c1);
@@ -772,8 +772,6 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 
             *time_ptr += *time_delta_ptr;
             (*frame_count_ptr)++;
-
-            //printf("%f\n", *time_delta_ptr);
 		}
 
 		EndFrameDirectX11(&directx_state, frame_data);

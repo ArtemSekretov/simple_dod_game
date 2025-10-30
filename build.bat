@@ -25,6 +25,10 @@ where /q node && (
         start /B node export_imhex_pattern.js frame_data.schema.yml generated/frame_data.hexpat >CON 2>CON
         start /B node export_c_header.js frame_data.schema.yml generated/frame_data.h >CON 2>CON
 
+        start /B node export_runtime_binary.js materials.schema.yml build/materials.bin materials.xlsx >CON 2>CON
+        start /B node export_imhex_pattern.js materials.schema.yml generated/materials.hexpat >CON 2>CON
+        start /B node export_c_header.js materials.schema.yml generated/materials.h >CON 2>CON
+
         start /B node export_runtime_binary.js bullets.schema.yml build/enemy_bullets.bin enemy_bullets.xlsx >CON 2>CON
         start /B node export_runtime_binary.js bullets.schema.yml build/hero_bullets.bin hero_bullets.xlsx >CON 2>CON
         start /B node export_imhex_pattern.js bullets.schema.yml generated/bullets.hexpat >CON 2>CON

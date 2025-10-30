@@ -1,0 +1,21 @@
+meta:
+ name: materials
+ size: uint16_t
+
+constants:
+ - name: max_materials
+   value: 16
+
+sheets:
+ - name: materials
+   columns:
+    - name: material
+      sources:
+       - name: color_red
+         type: float
+       - name: color_green
+         type: float
+       - name: color_blue
+         type: float
+       - name: intensity
+         type: float

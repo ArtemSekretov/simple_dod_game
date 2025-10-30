@@ -106,6 +106,7 @@ struct DirectX11State
 
     ID3D11Buffer *vbuffer;
     ID3D11Buffer *transform_constant_buffer;
+    ID3D11Buffer *materials_constant_buffer;
 
     ID3D11Buffer *render_size_constant_buffer;
 
@@ -135,8 +136,11 @@ struct DirectX11State
     ID3D11RenderTargetView *sdf_rt_view;
     ID3D11ShaderResourceView *sdf_view;
 
-    ID3D11RenderTargetView *game_rt_view;
-    ID3D11ShaderResourceView *game_view;
+    ID3D11RenderTargetView *game_rt_alpha_view;
+    ID3D11ShaderResourceView *game_alpha_view;
+
+    ID3D11RenderTargetView *game_rt_material_index_view;
+    ID3D11ShaderResourceView *game_material_index_view;
 
     ID3D11RasterizerState *rasterizer_state;
     ID3D11BlendState *blend_state;
@@ -214,7 +218,7 @@ CreateSeedJumpFloodPipeline(ID3D11Device* device, ID3D11Buffer* vbuffer)
             "};                                                         \n"
             "sampler game_sampler : register(s0);                       \n" // s0 = sampler bound to slot 0
             "                                                           \n"
-            "Texture2D<float4> game_texture : register(t0);             \n" // t0 = shader resource bound to slot 0
+            "Texture2D<float> game_texture : register(t0);              \n" // t0 = shader resource bound to slot 0
             "                                                           \n"
             "PS_INPUT vs(VS_INPUT input)                                \n"
             "{                                                          \n"
@@ -229,10 +233,10 @@ CreateSeedJumpFloodPipeline(ID3D11Device* device, ID3D11Buffer* vbuffer)
             "{                                                          \n"
             "  float2 uv = float2(input.uv.x, 1.0 - input.uv.y);        \n"
             "                                                           \n"
-            "  float4 scene = game_texture.Sample(game_sampler, uv);    \n"
+            "  float alpha = game_texture.Sample(game_sampler, uv);     \n"
             "                                                           \n"
-            "  float2 u = F16V2(uv.x * scene.a);                        \n"
-            "  float2 v = F16V2(uv.y * scene.a);                        \n"
+            "  float2 u = F16V2(uv.x * alpha);                          \n"
+            "  float2 v = F16V2(uv.y * alpha);                          \n"
             "                                                           \n"
             "  return float4(u.x, u.y, v.x, v.y);                       \n"
             "}                                                          \n";
@@ -540,7 +544,7 @@ CreateRadiancePipeline(ID3D11Device* device, ID3D11Buffer* vbuffer)
             "                                                           \n"
             "sampler game_sampler : register(s2);                       \n" // s2 = sampler bound to slot 2
             "                                                           \n"
-            "Texture2D<float4> game_texture : register(t2);             \n" // t2 = shader resource bound to slot 2
+            "Texture2D<float> game_texture : register(t2);              \n" // t2 = shader resource bound to slot 2
             "                                                           \n"
             "struct RadianceData                                        \n"
             "{                                                          \n"
@@ -550,6 +554,12 @@ CreateRadiancePipeline(ID3D11Device* device, ID3D11Buffer* vbuffer)
             "  uint cascade_index;                                      \n"
             "  float radiance_linear;                                   \n"
             "  float radiance_interval;                                 \n"
+            "};                                                         \n"
+            "                                                           \n"
+            "struct MaterialData                                        \n"
+            "{                                                          \n"
+            "  float3 color;                                            \n"
+            "  float intensity;                                         \n"
             "};                                                         \n"
             "                                                           \n"
             "struct ProbeInfo                                           \n" // Information struct about scene probes within the cascade.
@@ -567,6 +577,11 @@ CreateRadiancePipeline(ID3D11Device* device, ID3D11Buffer* vbuffer)
             "cbuffer cbuffer1 : register(b0)                            \n" // b0 = constant buffer bound to slot 0
             "{                                                          \n"
             "  RadianceData radiance_input;                             \n"
+            "}                                                          \n"
+            "                                                           \n"
+            "cbuffer cbuffer2 : register(b1)                            \n" // b1 = constant buffer bound to slot 1
+            "{                                                          \n"
+            "  MaterialData materials[" STR(kMaterialsMaxMaterials) "]; \n"
             "}                                                          \n"
             "                                                           \n"
             "PS_INPUT vs(VS_INPUT input)                                \n"
@@ -616,7 +631,7 @@ CreateRadiancePipeline(ID3D11Device* device, ID3D11Buffer* vbuffer)
             "                                                           \n"
             "  float4 result = float4(0.0, 0.0, 0.0, 1.0);              \n"
             "  [loop]                                                   \n"
-            "  for(float i = 0.0, rd = 0.0; i < info.range; i++)        \n"
+            "  for(float i = 0.0, rd = 0.0; i < info.range; i += 1.0)        \n"
             "  {                                                        \n"
             "    float sdf_data = V2F16(sdf_texture.SampleLevel(sdf_sampler, ray, 0).xy); \n"
             "                                                           \n"
@@ -624,12 +639,12 @@ CreateRadiancePipeline(ID3D11Device* device, ID3D11Buffer* vbuffer)
             "    ray += (delta * sdf_data * info.scale * texel);        \n"
             "                                                           \n"
             "    float2 floor_ray = floor(ray);                         \n"
-            "    if (rd >= info.range || (floor_ray.x != 0.0 && floor_ray.y != 0.0)) \n" // If ray has reached range or out-of-bounds, return no-hit.
+            "    if (rd >= info.range || (floor_ray.x != 0.0 || floor_ray.y != 0.0)) \n" // If ray has reached range or out-of-bounds, return no-hit.
             "    {                                                      \n"
             "      break;                                               \n"
             "    }                                                      \n"
             "                                                           \n"
-            "    if (sdf_data <= EPS && rd <= EPS && radiance_input.cascade_index != 0) \n" // 2D light only cast light at their surfaces, not their volume.
+            "    if (sdf_data <= EPS && rd <= (EPS * info.scale) && radiance_input.cascade_index != 0) \n" // 2D light only cast light at their surfaces, not their volume.
             "    {                                                      \n"
             "      result = float4(0.0, 0.0, 0.0, 0.0);                 \n"
             "      break;                                               \n"
@@ -639,8 +654,14 @@ CreateRadiancePipeline(ID3D11Device* device, ID3D11Buffer* vbuffer)
             "    {                                                      \n"
             "      float coef = 1.0 - smoothstep(0.0, float(radiance_input.cascade_count), float(radiance_input.cascade_index)); \n"
             "                                                           \n"
-            "      float4 scene = game_texture.SampleLevel(game_sampler, ray, 0) * coef; \n"
-            "      result = float4(scene.x, scene.y, scene.z, 0.0);     \n"
+            "      uint width;                                          \n"
+            "      uint height;                                         \n"
+            "      game_texture.GetDimensions(width, height);           \n"
+            "      uint material_index = asuint(game_texture.Load(int3(ray * uint2(width, height), 0))); \n"
+            "                                                           \n"
+            "      MaterialData material = materials[material_index];   \n"
+            "                                                           \n"
+            "      result = float4(material.color.r, material.color.g, material.color.b, 0.0) * coef;     \n"
             "      break;                                               \n"
             "    }                                                      \n"
             "  }                                                        \n"
@@ -1076,10 +1097,11 @@ CreateMainPipeline(ID3D11Device* device,
             "                                                           \n"
             "struct PS_INPUT                                            \n"
             "{                                                          \n"
-            "  float4 pos   : SV_POSITION;                              \n" // these names do not matter, except SV_... ones
-            "  float2 uv    : TEXCOORD;                                 \n"
-            "  float4 color : COLOR;                                    \n"
+            "  float4 pos    : SV_POSITION;                             \n" // these names do not matter, except SV_... ones
+            "  float2 uv     : TEXCOORD;                                \n"
+            "  nointerpolation uint material_index : TEXCOORD1;         \n"
             "};                                                         \n"
+            "                                                           \n"
             "cbuffer cbuffer1 : register(b0)                            \n" // b0 = constant buffer bound to slot 0
             "{                                                          \n"
             "  float4x4 uTransform;                                     \n"
@@ -1087,8 +1109,8 @@ CreateMainPipeline(ID3D11Device* device,
             "                                                           \n"
             "struct ObjectData                                          \n"
             "{                                                          \n"
-            "  float4 pos_and_scale;                                    \n"
-            "  float4 color;                                            \n"
+            "  float3 pos_and_scale;                                    \n"
+            "  uint material_index;                                     \n"
             "};                                                         \n"
             "                                                           \n"
             "cbuffer cbuffer2 : register(b1)                            \n" // b1 = constant buffer bound to slot 1
@@ -1112,18 +1134,20 @@ CreateMainPipeline(ID3D11Device* device,
             "                                                           \n"
             "    output.pos = mul(uTransform, float4(position, 0, 1));  \n"
             "    output.uv = input.uv;                                  \n"
-            "    output.color = float4(object_data.color.xyz, 1);       \n"
+            "    output.material_index = object_data.material_index;    \n"
             "    return output;                                         \n"
             "}                                                          \n"
             "                                                           \n"
-            "float4 ps(PS_INPUT input) : SV_TARGET                      \n"
+            "void ps(PS_INPUT input, out float4 output_alpha: SV_TARGET0, out float output_material_index: SV_TARGET1) \n"
             "{                                                          \n"
             "  float2 uv = input.uv * 2 - 1;                            \n"
             "  float dist = sd_circle(uv, 0.99);                        \n"
             "  float2 ddist = float2(ddx(dist), ddy(dist));             \n"
             "  float pixelDist = dist / length(ddist);                  \n"
             "  float alpha = saturate(0.5 - pixelDist);                 \n"
-            "  return float4(input.color.xyz, alpha);                   \n"
+            "                                                           \n"
+            "  output_alpha = float4(alpha, alpha, alpha, alpha);       \n"
+            "  output_material_index = asfloat(input.material_index);   \n"
             "}                                                          \n";
         ;
 	
@@ -1178,7 +1202,7 @@ CreateMainPipeline(ID3D11Device* device,
 }
 
 static void
-InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
+InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix, Materials *materials_bin)
 {
     HRESULT hr;
 
@@ -1298,6 +1322,26 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
         ID3D11Device_CreateBuffer(device, &desc, &initial, &transform_constant_buffer);
     }
 
+    u16 materials_count    = *MaterialsMaterialsCountPrt(materials_bin);
+    MaterialsMaterials *materials_materials_sheet = MaterialsMaterialsPrt(materials_bin);
+    MaterialsMaterialsMaterial *materials_material_prt = MaterialsMaterialsMaterialPrt(materials_bin, materials_materials_sheet);
+
+    ID3D11Buffer* materials_constant_buffer;
+    {
+        MaterialsMaterialsMaterial temp_materials[kMaterialsMaxMaterials] = { 0 };
+        memcpy(temp_materials, materials_material_prt, materials_count * sizeof(MaterialsMaterialsMaterial));
+
+        D3D11_BUFFER_DESC desc =
+        {
+            // space for 4x4 float matrix (cbuffer0 from pixel shader)
+            .ByteWidth = sizeof(MaterialsMaterialsMaterial) * kMaterialsMaxMaterials,
+            .Usage = D3D11_USAGE_IMMUTABLE,
+            .BindFlags = D3D11_BIND_CONSTANT_BUFFER,
+        };
+        D3D11_SUBRESOURCE_DATA initial = { .pSysMem = &temp_materials };
+        ID3D11Device_CreateBuffer(device, &desc, &initial, &materials_constant_buffer);
+    }
+
     ID3D11Buffer* object_buffer;
     {
         D3D11_BUFFER_DESC desc =
@@ -1353,20 +1397,26 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
     ID3D11BlendState* blend_state;
     {
         // enable alpha blending
-        D3D11_BLEND_DESC desc =
-        {
-            .RenderTarget[0] =
-            {
-                .BlendEnable = TRUE,
-                .SrcBlend = D3D11_BLEND_SRC_ALPHA,
-                .DestBlend = D3D11_BLEND_INV_SRC_ALPHA,
-                .BlendOp = D3D11_BLEND_OP_ADD,
-                .SrcBlendAlpha = D3D11_BLEND_SRC_ALPHA,
-                .DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA,
-                .BlendOpAlpha = D3D11_BLEND_OP_ADD,
-                .RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL,
-            },
-        };
+        D3D11_BLEND_DESC desc = { 0 };
+
+        desc.RenderTarget[0].BlendEnable = TRUE;
+        desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+        desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+        desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+        desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+        desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+        desc.RenderTarget[1].BlendEnable = FALSE;
+        desc.RenderTarget[1].SrcBlend = D3D11_BLEND_ONE;
+        desc.RenderTarget[1].DestBlend = D3D11_BLEND_ZERO;
+        desc.RenderTarget[1].BlendOp = D3D11_BLEND_OP_ADD;
+        desc.RenderTarget[1].SrcBlendAlpha = D3D11_BLEND_ONE;
+        desc.RenderTarget[1].DestBlendAlpha = D3D11_BLEND_ZERO;
+        desc.RenderTarget[1].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        desc.RenderTarget[1].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
         ID3D11Device_CreateBlendState(device, &desc, &blend_state);
     }
 
@@ -1384,7 +1434,7 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
                 .DestBlendAlpha = D3D11_BLEND_ZERO,
                 .BlendOpAlpha = D3D11_BLEND_OP_ADD,
                 .RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL,
-            },
+            }
         };
         ID3D11Device_CreateBlendState(device, &desc, &no_blend_state);
     }
@@ -1517,6 +1567,7 @@ InitDirectX11(DirectX11State *state, HWND window, m4x4 projection_martix)
 
     state->vbuffer = vbuffer;
     state->transform_constant_buffer = transform_constant_buffer;
+    state->materials_constant_buffer = materials_constant_buffer;
     state->jump_flood_constant_buffer = jump_flood_constant_buffer;
     state->render_size_constant_buffer = render_size_constant_buffer;
     state->objects_constant_buffer  = object_buffer;
@@ -1556,8 +1607,11 @@ DestroyDirectX11(DirectX11State *directx_state)
     ID3D11RenderTargetView_Release(directx_state->sdf_rt_view);
     ID3D11ShaderResourceView_Release(directx_state->sdf_view);
 			
-    ID3D11RenderTargetView_Release(directx_state->game_rt_view);
-    ID3D11ShaderResourceView_Release(directx_state->game_view);
+    ID3D11RenderTargetView_Release(directx_state->game_rt_alpha_view);
+    ID3D11ShaderResourceView_Release(directx_state->game_alpha_view);
+
+    ID3D11RenderTargetView_Release(directx_state->game_rt_material_index_view);
+    ID3D11ShaderResourceView_Release(directx_state->game_material_index_view);
 
     ID3D11RenderTargetView_Release(directx_state->jf_rt_view);
     ID3D11ShaderResourceView_Release(directx_state->jf_view);
@@ -1573,6 +1627,7 @@ DestroyDirectX11(DirectX11State *directx_state)
 
     ID3D11Device_Release(directx_state->vbuffer);
     ID3D11Device_Release(directx_state->transform_constant_buffer);
+    ID3D11Device_Release(directx_state->materials_constant_buffer);
     ID3D11Device_Release(directx_state->jump_flood_constant_buffer);
     ID3D11Device_Release(directx_state->render_size_constant_buffer);
     ID3D11Device_Release(directx_state->objects_constant_buffer);
@@ -1681,8 +1736,11 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
             ID3D11RenderTargetView_Release(directx_state->sdf_rt_view);
             ID3D11ShaderResourceView_Release(directx_state->sdf_view);
 			
-            ID3D11RenderTargetView_Release(directx_state->game_rt_view);
-            ID3D11ShaderResourceView_Release(directx_state->game_view);
+            ID3D11RenderTargetView_Release(directx_state->game_rt_alpha_view);
+            ID3D11ShaderResourceView_Release(directx_state->game_alpha_view);
+
+            ID3D11RenderTargetView_Release(directx_state->game_rt_material_index_view);
+            ID3D11ShaderResourceView_Release(directx_state->game_material_index_view);
 
             ID3D11RenderTargetView_Release(directx_state->jf_rt_view);
             ID3D11ShaderResourceView_Release(directx_state->jf_view);
@@ -1692,7 +1750,8 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
             directx_state->sdf_rt_view = NULL;
             directx_state->radiance_current_rt_view = NULL;
             directx_state->radiance_previous_view = NULL;
-            directx_state->game_rt_view = NULL;
+            directx_state->game_rt_alpha_view = NULL;
+            directx_state->game_rt_material_index_view = NULL;
             directx_state->jf_rt_view = NULL;
         }
 
@@ -1701,7 +1760,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         {
             // Should be pow2 sizes only (either whole or fractional: 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, etc.).
             // Increasing linear spacing will reduce quality, decreasing linear spacing will increase quality.
-            f32 render_linear = 1.0f;
+            f32 render_linear = 0.5f;
 
             // Should be equal to diagonal of the square of linear resolution.
             // Set to a large distance for debugging (should see individually cascaded rays in scene).
@@ -1812,7 +1871,8 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 
             CreateRenderTexture(directx_state->device, render_width, render_height, DXGI_FORMAT_R8G8B8A8_UNORM, &directx_state->jf_rt_view, &directx_state->jf_view);
 
-            CreateRenderTexture(directx_state->device, render_width, render_height, DXGI_FORMAT_R8G8B8A8_UNORM, &directx_state->game_rt_view, &directx_state->game_view);
+            CreateRenderTexture(directx_state->device, render_width, render_height, DXGI_FORMAT_R8_UNORM, &directx_state->game_rt_alpha_view, &directx_state->game_alpha_view);
+            CreateRenderTexture(directx_state->device, render_width, render_height, DXGI_FORMAT_R32_FLOAT, &directx_state->game_rt_material_index_view, &directx_state->game_material_index_view);
 
             // create new radiance texture & view
             CreateRenderTexture(directx_state->device, radiance_width, radiance_height, DXGI_FORMAT_R8G8B8A8_UNORM, &directx_state->radiance_current_rt_view, &directx_state->radiance_current_view);
@@ -1891,10 +1951,16 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
 
         #if 1
         // Render game objects
-        ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->game_rt_view, black_color);
+        ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->game_rt_alpha_view, black_color);
+        ID3D11DeviceContext_ClearRenderTargetView(directx_state->context, directx_state->game_rt_material_index_view, black_color);
 
         ID3D11DeviceContext_OMSetBlendState(directx_state->context, directx_state->blend_state, NULL, ~0U);
-        ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 1, &directx_state->game_rt_view, NULL);
+
+        ID3D11RenderTargetView* game_rt_views[2];
+        game_rt_views[0] = directx_state->game_rt_alpha_view;
+        game_rt_views[1] = directx_state->game_rt_material_index_view;
+
+        ID3D11DeviceContext_OMSetRenderTargets(directx_state->context, 2, &game_rt_views[0], NULL);
         {
             BindPineline(directx_state->context, &directx_state->main_pipeline);
 
@@ -1911,7 +1977,7 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
         {
             directx_state->seed_jump_flood_pipeline.pixel_texture_resource_count = 1;
             directx_state->seed_jump_flood_pipeline.pixel_texture_resources[0].sampler = directx_state->linear_clamp_sampler;
-            directx_state->seed_jump_flood_pipeline.pixel_texture_resources[0].texture_view = directx_state->game_view;
+            directx_state->seed_jump_flood_pipeline.pixel_texture_resources[0].texture_view = directx_state->game_alpha_view;
 
             BindPineline(directx_state->context, &directx_state->seed_jump_flood_pipeline);
 
@@ -2033,11 +2099,12 @@ EndFrameDirectX11(DirectX11State *directx_state, FrameData *frame_data)
                 directx_state->radiance_pipeline.pixel_texture_resources[0].texture_view = directx_state->sdf_view;
                 directx_state->radiance_pipeline.pixel_texture_resources[1].sampler = directx_state->linear_wrap_sampler;
                 directx_state->radiance_pipeline.pixel_texture_resources[1].texture_view = radiance_resource_view_swap[radiance_swap_index];
-                directx_state->radiance_pipeline.pixel_texture_resources[2].sampler = directx_state->linear_clamp_sampler;
-                directx_state->radiance_pipeline.pixel_texture_resources[2].texture_view = directx_state->game_view;
+                //directx_state->radiance_pipeline.pixel_texture_resources[2].sampler = directx_state->linear_clamp_sampler;
+                directx_state->radiance_pipeline.pixel_texture_resources[2].texture_view = directx_state->game_material_index_view;
 
-                directx_state->radiance_pipeline.pixel_constant_buffers_count = 1;
+                directx_state->radiance_pipeline.pixel_constant_buffers_count = 2;
                 directx_state->radiance_pipeline.pixel_constant_buffers[0] = directx_state->radiance_constant_buffer[i];
+                directx_state->radiance_pipeline.pixel_constant_buffers[1] = directx_state->materials_constant_buffer;
 
                 BindPineline(directx_state->context, &directx_state->radiance_pipeline);
 
