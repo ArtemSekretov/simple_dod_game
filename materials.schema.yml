@@ -8,6 +8,7 @@ constants:
 
 sheets:
  - name: materials
+   capacity: max_materials
    columns:
     - name: material
       sources:

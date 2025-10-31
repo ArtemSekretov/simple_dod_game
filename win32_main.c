@@ -397,7 +397,7 @@ collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
                 object_data->PositionAndScale[1] = damage_position.y;
                 object_data->PositionAndScale[2] = 0.1f;
 
-                object_data->MaterialIndex = 5;
+                object_data->MaterialIndex = 6;
 
                 (*frame_data_count_ptr)++;
             }
@@ -411,7 +411,7 @@ collision_damage_draw(CollisionDamageContext *context, FrameData *frame_data)
                 object_data->PositionAndScale[1] = damage_position.y;
                 object_data->PositionAndScale[2] = 0.1f;
 
-                object_data->MaterialIndex = 5;
+                object_data->MaterialIndex = 6;
 
                 (*frame_data_count_ptr)++;
             }

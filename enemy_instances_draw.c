@@ -51,7 +51,7 @@ enemy_instances_draw(EnemyInstancesDrawContext *context)
         object_data->PositionAndScale[1] = enemy_instance_position.y;
         object_data->PositionAndScale[2] = radius;
 
-        object_data->MaterialIndex = 3;
+        object_data->MaterialIndex = 4;
 
         (*frame_data_count_ptr)++;
     }

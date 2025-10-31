@@ -7,6 +7,8 @@ meta:
 constants:
  - name: state_reset
    value: 1
+ - name: max_levels
+   value: 3
 
 variables:
  - name: time

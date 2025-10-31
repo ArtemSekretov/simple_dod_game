@@ -51,7 +51,7 @@ bullets_draw(BulletsDrawContext *context)
         object_data->PositionAndScale[1] = bullet_position.y;
         object_data->PositionAndScale[2] = bullet_radius;
 
-        object_data->MaterialIndex = 0;
+        object_data->MaterialIndex = 1;
 
         (*frame_data_count_ptr)++;
     }

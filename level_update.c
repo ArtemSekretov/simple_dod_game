@@ -30,7 +30,9 @@ level_update(LevelUpdateContext *context)
         return;
     }
 
-    (*level_index_ptr)++;
+    u8 next_level_index = ((*level_index_ptr) + 1) % kLevelUpdateMaxLevels;
+    *level_index_ptr = next_level_index;
+
     *level_time_ptr = 0.0f;
     *level_state_ptr |= kLevelUpdateStateReset;
 }

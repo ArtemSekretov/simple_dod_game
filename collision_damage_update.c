@@ -58,6 +58,7 @@ collision_damage_update(CollisionDamageContext *context)
     u16 *b_source_types_damage_prt = CollisionSourceDamageSourceTypesDamagePrt(b_collision_source_damage_bin, b_collision_source_damage_source_types_sheet);
 
     f32 damage_time = *LevelUpdateTimePrt(level_update_bin);
+    u32 level_state_state = *LevelUpdateStatePrt(level_update_bin);
 
     u16 a_source_instances_count = *CollisionSourceInstancesSourceInstancesCountPrt(a_collision_source_instances_bin);
     u16 b_source_instances_count = *CollisionSourceInstancesSourceInstancesCountPrt(b_collision_source_instances_bin);
@@ -73,6 +74,12 @@ collision_damage_update(CollisionDamageContext *context)
     CollisionDamageAccumulatedDamage *collision_damage_accumulated_damage_sheet = CollisionDamageAccumulatedDamagePrt(collision_damage_bin);
     u16 *accumulated_damage_a_value_prt = CollisionDamageAccumulatedDamageAValuePrt(collision_damage_bin, collision_damage_accumulated_damage_sheet);
     u16 *accumulated_damage_b_value_prt = CollisionDamageAccumulatedDamageBValuePrt(collision_damage_bin, collision_damage_accumulated_damage_sheet);
+
+    if (level_state_state & kLevelUpdateStateReset)
+    {
+        *damage_events_count_prt = 0;
+        return;
+    }
 
     for (u16 source_instance_index = 0; source_instance_index < a_source_instances_count; source_instance_index++)
     {

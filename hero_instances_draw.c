@@ -44,7 +44,7 @@ hero_instances_draw(HeroInstancesDrawContext *context)
         object_data->PositionAndScale[1] = hero_instance_position.y;
         object_data->PositionAndScale[2] = radius;
 
-        object_data->MaterialIndex = 4;
+        object_data->MaterialIndex = 5;
 
         (*frame_data_count_ptr)++;
     }
