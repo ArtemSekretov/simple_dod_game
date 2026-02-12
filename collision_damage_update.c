@@ -75,12 +75,6 @@ collision_damage_update(CollisionDamageContext *context)
     u16 *accumulated_damage_a_value_prt = CollisionDamageAccumulatedDamageAValuePrt(collision_damage_bin, collision_damage_accumulated_damage_sheet);
     u16 *accumulated_damage_b_value_prt = CollisionDamageAccumulatedDamageBValuePrt(collision_damage_bin, collision_damage_accumulated_damage_sheet);
 
-    if (level_state_state & kLevelUpdateStateReset)
-    {
-        *damage_events_count_prt = 0;
-        return;
-    }
-
     for (u16 source_instance_index = 0; source_instance_index < a_source_instances_count; source_instance_index++)
     {
         u16 instance_word_index = source_instance_index / 64;
@@ -105,6 +99,12 @@ collision_damage_update(CollisionDamageContext *context)
         {
             accumulated_damage_b_value_prt[source_instance_index] = 0;
         }
+    }
+
+    if (level_state_state & kLevelUpdateStateReset)
+    {
+        *damage_events_count_prt = 0;
+        return;
     }
 
     // up to 256(64 * 4) instances two buffers 
