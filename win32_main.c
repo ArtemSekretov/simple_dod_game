@@ -762,10 +762,10 @@ WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
             //collision_grid_print_draw(&enemy_instances_collision_grid_context, &hero_bullets_collision_grid_context);
             #endif
 
-            enemy_instances_draw(&enemy_instances_draw_context);
-            hero_instances_draw(&hero_instances_draw_context);
             bullets_draw(&enemy_bullets_draw_context);
+            enemy_instances_draw(&enemy_instances_draw_context);
             bullets_draw(&hero_bullets_draw_context);
+            hero_instances_draw(&hero_instances_draw_context);
 
             collision_damage_draw(&enemy_instances_vs_hero_bullets_collision_damage_context, frame_data);
             collision_damage_draw(&hero_instances_vs_enemy_bullets_collision_damage_context, frame_data);
