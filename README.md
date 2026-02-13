@@ -46,13 +46,13 @@ This system allows selecting subsets of data.
 It enables writing generic, reusable code that operates on any matching data slice — whether it's config data, runtime entities without duplicating logic.
 
 To make a simple scroll shooter more visually interesting, I implemented a 2D version of the Radiance Cascade algorithm for real-time global illumination.
-This adds soft bounced lighting, color bleeding, and ambient occlusion-like effects — making even basic sprites feel much more alive.
+This adds soft bounced lighting and ambient occlusion-like effects — making even basic shapes feel much more alive.
 
 ## Screenshots and Video
-[![Watch gameplay](media/screenshot4.jpg)](media/video.mp4)
-<img src="media/screenshot1.png" alt="gameplay" width="640">
-<img src="media/screenshot2.png" alt="gameplay" width="640">
-<img src="media/screenshot3.png" alt="gameplay" width="640">
+[![Watch gameplay](media/screenshot4.png)](media/video.mp4)
+<img src="media/screenshot1.png" alt="gameplay1" width="640">
+<img src="media/screenshot2.png" alt="gameplay2" width="640">
+<img src="media/screenshot3.png" alt="gameplay3" width="640">
 
 ## Build And Run Instructions
 
