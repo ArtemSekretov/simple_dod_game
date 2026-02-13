@@ -49,7 +49,7 @@ To make a simple scroll shooter more visually interesting, I implemented a 2D ve
 This adds soft bounced lighting and ambient occlusion-like effects — making even basic shapes feel much more alive.
 
 ## Screenshots and Video
-[![Watch gameplay](media/screenshot4.png)](media/video.mp4)
+[![Watch gameplay](media/screenshot4.png)](https://raw.githubusercontent.com/ArtemSekretov/simple_dod_game/main/media/video.mp4)
 <img src="media/screenshot1.png" alt="gameplay1" width="640">
 <img src="media/screenshot2.png" alt="gameplay2" width="640">
 <img src="media/screenshot3.png" alt="gameplay3" width="640">
