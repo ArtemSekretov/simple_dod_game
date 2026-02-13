@@ -48,8 +48,7 @@ It enables writing generic, reusable code that operates on any matching data sli
 To make a simple scroll shooter more visually interesting, I implemented a 2D version of the Radiance Cascade algorithm for real-time global illumination.
 This adds soft bounced lighting and ambient occlusion-like effects — making even basic shapes feel much more alive.
 
-## Screenshots and Video
-[![Watch gameplay](media/screenshot4.png)](https://raw.githubusercontent.com/ArtemSekretov/simple_dod_game/main/media/video.mp4)
+## Screenshots
 <img src="media/screenshot1.png" alt="gameplay1" width="640">
 <img src="media/screenshot2.png" alt="gameplay2" width="640">
 <img src="media/screenshot3.png" alt="gameplay3" width="640">
